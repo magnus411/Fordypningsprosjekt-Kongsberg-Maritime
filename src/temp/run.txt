@@ -1,0 +1,4 @@
+ gcc -o main main.c db_connection.c init.c -I/usr/include/postgresql -lpq
+
+
+ Husk å installere libpq-fe.h
