@@ -15,7 +15,7 @@ typedef struct
     char *Variables;
 } sensor_schema;
 
-void
+isa_internal void
 GetSensorSchemasFromDb(PGconn *Connection, sensor_schema **Schemas, int *TemplateCount, isa_arena *Arena)
 {
 
@@ -43,7 +43,7 @@ GetSensorSchemasFromDb(PGconn *Connection, sensor_schema **Schemas, int *Templat
     PQclear(ExecResult);
 }
 
-void
+isa_internal void
 FreeTemplates(sensor_schema *Schemas, int TemplateCount)
 {
     for(int i = 0; i < TemplateCount; i++)
