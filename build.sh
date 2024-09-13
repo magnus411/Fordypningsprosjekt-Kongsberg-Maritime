@@ -8,6 +8,8 @@ cd "$DIR"
 
 mkdir -p build
 
+LIBS="-lpq"
+
 if [ "$1" = "release" ]; then
     CFLAGS="-O3 -march=native -DNDEBUG"
 elif [ "$1" = "relwdb" ]; then
@@ -16,6 +18,6 @@ else
     CFLAGS="-g -O0 -Wall -Wextra -pedantic -DDEBUG"
 fi
 
-clang $CFLAGS src/main.c -o build/main
+clang $CFLAGS src/main.c -o build/SensorDB $LIBS
 
 cd "$ORIGINAL_DIR"

@@ -389,8 +389,8 @@ typedef struct isa_arena
 {
     u64 Cur;
     u64 Cap;
-    u64 Save; /* Makes it easier to use the arena as a stack */
-    u8 *Mem;  /* If it's last, the arena's memory can be contiguous with the struct itself */
+    // u64 Save; /* DOES NOT WORK!!! Makes it easier to use the arena as a stack */
+    u8 *Mem; /* If it's last, the arena's memory can be contiguous with the struct itself */
 } isa_arena;
 
 typedef struct isa_slice
@@ -401,50 +401,29 @@ typedef struct isa_slice
 } isa_slice;
 
 void
-IsaArenaInit(isa_arena *Arena, void *Mem, u64 Size)
+IsaArenaInit(isa_arena *Arena, u8 *Mem, u64 Size)
 {
-    Arena->Cur  = 0;
-    Arena->Cap  = Size;
-    Arena->Save = 0;
-    Arena->Mem  = (u8 *)Mem;
+    Arena->Cur = 0;
+    Arena->Cap = Size;
+    // Arena->Save = 0;
+    Arena->Mem = Mem;
 }
 
 isa_arena *
-IsaArenaCreateContiguous(void *Mem, u64 Size)
+IsaArenaCreateContiguous(u8 *Mem, u64 Size)
 {
     IsaAssert(Size >= (sizeof(isa_arena) + 1));
 
     isa_arena *Arena = (isa_arena *)Mem;
     Arena->Cap       = Size - sizeof(isa_arena);
     Arena->Cur       = 0;
-    Arena->Save      = 0;
-    Arena->Mem       = (u8 *)Mem + sizeof(isa_arena);
+    // Arena->Save      = 0;
+    Arena->Mem = Mem + sizeof(isa_arena);
 
     return Arena;
 }
 
-isa_arena
-IsaArenaCreate(void *Mem, u64 Size)
-{
-    isa_arena Arena;
-    Arena.Cur  = 0;
-    Arena.Cap  = Size;
-    Arena.Save = 0;
-    Arena.Mem  = (u8 *)Mem;
-
-    return Arena;
-}
-
-void
-IsaArenaDestroy(isa_arena **Arena)
-{
-    if(Arena && *Arena)
-    {
-        *Arena = NULL;
-        Arena  = NULL;
-    }
-}
-
+#if 0
 u64
 IsaArenaF5(isa_arena *Arena)
 {
@@ -460,6 +439,7 @@ IsaArenaF9(isa_arena *Arena)
 
     return Arena->Cur;
 }
+#endif
 
 // TODO(ingar): Create aligning pushes
 void *
