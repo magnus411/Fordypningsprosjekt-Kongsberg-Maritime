@@ -62,9 +62,17 @@ main(void)
     u8       *ArenaMemory     = malloc(ArenaMemorySize);
     IsaArenaInit(&MainArena, ArenaMemory, ArenaMemorySize);
 
-    // Change this ofc
-    const char *ConnectionInfo = "host=localhost dbname=postgres user=postgres password=password";
-    PGconn     *Connection     = PQconnectdb(ConnectionInfo);
+    const char    *ConfigFilePath = ArgV[1];
+    isa_file_data *ConfigFile     = IsaLoadFileIntoMemory(ConfigFilePath, &MainArena);
+    if(NULL == ConfigFile)
+    {
+        IsaLogError("Failed to open file!");
+        return 1;
+    }
+
+    // TODO(ingar): Make parser for config file
+    const char *ConnectionInfo = (const char *)ConfigFile->Data;
+    IsaLogInfo("Attempting to connect to database using:\n%s", ConnectionInfo);
 
     if(PQstatus(Connection) != CONNECTION_OK)
     {

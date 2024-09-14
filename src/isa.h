@@ -1,6 +1,8 @@
 #ifndef ISA_H_
 #define ISA_H_
 
+// NOLINTBEGIN(misc-definitions-in-headers)
+
 #if defined(_WIN32) || defined(_WIN64)
 
 // NOTE(ingar): isa.h must be included before any std lib header for this to take effect
@@ -29,8 +31,8 @@
 //              DEFINES               //
 ////////////////////////////////////////
 
-#define ISA_BEGIN_EXTERN_C                                                                                             \
-    extern "C"                                                                                                         \
+#define ISA_BEGIN_EXTERN_C                                                                         \
+    extern "C"                                                                                     \
     {
 
 #define ISA_END_EXTERN_C }
@@ -56,21 +58,23 @@ typedef double f64;
 #define ISA__STRINGIFY__(x) #x
 #define ISA_STRINGIFY(x)    ISA__STRINGIFY__(x)
 
-#define ISA__NUM_ARGS__(X99, X98, X97, X96, X95, X94, X93, X92, X91, X90, X89, X88, X87, X86, X85, X84, X83, X82, X81, \
-                        X80, X79, X78, X77, X76, X75, X74, X73, X72, X71, X70, X69, X68, X67, X66, X65, X64, X63, X62, \
-                        X61, X60, X59, X58, X57, X56, X55, X54, X53, X52, X51, X50, X49, X48, X47, X46, X45, X44, X43, \
-                        X42, X41, X40, X39, X38, X37, X36, X35, X34, X33, X32, X31, X30, X29, X28, X27, X26, X25, X24, \
-                        X23, X22, X21, X20, X19, X18, X17, X16, X15, X14, X13, X12, X11, X10, X9, X8, X7, X6, X5, X4,  \
-                        X3, X2, X1, X0, N, ...)                                                                        \
+#define ISA__NUM_ARGS__(X99, X98, X97, X96, X95, X94, X93, X92, X91, X90, X89, X88, X87, X86, X85, \
+                        X84, X83, X82, X81, X80, X79, X78, X77, X76, X75, X74, X73, X72, X71, X70, \
+                        X69, X68, X67, X66, X65, X64, X63, X62, X61, X60, X59, X58, X57, X56, X55, \
+                        X54, X53, X52, X51, X50, X49, X48, X47, X46, X45, X44, X43, X42, X41, X40, \
+                        X39, X38, X37, X36, X35, X34, X33, X32, X31, X30, X29, X28, X27, X26, X25, \
+                        X24, X23, X22, X21, X20, X19, X18, X17, X16, X15, X14, X13, X12, X11, X10, \
+                        X9, X8, X7, X6, X5, X4, X3, X2, X1, X0, N, ...)                            \
     N
 
 // NOTE(ingar): ISA_NUM_ARGS() will result in 1... because C's peepee doesn't function quite right
-#define ISA_NUM_ARGS(...)                                                                                              \
-    ISA_EXPAND(ISA__NUM_ARGS__(__VA_ARGS__, 100, 99, 98, 97, 96, 95, 94, 93, 92, 91, 90, 89, 88, 87, 86, 85, 84, 83,   \
-                               82, 81, 80, 79, 78, 77, 76, 75, 74, 73, 72, 71, 70, 69, 68, 67, 66, 65, 64, 63, 62, 61, \
-                               60, 59, 58, 57, 56, 55, 54, 53, 52, 51, 50, 49, 48, 47, 46, 45, 44, 43, 42, 41, 40, 39, \
-                               38, 37, 36, 35, 34, 33, 32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, \
-                               16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0))
+#define ISA_NUM_ARGS(...)                                                                          \
+    ISA_EXPAND(ISA__NUM_ARGS__(                                                                    \
+        __VA_ARGS__, 100, 99, 98, 97, 96, 95, 94, 93, 92, 91, 90, 89, 88, 87, 86, 85, 84, 83, 82,  \
+        81, 80, 79, 78, 77, 76, 75, 74, 73, 72, 71, 70, 69, 68, 67, 66, 65, 64, 63, 62, 61, 60,    \
+        59, 58, 57, 56, 55, 54, 53, 52, 51, 50, 49, 48, 47, 46, 45, 44, 43, 42, 41, 40, 39, 38,    \
+        37, 36, 35, 34, 33, 32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16,    \
+        15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0))
 
 #define IsaKiloByte(Number) (Number * 1000ULL)
 #define IsaMegaByte(Number) (IsaKiloByte(Number) * 1000ULL)
@@ -132,8 +136,9 @@ Isa__FormatTimeWin32__(char *__restrict Buffer, u64 BufferRemaining)
     SYSTEMTIME Time;
     GetLocalTime(&Time);
 
-    int CharsWritten = snprintf(Buffer, BufferRemaining, "%04d-%02d-%02d %02d:%02d:%02d: ", Time.wYear, Time.wMonth,
-                                Time.wDay, Time.wHour, Time.wMinute, Time.wSecond);
+    int CharsWritten
+        = snprintf(Buffer, BufferRemaining, "%04d-%02d-%02d %02d:%02d:%02d: ", Time.wYear,
+                   Time.wMonth, Time.wDay, Time.wHour, Time.wMinute, Time.wSecond);
 
     return (CharsWritten < 0) ? -1 : CharsWritten;
 }
@@ -174,7 +179,8 @@ Isa__WriteLog__(isa__log_module__ *Module, const char *LogLevel, va_list VaArgs)
 
     BufferRemaining -= CharsWritten;
 
-    i64 Ret = snprintf(Module->Buffer + CharsWritten, BufferRemaining, "%s: %s: ", Module->Name, LogLevel);
+    i64 Ret = snprintf(Module->Buffer + CharsWritten, BufferRemaining, "%s: %s: ", Module->Name,
+                       LogLevel);
     if((Ret < 0) || (Ret >= (i64)BufferRemaining))
     {
         return -1;
@@ -184,7 +190,7 @@ Isa__WriteLog__(isa__log_module__ *Module, const char *LogLevel, va_list VaArgs)
     BufferRemaining -= Ret;
 
     const char *FormatString = va_arg(VaArgs, const char *);
-    Ret                      = vsnprintf(Module->Buffer + CharsWritten, BufferRemaining, FormatString, VaArgs);
+    Ret = vsnprintf(Module->Buffer + CharsWritten, BufferRemaining, FormatString, VaArgs);
 
     if(Ret < 0)
     {
@@ -258,23 +264,24 @@ Isa__WriteLogNoModule__(const char *LogLevel, const char *FunctionName, ...)
 #define ISA__LOG_LEVEL_CHECK__(level) (ISA_LOG_LEVEL >= ISA_LOG_LEVEL_##level ? 1 : 0)
 
 #if !defined(ISA_LOG_OVERRIDE)
-#define ISA_LOG_REGISTER(module_name)                                                                                  \
-    isa_global char              Isa__LogBuffer__[ISA_LOG_BUF_SIZE];                                                   \
-    isa_global isa__log_module__ ISA_CONCAT3(Isa__LogModule, module_name, __)                                          \
-        = { .Name = #module_name, .BufferSize = ISA_LOG_BUF_SIZE, .Buffer = Isa__LogBuffer__ };                        \
+#define ISA_LOG_REGISTER(module_name)                                                              \
+    isa_global char              Isa__LogBuffer__[ISA_LOG_BUF_SIZE];                               \
+    isa_global isa__log_module__ ISA_CONCAT3(Isa__LogModule, module_name, __)                      \
+        = { .Name = #module_name, .BufferSize = ISA_LOG_BUF_SIZE, .Buffer = Isa__LogBuffer__ };    \
     isa_global isa__log_module__ *Isa__LogInstance__ = &ISA_CONCAT3(Isa__LogModule, module_name, __)
 
-#define ISA_LOG_DECLARE_EXTERN(name)                                                                                   \
-    extern isa__log_module__      ISA_CONCAT3(Isa__LogModule, name, __);                                               \
+#define ISA_LOG_DECLARE_EXTERN(name)                                                               \
+    extern isa__log_module__      ISA_CONCAT3(Isa__LogModule, name, __);                           \
     isa_global isa__log_module__ *Isa__LogInstance__ = &ISA_CONCAT3(Isa__LogModule, name, __)
 
 #else /* ISA_LOG_OVERRIDE */
-/* This allows files with different module names to be included in the same TU by overriding their module names */
+/* This allows files with different module names to be included in the same TU by overriding their
+ * module names */
 
-#define ISA_LOG_REGISTER_OVERRIDE(module_name)                                                                         \
-    isa_global char              Isa__LogBuffer__[ISA_LOG_BUF_SIZE];                                                   \
-    isa_global isa__log_module__ ISA_CONCAT3(Isa__LogModule, module_name, __)                                          \
-        = { .Name = #module_name, .BufferSize = ISA_LOG_BUF_SIZE, .Buffer = Isa__LogBuffer__ };                        \
+#define ISA_LOG_REGISTER_OVERRIDE(module_name)                                                     \
+    isa_global char              Isa__LogBuffer__[ISA_LOG_BUF_SIZE];                               \
+    isa_global isa__log_module__ ISA_CONCAT3(Isa__LogModule, module_name, __)                      \
+        = { .Name = #module_name, .BufferSize = ISA_LOG_BUF_SIZE, .Buffer = Isa__LogBuffer__ };    \
     isa_global isa__log_module__ *Isa__LogInstance__ = &ISA_CONCAT3(Isa__LogModule, module_name, __)
 
 #define ISA_LOG_REGISTER(name)       extern isa__log_module__ *Isa__LogInstance__
@@ -284,32 +291,33 @@ Isa__WriteLogNoModule__(const char *LogLevel, const char *FunctionName, ...)
 
 #define ISA_LOG_DECLARE_SAME_TU extern struct isa__log_module__ *Isa__LogInstance__
 
-#define ISA__LOG__(log_level, ...)                                                                                     \
-    do                                                                                                                 \
-    {                                                                                                                  \
-        if(ISA__LOG_LEVEL_CHECK__(log_level))                                                                          \
-        {                                                                                                              \
-            i64 Ret = Isa__WriteLogIntermediate__(Isa__LogInstance__, ISA_STRINGIFY(log_level), __VA_ARGS__);          \
-            if(Ret)                                                                                                    \
-            {                                                                                                          \
-                Isa__LogPrint__("\n\nERROR WHILE LOGGING\n\n");                                                        \
-                assert(0);                                                                                             \
-            }                                                                                                          \
-        }                                                                                                              \
+#define ISA__LOG__(log_level, ...)                                                                 \
+    do                                                                                             \
+    {                                                                                              \
+        if(ISA__LOG_LEVEL_CHECK__(log_level))                                                      \
+        {                                                                                          \
+            i64 Ret = Isa__WriteLogIntermediate__(Isa__LogInstance__, ISA_STRINGIFY(log_level),    \
+                                                  __VA_ARGS__);                                    \
+            if(Ret)                                                                                \
+            {                                                                                      \
+                Isa__LogPrint__("\n\nERROR WHILE LOGGING\n\n");                                    \
+                assert(0);                                                                         \
+            }                                                                                      \
+        }                                                                                          \
     } while(0)
 
-#define ISA__LOG_NO_MODULE__(log_level, ...)                                                                           \
-    do                                                                                                                 \
-    {                                                                                                                  \
-        if(ISA__LOG_LEVEL_CHECK__(log_level))                                                                          \
-        {                                                                                                              \
-            i64 Ret = Isa__WriteLogNoModule__(ISA_STRINGIFY(log_level), __func__, __VA_ARGS__);                        \
-            if(Ret)                                                                                                    \
-            {                                                                                                          \
-                Isa__LogPrint__("\n\nERROR WHILE LOGGING\n\n");                                                        \
-                assert(0);                                                                                             \
-            }                                                                                                          \
-        }                                                                                                              \
+#define ISA__LOG_NO_MODULE__(log_level, ...)                                                       \
+    do                                                                                             \
+    {                                                                                              \
+        if(ISA__LOG_LEVEL_CHECK__(log_level))                                                      \
+        {                                                                                          \
+            i64 Ret = Isa__WriteLogNoModule__(ISA_STRINGIFY(log_level), __func__, __VA_ARGS__);    \
+            if(Ret)                                                                                \
+            {                                                                                      \
+                Isa__LogPrint__("\n\nERROR WHILE LOGGING\n\n");                                    \
+                assert(0);                                                                         \
+            }                                                                                      \
+        }                                                                                          \
     } while(0)
 
 #define IsaLogDebug(...)   ISA__LOG__(DBG, __VA_ARGS__)
@@ -322,14 +330,14 @@ Isa__WriteLogNoModule__(const char *LogLevel, const char *FunctionName, ...)
 #define IsaLogWarningNoModule(...) ISA__LOG_NO_MODULE__(WRN, __VA_ARGS__)
 #define IsaLogErrorNoModule(...)   ISA__LOG_NO_MODULE__(ERR, __VA_ARGS__)
 
-#define IsaAssert(condition)                                                                                           \
-    do                                                                                                                 \
-    {                                                                                                                  \
-        if(!(condition))                                                                                               \
-        {                                                                                                              \
-            ISA__LOG_NO_MODULE__(ERR, "Assertion failed: " ISA_STRINGIFY(condition));                                  \
-            assert(condition);                                                                                         \
-        }                                                                                                              \
+#define IsaAssert(condition)                                                                       \
+    do                                                                                             \
+    {                                                                                              \
+        if(!(condition))                                                                           \
+        {                                                                                          \
+            ISA__LOG_NO_MODULE__(ERR, "Assertion failed: " ISA_STRINGIFY(condition));              \
+            assert(condition);                                                                     \
+        }                                                                                          \
     } while(0)
 
 #endif // NDEBUG
@@ -532,38 +540,38 @@ IsaArrayShift(void *Mem, u64 From, u64 To, u64 Count, u64 ElementSize)
 #define IsaPushStruct(arena, type)     IsaPushArray(arena, type, 1)
 #define IsaPushStructZero(arena, type) IsaPushArrayZero(arena, type, 1)
 
-#define IsaNewSlice(arena, len, esize)                                                                                 \
-    {                                                                                                                  \
-        len, esize, (u8 *)IsaArenaPushZero(arena, len *esize)                                                          \
+#define IsaNewSlice(arena, len, esize)                                                             \
+    {                                                                                              \
+        len, esize, (u8 *)IsaArenaPushZero(arena, len *esize)                                      \
     }
 
-#define ISA_DEFINE_POOL_ALLOCATOR(type_name, func_name)                                                                \
-    typedef struct type_name##_Pool                                                                                    \
-    {                                                                                                                  \
-        isa_arena *Arena;                                                                                              \
-        type_name *FirstFree;                                                                                          \
-    } type_name##_pool;                                                                                                \
-                                                                                                                       \
-    type_name *func_name##Alloc(type_name##_pool *Pool)                                                                \
-    {                                                                                                                  \
-        type_name *Result = Pool->FirstFree;                                                                           \
-        if(Result)                                                                                                     \
-        {                                                                                                              \
-            Pool->FirstFree = Pool->FirstFree->Next;                                                                   \
-            IsaMemZeroStruct(Result);                                                                                  \
-        }                                                                                                              \
-        else                                                                                                           \
-        {                                                                                                              \
-            Result = IsaPushStructZero(Pool->Arena, type_name);                                                        \
-        }                                                                                                              \
-                                                                                                                       \
-        return Result;                                                                                                 \
-    }                                                                                                                  \
-                                                                                                                       \
-    void func_name##Release(type_name##_pool *Pool, type_name *Instance)                                               \
-    {                                                                                                                  \
-        Instance->Next  = Pool->FirstFree;                                                                             \
-        Pool->FirstFree = Instance;                                                                                    \
+#define ISA_DEFINE_POOL_ALLOCATOR(type_name, func_name)                                            \
+    typedef struct type_name##_Pool                                                                \
+    {                                                                                              \
+        isa_arena *Arena;                                                                          \
+        type_name *FirstFree;                                                                      \
+    } type_name##_pool;                                                                            \
+                                                                                                   \
+    type_name *func_name##Alloc(type_name##_pool *Pool)                                            \
+    {                                                                                              \
+        type_name *Result = Pool->FirstFree;                                                       \
+        if(Result)                                                                                 \
+        {                                                                                          \
+            Pool->FirstFree = Pool->FirstFree->Next;                                               \
+            IsaMemZeroStruct(Result);                                                              \
+        }                                                                                          \
+        else                                                                                       \
+        {                                                                                          \
+            Result = IsaPushStructZero(Pool->Arena, type_name);                                    \
+        }                                                                                          \
+                                                                                                   \
+        return Result;                                                                             \
+    }                                                                                              \
+                                                                                                   \
+    void func_name##Release(type_name##_pool *Pool, type_name *Instance)                           \
+    {                                                                                              \
+        Instance->Next  = Pool->FirstFree;                                                         \
+        Pool->FirstFree = Instance;                                                                \
     }
 
 typedef struct isa_string
@@ -571,6 +579,16 @@ typedef struct isa_string
     u64         Len; /* Does not include the null terminator*/
     const char *S;   /* Will always be null-terminated for simplicity */
 } isa_string;
+
+void
+IsaMemcpy(void *To, void *From, u64 Len)
+{
+    // NOTE(ingar): The compiler should replace this with memcpy if it's available
+    for(u64 i = 0; i < Len; ++i)
+    {
+        ((u8 *)To)[i] = ((u8 *)From)[i];
+    }
+}
 
 u64
 IsaStrlen(const char *String)
@@ -584,10 +602,16 @@ IsaStrlen(const char *String)
     return Count;
 }
 
-#define IsaNewString(string)                                                                                           \
-    {                                                                                                                  \
-        IsaStrlen(string), string                                                                                      \
-    }
+char *
+IsaStrdup(char *String, isa_arena *Arena)
+{
+    u64   StringLength = IsaStrlen(String);
+    char *NewString    = IsaPushArrayZero(Arena, char, StringLength + 1);
+    IsaMemcpy(NewString, String, StringLength);
+    NewString[StringLength] = '\0';
+
+    return NewString;
+}
 
 ////////////////////////////////////////
 //            MEM TRACE               //
@@ -799,7 +823,8 @@ Isa__MallocTrace__(u64 Size, const char *Function, int Line, const char *File)
 }
 
 void *
-Isa__CallocTrace__(u64 ElementCount, u64 ElementSize, const char *Function, int Line, const char *File)
+Isa__CallocTrace__(u64 ElementCount, u64 ElementSize, const char *Function, int Line,
+                   const char *File)
 {
     void *Pointer = calloc(ElementCount, ElementSize);
 
@@ -830,7 +855,8 @@ Isa__ReallocTrace__(void *Pointer, u64 Size, const char *Function, int Line, con
     {
         // TODO(ingar): Error handling
     }
-    printf("         Previously allocated in %s on line %d in %s\n\n", *Entry.Function, *Entry.Line, *Entry.File);
+    printf("         Previously allocated in %s on line %d in %s\n\n", *Entry.Function, *Entry.Line,
+           *Entry.File);
     Isa__RemoveAllocationFromGlobalCollection(Pointer);
 #endif
 
@@ -867,8 +893,8 @@ Isa__FreeTrace__(void *Pointer, const char *Function, int Line, const char *File
     return true;
 }
 
-// TODO(ingar): Pretty sure this code is busted. Considering I'm mostly going to be using arenas from now on, fixing
-// this isn't a priority
+// TODO(ingar): Pretty sure this code is busted. Considering I'm mostly going to be using arenas
+// from now on, fixing this isn't a priority
 #if 0
 bool
 IsaInitAllocationCollection(u64 Capacity)
@@ -968,28 +994,21 @@ IsaSeedRandPCG(uint32_t Seed)
 
 typedef struct isa_file_data
 {
-    u64     Size;
-    uint8_t Data[];
+    u64 Size;
+    u8 *Data;
 } isa_file_data;
 
-/**
- * @note Data is one byte longer than Size to include a null-terminator in case
- * we are working with strings. The null-terminator is always added since we use
- * calloc.
- */
 isa_file_data *
-IsaLoadFileIntoMemory(const char *Filename)
+IsaLoadFileIntoMemory(const char *Filename, isa_arena *Arena)
 {
     FILE *fd = fopen(Filename, "rb");
     if(!fd)
     {
-        fprintf(stderr, "Could not open file!\n");
         return NULL;
     }
 
     if(fseek(fd, 0L, SEEK_END) != 0)
     {
-        fprintf(stderr, "Could not seek file!\n");
         fclose(fd);
         return NULL;
     }
@@ -997,26 +1016,29 @@ IsaLoadFileIntoMemory(const char *Filename)
     u64 FileSize = (u64)ftell(fd);
     rewind(fd);
 
-    u64            FileDataSize = sizeof(isa_file_data) + FileSize + 1;
-    isa_file_data *FileData     = (isa_file_data *)calloc(1, FileDataSize);
+    isa_file_data *FileData = IsaPushStructZero(Arena, isa_file_data);
+    FileData->Data          = IsaPushArray(Arena, u8, FileSize + 1);
+    /*
     if(!FileData)
     {
         fprintf(stderr, "Could not allocate memory for file!\n");
         fclose(fd);
         return NULL;
     }
+    */
 
     FileData->Size = FileSize;
     u64 BytesRead  = fread(FileData->Data, 1, FileSize, fd);
     if(BytesRead != FileSize)
     {
-        fprintf(stderr, "Could not read file!\n");
         fclose(fd);
-        free(FileData);
+        IsaArenaPop(Arena, sizeof(isa_file_data) + FileData->Size + 1);
         return NULL;
     }
 
     fclose(fd);
+
+    FileData->Data[FileData->Size] = '\0';
     return FileData;
 }
 
@@ -1045,7 +1067,8 @@ IsaWrite_isa_file_data_ToFile(isa_file_data *FileData, const char *Filename)
         return false;
     }
 
-    bool WriteSuccessful = fwrite(FileData->Data, sizeof(uint8_t), FileData->Size, fd) == FileData->Size;
+    bool WriteSuccessful
+        = fwrite(FileData->Data, sizeof(uint8_t), FileData->Size, fd) == FileData->Size;
     fclose(fd);
     return WriteSuccessful;
 }
@@ -1093,5 +1116,7 @@ IsaGetNextToken(char **Cursor)
 #if defined(__cplusplus)
 ISA_END_EXTERN_C
 #endif
+
+// NOLINTEND(misc-definitions-in-headers)
 
 #endif // ISA_H_
