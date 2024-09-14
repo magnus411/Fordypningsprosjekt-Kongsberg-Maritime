@@ -129,8 +129,14 @@ Thumbs.db
 # =========================
 # Build Folders
 # =========================
-**/build/
-**/Build/
+**/build
+**/Build
+
+# Different developers will have different configs
+configs
 
 # clangd
 .cache
+
+# Ingar's stuff
+**Ingar*
