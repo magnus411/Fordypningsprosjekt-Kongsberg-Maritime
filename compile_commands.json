@@ -1,0 +1,7 @@
+[
+  {
+    "directory": ".",
+    "command": "clang src/main.c -g -O0 -Wall -Wextra -pedantic -DDEBUG -o build/SensorDB -lpq",
+    "file": "src/main.c"
+  },
+]
