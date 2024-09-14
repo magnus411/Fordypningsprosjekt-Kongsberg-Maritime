@@ -16,7 +16,8 @@ typedef struct
 } sensor_schema;
 
 isa_internal void
-GetSensorSchemasFromDb(PGconn *Connection, sensor_schema **Schemas, int *TemplateCount, isa_arena *Arena)
+GetSensorSchemasFromDb(PGconn *Connection, sensor_schema **Schemas, int *TemplateCount,
+                       isa_arena *Arena)
 {
 
     const char *Query      = "SELECT id, name, sample_rate, variables FROM sensortemplates";
@@ -82,8 +83,8 @@ main(void)
 
     for(int i = 0; i < TemplateCount; i++)
     {
-        IsaLogDebug("Template ID: %d, Name: %s, Sample Rate: %d, Variables: %s\n", Templates[i].Id, Templates[i].Name,
-                    Templates[i].SampleRate, Templates[i].Variables);
+        IsaLogDebug("Template ID: %d, Name: %s, Sample Rate: %d, Variables: %s\n", Templates[i].Id,
+                    Templates[i].Name, Templates[i].SampleRate, Templates[i].Variables);
     }
 
     FreeTemplates(Templates, TemplateCount);
