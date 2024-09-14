@@ -16,47 +16,44 @@ typedef struct
 } sensor_schema;
 
 isa_internal void
-GetSensorSchemasFromDb(PGconn *Connection, sensor_schema **Schemas, int *TemplateCount,
+GetSensorSchemasFromDb(PGconn *Connection, sensor_schema **Schemas, int *SchemaCount,
                        isa_arena *Arena)
 {
 
-    const char *Query      = "SELECT id, name, sample_rate, variables FROM sensortemplates";
+    const char *Query      = "SELECT id, name, sample_rate, variables FROM sensor_schemas";
     PGresult   *ExecResult = PQexec(Connection, Query);
 
     if(PQresultStatus(ExecResult) != PGRES_TUPLES_OK)
     {
-        IsaLogError("Failed to execute query: %s", PQerrorMessage(Connection));
+        IsaLogError("Failed to execute query:\n%s", PQerrorMessage(Connection));
         PQclear(ExecResult);
         return;
     }
 
-    *TemplateCount = PQntuples(ExecResult);
-    *Schemas       = IsaPushArray(Arena, sensor_schema, *TemplateCount);
+    *SchemaCount = PQntuples(ExecResult);
+    *Schemas     = IsaPushArray(Arena, sensor_schema, *SchemaCount);
 
-    for(int i = 0; i < *TemplateCount; i++)
+    for(int i = 0; i < *SchemaCount; ++i)
     {
         (*Schemas)[i].Id         = atoi(PQgetvalue(ExecResult, i, 0));
-        (*Schemas)[i].Name       = strdup(PQgetvalue(ExecResult, i, 1));
+        (*Schemas)[i].Name       = IsaStrdup(PQgetvalue(ExecResult, i, 1), Arena);
         (*Schemas)[i].SampleRate = atoi(PQgetvalue(ExecResult, i, 2));
-        (*Schemas)[i].Variables  = strdup(PQgetvalue(ExecResult, i, 3));
+        (*Schemas)[i].Variables  = IsaStrdup(PQgetvalue(ExecResult, i, 3), Arena);
     }
 
     PQclear(ExecResult);
 }
 
-isa_internal void
-FreeTemplates(sensor_schema *Schemas, int TemplateCount)
-{
-    for(int i = 0; i < TemplateCount; i++)
-    {
-        free(Schemas[i].Name);
-        free(Schemas[i].Variables);
-    }
-}
-
 int
-main(void)
+main(int ArgCount, char **ArgV)
 {
+    if(ArgCount <= 1)
+    {
+        IsaLogError("Please provide the path to the configuration.sdb file!\nRelative paths start "
+                    "from where YOU launch the executable from.");
+        return 1;
+    }
+
     isa_arena MainArena;
     u64       ArenaMemorySize = IsaMebiByte(128);
     u8       *ArenaMemory     = malloc(ArenaMemorySize);
@@ -74,28 +71,26 @@ main(void)
     const char *ConnectionInfo = (const char *)ConfigFile->Data;
     IsaLogInfo("Attempting to connect to database using:\n%s", ConnectionInfo);
 
+    PGconn *Connection = PQconnectdb(ConnectionInfo);
     if(PQstatus(Connection) != CONNECTION_OK)
     {
-        IsaLogError("Connection to database failed: %s", PQerrorMessage(Connection));
+        IsaLogError("Connection to database failed. Libpq error:\n%s", PQerrorMessage(Connection));
         PQfinish(Connection);
-        exit(EXIT_FAILURE);
+        return 1;
     }
-    else
+
+    IsaLogInfo("Connected!");
+
+    sensor_schema *Schemas     = NULL;
+    int            SchemaCount = 0;
+    GetSensorSchemasFromDb(Connection, &Schemas, &SchemaCount, &MainArena);
+
+    for(int i = 0; i < SchemaCount; i++)
     {
-        IsaLogDebug("Connected!");
+        IsaLogDebug("Template ID: %d, Name: %s, Sample Rate: %d, Variables: %s\n", Schemas[i].Id,
+                    Schemas[i].Name, Schemas[i].SampleRate, Schemas[i].Variables);
     }
 
-    sensor_schema *Templates     = NULL;
-    int            TemplateCount = 0;
-    GetSensorSchemasFromDb(Connection, &Templates, &TemplateCount, &MainArena);
-
-    for(int i = 0; i < TemplateCount; i++)
-    {
-        IsaLogDebug("Template ID: %d, Name: %s, Sample Rate: %d, Variables: %s\n", Templates[i].Id,
-                    Templates[i].Name, Templates[i].SampleRate, Templates[i].Variables);
-    }
-
-    FreeTemplates(Templates, TemplateCount);
     PQfinish(Connection);
 
     return 0;
