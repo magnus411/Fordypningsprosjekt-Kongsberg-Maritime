@@ -1,19 +1,9 @@
-#ifndef ISA_H_
-#define ISA_H_
+#ifndef SDB_H_
+#define SDB_H_
 
 // NOLINTBEGIN(misc-definitions-in-headers)
 
-#if defined(_WIN32) || defined(_WIN64)
-
-// NOTE(ingar): isa.h must be included before any std lib header for this to take effect
-#if !defined(_CRT_SECURE_NO_WARNINGS)
-#define _CRT_SECURE_NO_WARNINGS
-#endif
-
-#include <windows.h>
-
-#endif // Windows
-
+#include <time.h>
 #include <assert.h>
 #include <float.h>
 #include <math.h>
@@ -31,14 +21,14 @@
 //              DEFINES               //
 ////////////////////////////////////////
 
-#define ISA_BEGIN_EXTERN_C                                                                         \
+#define SDB_BEGIN_EXTERN_C                                                                         \
     extern "C"                                                                                     \
     {
 
-#define ISA_END_EXTERN_C }
+#define SDB_END_EXTERN_C }
 
 #if defined(__cplusplus)
-ISA_BEGIN_EXTERN_C
+SDB_BEGIN_EXTERN_C
 #endif
 
 typedef uint8_t  u8;
@@ -54,52 +44,34 @@ typedef int64_t i64;
 typedef float  f32;
 typedef double f64;
 
-#define ISA_EXPAND(x)       x
-#define ISA__STRINGIFY__(x) #x
-#define ISA_STRINGIFY(x)    ISA__STRINGIFY__(x)
+#define SDB_EXPAND(x)       x
+#define SDB__STRINGIFY__(x) #x
+#define SDB_STRINGIFY(x)    SDB__STRINGIFY__(x)
 
-#define ISA__NUM_ARGS__(X99, X98, X97, X96, X95, X94, X93, X92, X91, X90, X89, X88, X87, X86, X85, \
-                        X84, X83, X82, X81, X80, X79, X78, X77, X76, X75, X74, X73, X72, X71, X70, \
-                        X69, X68, X67, X66, X65, X64, X63, X62, X61, X60, X59, X58, X57, X56, X55, \
-                        X54, X53, X52, X51, X50, X49, X48, X47, X46, X45, X44, X43, X42, X41, X40, \
-                        X39, X38, X37, X36, X35, X34, X33, X32, X31, X30, X29, X28, X27, X26, X25, \
-                        X24, X23, X22, X21, X20, X19, X18, X17, X16, X15, X14, X13, X12, X11, X10, \
-                        X9, X8, X7, X6, X5, X4, X3, X2, X1, X0, N, ...)                            \
-    N
+#define SdbKiloByte(Number) (Number * 1000ULL)
+#define SdbMegaByte(Number) (SdbKiloByte(Number) * 1000ULL)
+#define SdbGigaByte(Number) (SdbMegaByte(Number) * 1000ULL)
+#define SdbTeraByte(Number) (SdbGigaByte(Number) * 1000ULL)
 
-// NOTE(ingar): ISA_NUM_ARGS() will result in 1... because C's peepee doesn't function quite right
-#define ISA_NUM_ARGS(...)                                                                          \
-    ISA_EXPAND(ISA__NUM_ARGS__(                                                                    \
-        __VA_ARGS__, 100, 99, 98, 97, 96, 95, 94, 93, 92, 91, 90, 89, 88, 87, 86, 85, 84, 83, 82,  \
-        81, 80, 79, 78, 77, 76, 75, 74, 73, 72, 71, 70, 69, 68, 67, 66, 65, 64, 63, 62, 61, 60,    \
-        59, 58, 57, 56, 55, 54, 53, 52, 51, 50, 49, 48, 47, 46, 45, 44, 43, 42, 41, 40, 39, 38,    \
-        37, 36, 35, 34, 33, 32, 31, 30, 29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16,    \
-        15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0))
+#define SdbKibiByte(Number) (Number * 1024ULL)
+#define SdbMebiByte(Number) (SdbKibiByte(Number) * 1024ULL)
+#define SdbGibiByte(Number) (SdbMebiByte(Number) * 1024ULL)
+#define SdbTebiByte(Number) (SdbGibiByte(Number) * 1024ULL)
 
-#define IsaKiloByte(Number) (Number * 1000ULL)
-#define IsaMegaByte(Number) (IsaKiloByte(Number) * 1000ULL)
-#define IsaGigaByte(Number) (IsaMegaByte(Number) * 1000ULL)
-#define IsaTeraByte(Number) (IsaGigaByte(Number) * 1000ULL)
+#define SdbArrayLen(Array) (sizeof(Array) / sizeof(Array[0]))
 
-#define IsaKibiByte(Number) (Number * 1024ULL)
-#define IsaMebiByte(Number) (IsaKibiByte(Number) * 1024ULL)
-#define IsaGibiByte(Number) (IsaMebiByte(Number) * 1024ULL)
-#define IsaTebiByte(Number) (IsaGibiByte(Number) * 1024ULL)
+#define SDB__CONCAT2__(x, y) x##y
+#define SDB_CONCAT2(x, y)    SDB__CONCAT2__(x, y)
 
-#define IsaArrayLen(Array) (sizeof(Array) / sizeof(Array[0]))
+#define SDB__CONCAT3__(x, y, z) x##y##z
+#define SDB_CONCAT3(x, y, z)    SDB__CONCAT3__(x, y, z)
 
-#define ISA__CONCAT2__(x, y) x##y
-#define ISA_CONCAT2(x, y)    ISA__CONCAT2__(x, y)
+#define SdbMax(a, b) ((a > b) ? a : b)
+#define SdbMin(a, b) ((a < b) ? a : b)
 
-#define ISA__CONCAT3__(x, y, z) x##y##z
-#define ISA_CONCAT3(x, y, z)    ISA__CONCAT3__(x, y, z)
-
-#define IsaMax(a, b) ((a > b) ? a : b)
-#define IsaMin(a, b) ((a < b) ? a : b)
-
-#define isa_internal static
-#define isa_persist  static
-#define isa_global   static
+#define sdb_internal static
+#define sdb_persist  static
+#define sdb_global   static
 
 ////////////////////////////////////////
 //              LOGGING               //
@@ -108,50 +80,21 @@ typedef double f64;
 
 #if !defined(NDEBUG)
 
-#if !defined(ISA_LOG_BUF_SIZE)
-#define ISA_LOG_BUF_SIZE 128
+#if !defined(SDB_LOG_BUF_SIZE)
+#define SDB_LOG_BUF_SIZE 128
 #endif
 
-typedef struct isa__log_module__
+typedef struct sdb__log_module__
 {
     const char *Name;
     u64         BufferSize;
     char       *Buffer;
-} isa__log_module__;
+} sdb__log_module__;
 
-#if defined(_WIN32) || defined(_WIN64)
-
-// #define ISA_LOG_OUTPUTDEBUGSTRING
-
-#if defined(ISA_LOG_OUTPUTDEBUGSTRING)
-// TODO(ingar): OutputDebugString does not support formatting, so I need to find some way to do that
-#define Isa__LogPrint__(string) OutputDebugStringA(string)
-#else
-#define Isa__LogPrint__(string) printf("%s", string)
-#endif
-
-u64
-Isa__FormatTimeWin32__(char *__restrict Buffer, u64 BufferRemaining)
-{
-    SYSTEMTIME Time;
-    GetLocalTime(&Time);
-
-    int CharsWritten
-        = snprintf(Buffer, BufferRemaining, "%04d-%02d-%02d %02d:%02d:%02d: ", Time.wYear,
-                   Time.wMonth, Time.wDay, Time.wHour, Time.wMinute, Time.wSecond);
-
-    return (CharsWritten < 0) ? -1 : CharsWritten;
-}
-#define FormatTime Isa__FormatTimeWin32__
-
-#elif defined(__linux__)
-
-#include <time.h>
-
-#define Isa__LogPrint__(string) printf("%s", string)
+#define Sdb__LogPrint__(string) printf("%s", string)
 
 size_t
-Isa__FormatTimePosix__(char *__restrict Buffer, u64 BufferRemaining)
+Sdb__FormatTimePosix__(char *__restrict Buffer, u64 BufferRemaining)
 {
     time_t    PosixTime;
     struct tm TimeInfo;
@@ -163,12 +106,10 @@ Isa__FormatTimePosix__(char *__restrict Buffer, u64 BufferRemaining)
 
     return (0 == CharsWritten) ? -1 : CharsWritten;
 }
-#define FormatTime              Isa__FormatTimePosix__
-#elif defined(__APPLE__) && defined(__MACH__)
-#endif // Platform
 
+#define FormatTime Sdb__FormatTimePosix__
 i64
-Isa__WriteLog__(isa__log_module__ *Module, const char *LogLevel, va_list VaArgs)
+Sdb__WriteLog__(sdb__log_module__ *Module, const char *LogLevel, va_list VaArgs)
 {
     u64 BufferRemaining = Module->BufferSize;
     u64 CharsWritten    = FormatTime(Module->Buffer, BufferRemaining);
@@ -216,34 +157,34 @@ Isa__WriteLog__(isa__log_module__ *Module, const char *LogLevel, va_list VaArgs)
         }
     }
 
-    Isa__LogPrint__(Module->Buffer);
+    Sdb__LogPrint__(Module->Buffer);
     return 0;
 }
 
 i64
-Isa__WriteLogIntermediate__(isa__log_module__ *Module, const char *LogLevel, ...)
+Sdb__WriteLogIntermediate__(sdb__log_module__ *Module, const char *LogLevel, ...)
 {
     va_list VaArgs;
     va_start(VaArgs, LogLevel);
-    i64 Ret = Isa__WriteLog__(Module, LogLevel, VaArgs);
+    i64 Ret = Sdb__WriteLog__(Module, LogLevel, VaArgs);
     va_end(VaArgs);
     return Ret;
 }
 
 i64
-Isa__WriteLogNoModule__(const char *LogLevel, const char *FunctionName, ...)
+Sdb__WriteLogNoModule__(const char *LogLevel, const char *FunctionName, ...)
 {
-    char             *Buffer = (char *)calloc(ISA_LOG_BUF_SIZE, sizeof(char));
-    isa__log_module__ Module = {
+    char             *Buffer = (char *)calloc(SDB_LOG_BUF_SIZE, sizeof(char));
+    sdb__log_module__ Module = {
         .Name       = FunctionName,
-        .BufferSize = ISA_LOG_BUF_SIZE,
+        .BufferSize = SDB_LOG_BUF_SIZE,
         .Buffer     = Buffer,
     };
 
     va_list VaArgs;
     va_start(VaArgs, FunctionName);
 
-    i64 Ret = Isa__WriteLog__(&Module, LogLevel, VaArgs);
+    i64 Ret = Sdb__WriteLog__(&Module, LogLevel, VaArgs);
 
     va_end(VaArgs);
     free(Buffer);
@@ -251,91 +192,91 @@ Isa__WriteLogNoModule__(const char *LogLevel, const char *FunctionName, ...)
     return Ret;
 }
 
-#if !defined(ISA_LOG_LEVEL)
-#define ISA_LOG_LEVEL 4
+#if !defined(SDB_LOG_LEVEL)
+#define SDB_LOG_LEVEL 4
 #endif
 
-#define ISA_LOG_LEVEL_NONE (0U)
-#define ISA_LOG_LEVEL_ERR  (1U)
-#define ISA_LOG_LEVEL_WRN  (2U)
-#define ISA_LOG_LEVEL_INF  (3U)
-#define ISA_LOG_LEVEL_DBG  (4U)
+#define SDB_LOG_LEVEL_NONE (0U)
+#define SDB_LOG_LEVEL_ERR  (1U)
+#define SDB_LOG_LEVEL_WRN  (2U)
+#define SDB_LOG_LEVEL_INF  (3U)
+#define SDB_LOG_LEVEL_DBG  (4U)
 
-#define ISA__LOG_LEVEL_CHECK__(level) (ISA_LOG_LEVEL >= ISA_LOG_LEVEL_##level ? 1 : 0)
+#define SDB__LOG_LEVEL_CHECK__(level) (SDB_LOG_LEVEL >= SDB_LOG_LEVEL_##level ? 1 : 0)
 
-#if !defined(ISA_LOG_OVERRIDE)
-#define ISA_LOG_REGISTER(module_name)                                                              \
-    isa_global char              Isa__LogBuffer__[ISA_LOG_BUF_SIZE];                               \
-    isa_global isa__log_module__ ISA_CONCAT3(Isa__LogModule, module_name, __)                      \
-        = { .Name = #module_name, .BufferSize = ISA_LOG_BUF_SIZE, .Buffer = Isa__LogBuffer__ };    \
-    isa_global isa__log_module__ *Isa__LogInstance__ = &ISA_CONCAT3(Isa__LogModule, module_name, __)
+#if !defined(SDB_LOG_OVERRIDE)
+#define SDB_LOG_REGISTER(module_name)                                                              \
+    sdb_global char              Sdb__LogBuffer__[SDB_LOG_BUF_SIZE];                               \
+    sdb_global sdb__log_module__ SDB_CONCAT3(Sdb__LogModule, module_name, __)                      \
+        = { .Name = #module_name, .BufferSize = SDB_LOG_BUF_SIZE, .Buffer = Sdb__LogBuffer__ };    \
+    sdb_global sdb__log_module__ *Sdb__LogInstance__ = &SDB_CONCAT3(Sdb__LogModule, module_name, __)
 
-#define ISA_LOG_DECLARE_EXTERN(name)                                                               \
-    extern isa__log_module__      ISA_CONCAT3(Isa__LogModule, name, __);                           \
-    isa_global isa__log_module__ *Isa__LogInstance__ = &ISA_CONCAT3(Isa__LogModule, name, __)
+#define SDB_LOG_DECLARE_EXTERN(name)                                                               \
+    extern sdb__log_module__      SDB_CONCAT3(Sdb__LogModule, name, __);                           \
+    sdb_global sdb__log_module__ *Sdb__LogInstance__ = &SDB_CONCAT3(Sdb__LogModule, name, __)
 
-#else /* ISA_LOG_OVERRIDE */
+#else /* SDB_LOG_OVERRIDE */
 /* This allows files with different module names to be included in the same TU by overriding their
  * module names */
 
-#define ISA_LOG_REGISTER_OVERRIDE(module_name)                                                     \
-    isa_global char              Isa__LogBuffer__[ISA_LOG_BUF_SIZE];                               \
-    isa_global isa__log_module__ ISA_CONCAT3(Isa__LogModule, module_name, __)                      \
-        = { .Name = #module_name, .BufferSize = ISA_LOG_BUF_SIZE, .Buffer = Isa__LogBuffer__ };    \
-    isa_global isa__log_module__ *Isa__LogInstance__ = &ISA_CONCAT3(Isa__LogModule, module_name, __)
+#define SDB_LOG_REGISTER_OVERRIDE(module_name)                                                     \
+    sdb_global char              Sdb__LogBuffer__[SDB_LOG_BUF_SIZE];                               \
+    sdb_global sdb__log_module__ SDB_CONCAT3(Sdb__LogModule, module_name, __)                      \
+        = { .Name = #module_name, .BufferSize = SDB_LOG_BUF_SIZE, .Buffer = Sdb__LogBuffer__ };    \
+    sdb_global sdb__log_module__ *Sdb__LogInstance__ = &SDB_CONCAT3(Sdb__LogModule, module_name, __)
 
-#define ISA_LOG_REGISTER(name)       extern isa__log_module__ *Isa__LogInstance__
-#define ISA_LOG_DECLARE_EXTERN(name) extern isa__log_module__ *Isa__LogInstance__
+#define SDB_LOG_REGISTER(name)       extern sdb__log_module__ *Sdb__LogInstance__
+#define SDB_LOG_DECLARE_EXTERN(name) extern sdb__log_module__ *Sdb__LogInstance__
 
-#endif /* ISA_LOG_OVERRIDE */
+#endif /* SDB_LOG_OVERRIDE */
 
-#define ISA_LOG_DECLARE_SAME_TU extern struct isa__log_module__ *Isa__LogInstance__
+#define SDB_LOG_DECLARE_SAME_TU extern struct sdb__log_module__ *Sdb__LogInstance__
 
-#define ISA__LOG__(log_level, ...)                                                                 \
+#define SDB__LOG__(log_level, ...)                                                                 \
     do                                                                                             \
     {                                                                                              \
-        if(ISA__LOG_LEVEL_CHECK__(log_level))                                                      \
+        if(SDB__LOG_LEVEL_CHECK__(log_level))                                                      \
         {                                                                                          \
-            i64 Ret = Isa__WriteLogIntermediate__(Isa__LogInstance__, ISA_STRINGIFY(log_level),    \
+            i64 Ret = Sdb__WriteLogIntermediate__(Sdb__LogInstance__, SDB_STRINGIFY(log_level),    \
                                                   __VA_ARGS__);                                    \
             if(Ret)                                                                                \
             {                                                                                      \
-                Isa__LogPrint__("\n\nERROR WHILE LOGGING\n\n");                                    \
+                Sdb__LogPrint__("\n\nERROR WHILE LOGGING\n\n");                                    \
                 assert(0);                                                                         \
             }                                                                                      \
         }                                                                                          \
     } while(0)
 
-#define ISA__LOG_NO_MODULE__(log_level, ...)                                                       \
+#define SDB__LOG_NO_MODULE__(log_level, ...)                                                       \
     do                                                                                             \
     {                                                                                              \
-        if(ISA__LOG_LEVEL_CHECK__(log_level))                                                      \
+        if(SDB__LOG_LEVEL_CHECK__(log_level))                                                      \
         {                                                                                          \
-            i64 Ret = Isa__WriteLogNoModule__(ISA_STRINGIFY(log_level), __func__, __VA_ARGS__);    \
+            i64 Ret = Sdb__WriteLogNoModule__(SDB_STRINGIFY(log_level), __func__, __VA_ARGS__);    \
             if(Ret)                                                                                \
             {                                                                                      \
-                Isa__LogPrint__("\n\nERROR WHILE LOGGING\n\n");                                    \
+                Sdb__LogPrint__("\n\nERROR WHILE LOGGING\n\n");                                    \
                 assert(0);                                                                         \
             }                                                                                      \
         }                                                                                          \
     } while(0)
 
-#define IsaLogDebug(...)   ISA__LOG__(DBG, __VA_ARGS__)
-#define IsaLogInfo(...)    ISA__LOG__(INF, __VA_ARGS__)
-#define IsaLogWarning(...) ISA__LOG__(WRN, __VA_ARGS__)
-#define IsaLogError(...)   ISA__LOG__(ERR, __VA_ARGS__)
+#define SdbLogDebug(...)   SDB__LOG__(DBG, __VA_ARGS__)
+#define SdbLogInfo(...)    SDB__LOG__(INF, __VA_ARGS__)
+#define SdbLogWarning(...) SDB__LOG__(WRN, __VA_ARGS__)
+#define SdbLogError(...)   SDB__LOG__(ERR, __VA_ARGS__)
 
-#define IsaLogDebugNoModule(...)   ISA__LOG_NO_MODULE__(DBG, __VA_ARGS__)
-#define IsaLogInfoNoModule(...)    ISA__LOG_NO_MODULE__(INF, __VA_ARGS__)
-#define IsaLogWarningNoModule(...) ISA__LOG_NO_MODULE__(WRN, __VA_ARGS__)
-#define IsaLogErrorNoModule(...)   ISA__LOG_NO_MODULE__(ERR, __VA_ARGS__)
+#define SdbLogDebugNoModule(...)   SDB__LOG_NO_MODULE__(DBG, __VA_ARGS__)
+#define SdbLogInfoNoModule(...)    SDB__LOG_NO_MODULE__(INF, __VA_ARGS__)
+#define SdbLogWarningNoModule(...) SDB__LOG_NO_MODULE__(WRN, __VA_ARGS__)
+#define SdbLogErrorNoModule(...)   SDB__LOG_NO_MODULE__(ERR, __VA_ARGS__)
 
-#define IsaAssert(condition)                                                                       \
+#define SdbAssert(condition)                                                                       \
     do                                                                                             \
     {                                                                                              \
         if(!(condition))                                                                           \
         {                                                                                          \
-            ISA__LOG_NO_MODULE__(ERR, "Assertion failed: " ISA_STRINGIFY(condition));              \
+            SDB__LOG_NO_MODULE__(ERR, "Assertion failed: " SDB_STRINGIFY(condition));              \
             assert(condition);                                                                     \
         }                                                                                          \
     } while(0)
@@ -347,14 +288,14 @@ Isa__WriteLogNoModule__(const char *LogLevel, const char *FunctionName, ...)
 ////////////////////////////////////////
 
 bool
-IsaDoubleEpsilonCompare(const double A, const double B)
+SdbDoubleEpsilonCompare(const double A, const double B)
 {
     double GreatestValue = (fabs(A) < fabs(B)) ? fabs(B) : fabs(A);
     return fabs(A - B) <= (GreatestValue * DBL_EPSILON);
 }
 
 u64
-IsaDoubleSignBit(double F)
+SdbDoubleSignBit(double F)
 {
     u64  Mask = 1ULL << 63;
     u64 *Comp = (u64 *)&F;
@@ -363,7 +304,7 @@ IsaDoubleSignBit(double F)
 }
 
 double
-IsaRadiansFromDegrees(double Degrees)
+SdbRadiansFromDegrees(double Degrees)
 {
     double Radians = 0.01745329251994329577f * Degrees;
     return Radians;
@@ -374,7 +315,7 @@ IsaRadiansFromDegrees(double Degrees)
 ////////////////////////////////////////
 
 void
-IsaMemZero(void *Mem, u64 Size)
+SdbMemZero(void *Mem, u64 Size)
 {
     for(u64 i = 0; i < Size; ++i)
     {
@@ -383,33 +324,32 @@ IsaMemZero(void *Mem, u64 Size)
 }
 
 void /* From https://github.com/BLAKE2/BLAKE2/blob/master/ref/blake2-impl.h */
-IsaMemZeroSecure(void *Mem, u64 Size)
+SdbMemZeroSecure(void *Mem, u64 Size)
 {
     static void *(*const volatile memset_v)(void *, int, u64) = &memset;
     (void)memset_v(Mem, 0, Size);
 }
 
-#define IsaMemZeroStruct(struct)       IsaMemZero(struct, sizeof(*struct))
-#define IsaMemZeroStructSecure(struct) IsaMemZeroSecure(struct, sizeof(*struct))
+#define SdbMemZeroStruct(struct)       SdbMemZero(struct, sizeof(*struct))
+#define SdbMemZeroStructSecure(struct) SdbMemZeroSecure(struct, sizeof(*struct))
 
-// TODO(ingar): Change all u64 instances with fixed size to ensure, well... fixed size?
-typedef struct isa_arena
+typedef struct sdb_arena
 {
     u64 Cur;
     u64 Cap;
     // u64 Save; /* DOES NOT WORK!!! Makes it easier to use the arena as a stack */
     u8 *Mem; /* If it's last, the arena's memory can be contiguous with the struct itself */
-} isa_arena;
+} sdb_arena;
 
-typedef struct isa_slice
+typedef struct sdb_slice
 {
     u64 Len; /* Not size_t since I want the member size to be constant */
     u64 ESize;
     u8 *Mem;
-} isa_slice;
+} sdb_slice;
 
 void
-IsaArenaInit(isa_arena *Arena, u8 *Mem, u64 Size)
+SdbArenaInit(sdb_arena *Arena, u8 *Mem, u64 Size)
 {
     Arena->Cur = 0;
     Arena->Cap = Size;
@@ -417,30 +357,30 @@ IsaArenaInit(isa_arena *Arena, u8 *Mem, u64 Size)
     Arena->Mem = Mem;
 }
 
-isa_arena *
-IsaArenaCreateContiguous(u8 *Mem, u64 Size)
+sdb_arena *
+SdbArenaCreateContiguous(u8 *Mem, u64 Size)
 {
-    IsaAssert(Size >= (sizeof(isa_arena) + 1));
+    SdbAssert(Size >= (sizeof(sdb_arena) + 1));
 
-    isa_arena *Arena = (isa_arena *)Mem;
-    Arena->Cap       = Size - sizeof(isa_arena);
+    sdb_arena *Arena = (sdb_arena *)Mem;
+    Arena->Cap       = Size - sizeof(sdb_arena);
     Arena->Cur       = 0;
     // Arena->Save      = 0;
-    Arena->Mem = Mem + sizeof(isa_arena);
+    Arena->Mem = Mem + sizeof(sdb_arena);
 
     return Arena;
 }
 
 #if 0
 u64
-IsaArenaF5(isa_arena *Arena)
+SdbArenaF5(sdb_arena *Arena)
 {
     Arena->Save = Arena->Cur;
     return Arena->Save;
 }
 
 u64
-IsaArenaF9(isa_arena *Arena)
+SdbArenaF9(sdb_arena *Arena)
 {
     Arena->Cur  = Arena->Save;
     Arena->Save = 0;
@@ -451,7 +391,7 @@ IsaArenaF9(isa_arena *Arena)
 
 // TODO(ingar): Create aligning pushes
 void *
-IsaArenaPush(isa_arena *Arena, u64 Size)
+SdbArenaPush(sdb_arena *Arena, u64 Size)
 {
     if((Arena->Cur + Size) < Arena->Cap)
     {
@@ -465,13 +405,13 @@ IsaArenaPush(isa_arena *Arena, u64 Size)
 }
 
 void *
-IsaArenaPushZero(isa_arena *Arena, u64 Size)
+SdbArenaPushZero(sdb_arena *Arena, u64 Size)
 {
     if((Arena->Cur + Size) < Arena->Cap)
     {
         u8 *AllocedMem = Arena->Mem + Arena->Cur;
         Arena->Cur += Size;
-        IsaMemZero(AllocedMem, Size);
+        SdbMemZero(AllocedMem, Size);
 
         return (void *)AllocedMem;
     }
@@ -480,41 +420,41 @@ IsaArenaPushZero(isa_arena *Arena, u64 Size)
 }
 
 void
-IsaArenaPop(isa_arena *Arena, u64 Size)
+SdbArenaPop(sdb_arena *Arena, u64 Size)
 {
     assert(Arena->Cur >= Size);
     Arena->Cur -= Size;
 }
 
 u64
-IsaArenaGetPos(isa_arena *Arena)
+SdbArenaGetPos(sdb_arena *Arena)
 {
     u64 Pos = Arena->Cur;
     return Pos;
 }
 
 void
-IsaArenaSeek(isa_arena *Arena, u64 Pos)
+SdbArenaSeek(sdb_arena *Arena, u64 Pos)
 {
     assert(0 <= Pos && Pos <= Arena->Cap);
     Arena->Cur = Pos;
 }
 
 void
-IsaArenaClear(isa_arena *Arena)
+SdbArenaClear(sdb_arena *Arena)
 {
     Arena->Cur = 0;
 }
 
 void
-IsaArenaClearZero(isa_arena *Arena)
+SdbArenaClearZero(sdb_arena *Arena)
 {
-    IsaMemZero(Arena->Mem, Arena->Cap);
+    SdbMemZero(Arena->Mem, Arena->Cap);
     Arena->Cur = 0;
 }
 
 void
-IsaArrayShift(void *Mem, u64 From, u64 To, u64 Count, u64 ElementSize)
+SdbArrayShift(void *Mem, u64 From, u64 To, u64 Count, u64 ElementSize)
 {
     if(From != To)
     {
@@ -532,23 +472,18 @@ IsaArrayShift(void *Mem, u64 From, u64 To, u64 Count, u64 ElementSize)
     }
 }
 
-#define IsaArrayDeleteAndShift(mem, i, count, esize) IsaArrayShift(mem, (i + 1), i, count, esize)
+#define SdbArrayDeleteAndShift(mem, i, count, esize) SdbArrayShift(mem, (i + 1), i, count, esize)
 
-#define IsaPushArray(arena, type, count)     (type *)IsaArenaPush(arena, sizeof(type) * (count))
-#define IsaPushArrayZero(arena, type, count) (type *)IsaArenaPushZero(arena, sizeof(type) * (count))
+#define SdbPushArray(arena, type, count)     (type *)SdbArenaPush(arena, sizeof(type) * (count))
+#define SdbPushArrayZero(arena, type, count) (type *)SdbArenaPushZero(arena, sizeof(type) * (count))
 
-#define IsaPushStruct(arena, type)     IsaPushArray(arena, type, 1)
-#define IsaPushStructZero(arena, type) IsaPushArrayZero(arena, type, 1)
+#define SdbPushStruct(arena, type)     SdbPushArray(arena, type, 1)
+#define SdbPushStructZero(arena, type) SdbPushArrayZero(arena, type, 1)
 
-#define IsaNewSlice(arena, len, esize)                                                             \
-    {                                                                                              \
-        len, esize, (u8 *)IsaArenaPushZero(arena, len *esize)                                      \
-    }
-
-#define ISA_DEFINE_POOL_ALLOCATOR(type_name, func_name)                                            \
+#define SDB_DEFINE_POOL_ALLOCATOR(type_name, func_name)                                            \
     typedef struct type_name##_Pool                                                                \
     {                                                                                              \
-        isa_arena *Arena;                                                                          \
+        sdb_arena *Arena;                                                                          \
         type_name *FirstFree;                                                                      \
     } type_name##_pool;                                                                            \
                                                                                                    \
@@ -558,11 +493,11 @@ IsaArrayShift(void *Mem, u64 From, u64 To, u64 Count, u64 ElementSize)
         if(Result)                                                                                 \
         {                                                                                          \
             Pool->FirstFree = Pool->FirstFree->Next;                                               \
-            IsaMemZeroStruct(Result);                                                              \
+            SdbMemZeroStruct(Result);                                                              \
         }                                                                                          \
         else                                                                                       \
         {                                                                                          \
-            Result = IsaPushStructZero(Pool->Arena, type_name);                                    \
+            Result = SdbPushStructZero(Pool->Arena, type_name);                                    \
         }                                                                                          \
                                                                                                    \
         return Result;                                                                             \
@@ -574,14 +509,14 @@ IsaArrayShift(void *Mem, u64 From, u64 To, u64 Count, u64 ElementSize)
         Pool->FirstFree = Instance;                                                                \
     }
 
-typedef struct isa_string
+typedef struct sdb_string
 {
     u64         Len; /* Does not include the null terminator*/
     const char *S;   /* Will always be null-terminated for simplicity */
-} isa_string;
+} sdb_string;
 
 void
-IsaMemcpy(void *To, void *From, u64 Len)
+SdbMemcpy(void *To, void *From, u64 Len)
 {
     // NOTE(ingar): The compiler should replace this with memcpy if it's available
     for(u64 i = 0; i < Len; ++i)
@@ -591,7 +526,7 @@ IsaMemcpy(void *To, void *From, u64 Len)
 }
 
 u64
-IsaStrlen(const char *String)
+SdbStrlen(const char *String)
 {
     u64 Count = 0;
     while(*String++ != '\0')
@@ -603,11 +538,11 @@ IsaStrlen(const char *String)
 }
 
 char *
-IsaStrdup(char *String, isa_arena *Arena)
+SdbStrdup(char *String, sdb_arena *Arena)
 {
-    u64   StringLength = IsaStrlen(String);
-    char *NewString    = IsaPushArrayZero(Arena, char, StringLength + 1);
-    IsaMemcpy(NewString, String, StringLength);
+    u64   StringLength = SdbStrlen(String);
+    char *NewString    = SdbPushArrayZero(Arena, char, StringLength + 1);
+    SdbMemcpy(NewString, String, StringLength);
     NewString[StringLength] = '\0';
 
     return NewString;
@@ -624,7 +559,7 @@ typedef struct
     char **Function;
     int   *Line;
     char **File;
-} Isa__allocation_collection_entry__;
+} Sdb__allocation_collection_entry__;
 
 typedef struct
 {
@@ -637,12 +572,12 @@ typedef struct
     char **Function;
     int   *Line;
     char **File;
-} Isa__global_allocation_collection__;
+} Sdb__global_allocation_collection__;
 
-Isa__global_allocation_collection__ *
-Isa__GetGlobalAllocationCollection__(void)
+Sdb__global_allocation_collection__ *
+Sdb__GetGlobalAllocationCollection__(void)
 {
-    isa_persist Isa__global_allocation_collection__ Collection = { 0 };
+    sdb_persist Sdb__global_allocation_collection__ Collection = { 0 };
     return &Collection;
 }
 
@@ -651,9 +586,9 @@ Isa__GetGlobalAllocationCollection__(void)
 //  but the memory will not be zeroed the first time around, so we might want to
 //  do something about that
 bool
-Isa__AllocGlobalPointerCollection__(u64 NewCapacity)
+Sdb__AllocGlobalPointerCollection__(u64 NewCapacity)
 {
-    Isa__global_allocation_collection__ *Collection = Isa__GetGlobalAllocationCollection__();
+    Sdb__global_allocation_collection__ *Collection = Sdb__GetGlobalAllocationCollection__();
     u64                                  NewEnd     = NewCapacity - 1;
     if(Collection->End >= NewEnd)
     {
@@ -684,10 +619,10 @@ Isa__AllocGlobalPointerCollection__(u64 NewCapacity)
     return true;
 }
 
-Isa__allocation_collection_entry__
-Isa__GetGlobalAllocationCollectionEntry__(void *Pointer)
+Sdb__allocation_collection_entry__
+Sdb__GetGlobalAllocationCollectionEntry__(void *Pointer)
 {
-    Isa__global_allocation_collection__ *Collection = Isa__GetGlobalAllocationCollection__();
+    Sdb__global_allocation_collection__ *Collection = Sdb__GetGlobalAllocationCollection__();
 
     u64 Idx = 0;
     for(; Idx <= Collection->End; ++Idx)
@@ -701,11 +636,11 @@ Isa__GetGlobalAllocationCollectionEntry__(void *Pointer)
     if(Idx > Collection->End)
     {
         // TODO(ingar): Error handling
-        Isa__allocation_collection_entry__ Entry = { 0 };
+        Sdb__allocation_collection_entry__ Entry = { 0 };
         return Entry;
     }
 
-    Isa__allocation_collection_entry__ Entry;
+    Sdb__allocation_collection_entry__ Entry;
 
     Entry.Occupied = &Collection->Occupied[Idx];
     Entry.Pointer  = &Collection->Pointer[Idx];
@@ -717,9 +652,9 @@ Isa__GetGlobalAllocationCollectionEntry__(void *Pointer)
 }
 
 void
-Isa__RegisterNewAllocation__(void *Pointer, const char *Function, int Line, const char *File)
+Sdb__RegisterNewAllocation__(void *Pointer, const char *Function, int Line, const char *File)
 {
-    Isa__global_allocation_collection__ *Collection = Isa__GetGlobalAllocationCollection__();
+    Sdb__global_allocation_collection__ *Collection = Sdb__GetGlobalAllocationCollection__();
 
     // TODO(ingar): This loop should never fail if we don't run out of memory
     //  but I should still add some error handling at some point
@@ -733,7 +668,7 @@ Isa__RegisterNewAllocation__(void *Pointer, const char *Function, int Line, cons
             {
                 // TODO(ingar): Handle wrapping
             }
-            Isa__AllocGlobalPointerCollection__(NewCapacity);
+            Sdb__AllocGlobalPointerCollection__(NewCapacity);
         }
 
         if(!Collection->Occupied[i])
@@ -743,8 +678,8 @@ Isa__RegisterNewAllocation__(void *Pointer, const char *Function, int Line, cons
         }
     }
 
-    u64 FunctionNameLength = IsaStrlen(Function) + 1;
-    u64 FileNameLength     = IsaStrlen(File) + 1;
+    u64 FunctionNameLength = SdbStrlen(Function) + 1;
+    u64 FileNameLength     = SdbStrlen(File) + 1;
 
     char *FunctionNameString = (char *)malloc(FunctionNameLength);
     char *FileNameString     = (char *)malloc(FileNameLength);
@@ -770,9 +705,9 @@ Isa__RegisterNewAllocation__(void *Pointer, const char *Function, int Line, cons
  * @note Assumes that Pointer is not null
  */
 void
-Isa__RemoveAllocationFromGlobalCollection__(void *Pointer)
+Sdb__RemoveAllocationFromGlobalCollection__(void *Pointer)
 {
-    Isa__allocation_collection_entry__ Entry = Isa__GetGlobalAllocationCollectionEntry__(Pointer);
+    Sdb__allocation_collection_entry__ Entry = Sdb__GetGlobalAllocationCollectionEntry__(Pointer);
     if(!Entry.Pointer)
     {
         // TODO(ingar): Error handling
@@ -783,13 +718,13 @@ Isa__RemoveAllocationFromGlobalCollection__(void *Pointer)
     free(*Entry.Function);
     free(*Entry.File);
 
-    Isa__GetGlobalAllocationCollection__()->AllocationCount--;
+    Sdb__GetGlobalAllocationCollection__()->AllocationCount--;
 }
 
 void
-Isa__UpdateRegisteredAllocation__(void *Original, void *New)
+Sdb__UpdateRegisteredAllocation__(void *Original, void *New)
 {
-    Isa__global_allocation_collection__ *Collection = Isa__GetGlobalAllocationCollection__();
+    Sdb__global_allocation_collection__ *Collection = Sdb__GetGlobalAllocationCollection__();
 
     u64 Idx = 0;
     for(; Idx <= Collection->End; ++Idx)
@@ -810,20 +745,20 @@ Isa__UpdateRegisteredAllocation__(void *Original, void *New)
 }
 
 void *
-Isa__MallocTrace__(u64 Size, const char *Function, int Line, const char *File)
+Sdb__MallocTrace__(u64 Size, const char *Function, int Line, const char *File)
 {
     void *Pointer = malloc(Size);
 
     printf("MALLOC: In %s on line %d in %s:\n\n", Function, Line, File);
 #if MEM_LOG
-    Isa__RegisterNewAllocation(Pointer, Function, Line, File);
+    Sdb__RegisterNewAllocation(Pointer, Function, Line, File);
 #endif
 
     return Pointer;
 }
 
 void *
-Isa__CallocTrace__(u64 ElementCount, u64 ElementSize, const char *Function, int Line,
+Sdb__CallocTrace__(u64 ElementCount, u64 ElementSize, const char *Function, int Line,
                    const char *File)
 {
     void *Pointer = calloc(ElementCount, ElementSize);
@@ -834,14 +769,14 @@ Isa__CallocTrace__(u64 ElementCount, u64 ElementSize, const char *Function, int 
     {
         return NULL;
     }
-    Isa__RegisterNewAllocation(Pointer, Function, Line, File);
+    Sdb__RegisterNewAllocation(Pointer, Function, Line, File);
 #endif
 
     return Pointer;
 }
 
 void *
-Isa__ReallocTrace__(void *Pointer, u64 Size, const char *Function, int Line, const char *File)
+Sdb__ReallocTrace__(void *Pointer, u64 Size, const char *Function, int Line, const char *File)
 {
     if(!Pointer)
     {
@@ -850,14 +785,14 @@ Isa__ReallocTrace__(void *Pointer, u64 Size, const char *Function, int Line, con
 
     printf("REALLOC: In %s on line %d in %s\n", Function, Line, File);
 #if MEM_LOG
-    Isa__allocation_collection_entry Entry = Isa__GetGlobalAllocationCollectionEntry(Pointer);
+    Sdb__allocation_collection_entry Entry = Sdb__GetGlobalAllocationCollectionEntry(Pointer);
     if(!Entry.Pointer)
     {
         // TODO(ingar): Error handling
     }
     printf("         Previously allocated in %s on line %d in %s\n\n", *Entry.Function, *Entry.Line,
            *Entry.File);
-    Isa__RemoveAllocationFromGlobalCollection(Pointer);
+    Sdb__RemoveAllocationFromGlobalCollection(Pointer);
 #endif
 
     void *PointerRealloc = realloc(Pointer, Size);
@@ -865,13 +800,13 @@ Isa__ReallocTrace__(void *Pointer, u64 Size, const char *Function, int Line, con
     {
         return NULL;
     }
-    Isa__RegisterNewAllocation__(PointerRealloc, Function, Line, File);
+    Sdb__RegisterNewAllocation__(PointerRealloc, Function, Line, File);
 
     return PointerRealloc;
 }
 
 bool
-Isa__FreeTrace__(void *Pointer, const char *Function, int Line, const char *File)
+Sdb__FreeTrace__(void *Pointer, const char *Function, int Line, const char *File)
 {
     if(!Pointer)
     {
@@ -880,13 +815,13 @@ Isa__FreeTrace__(void *Pointer, const char *Function, int Line, const char *File
 
     printf("FREE: In %s on line %d in %s:\n", Function, Line, File);
 #if MEM_LOG
-    Isa__allocation_collection_entry Entry = Isa__GetGlobalAllocationCollectionEntry(Pointer);
+    Sdb__allocation_collection_entry Entry = Sdb__GetGlobalAllocationCollectionEntry(Pointer);
     if(!Entry.Pointer)
     {
         // TODO(ingar): Error handling
     }
     printf("      Allocated in %s on line %d in %s\n\n", *Entry.Function, *Entry.Line, *Entry.File);
-    Isa__RemoveAllocationFromGlobalCollection(Pointer);
+    Sdb__RemoveAllocationFromGlobalCollection(Pointer);
 #endif
 
     free(Pointer);
@@ -897,9 +832,9 @@ Isa__FreeTrace__(void *Pointer, const char *Function, int Line, const char *File
 // from now on, fixing this isn't a priority
 #if 0
 bool
-IsaInitAllocationCollection(u64 Capacity)
+SdbInitAllocationCollection(u64 Capacity)
 {
-    Isa__global_allocation_collection__ *Collection = Isa__GetGlobalAllocationCollection__();
+    Sdb__global_allocation_collection__ *Collection = Sdb__GetGlobalAllocationCollection__();
 
     void *OccupiedRealloc = calloc(Capacity, sizeof(bool));
     void *PointerRealloc  = calloc(Capacity, sizeof(void *));
@@ -926,9 +861,9 @@ IsaInitAllocationCollection(u64 Capacity)
 }
 
 void
-IsaPrintAllAllocations(void)
+SdbPrintAllAllocations(void)
 {
-    Isa__global_allocation_collection__ *Collection = Isa__GetGlobalAllocationCollection__();
+    Sdb__global_allocation_collection__ *Collection = Sdb__GetGlobalAllocationCollection__();
     if(Collection->AllocationCount > 0)
     {
         printf("DEBUG: Printing remaining allocations:\n");
@@ -947,10 +882,10 @@ IsaPrintAllAllocations(void)
 #endif
 
 #if MEM_TRACE
-#define malloc(Size)           Isa__MallocTrace__(Size, __func__, __LINE__, __FILE__)
-#define calloc(Count, Size)    Isa__CallocTrace__(Count, Size, __func__, __LINE__, __FILE__)
-#define realloc(Pointer, Size) Isa__ReallocTrace__(Pointer, Size, __func__, __LINE__, __FILE__)
-#define free(Pointer)          Isa__FreeTrace__(Pointer, __func__, __LINE__, __FILE__)
+#define malloc(Size)           Sdb__MallocTrace__(Size, __func__, __LINE__, __FILE__)
+#define calloc(Count, Size)    Sdb__CallocTrace__(Count, Size, __func__, __LINE__, __FILE__)
+#define realloc(Pointer, Size) Sdb__ReallocTrace__(Pointer, Size, __func__, __LINE__, __FILE__)
+#define free(Pointer)          Sdb__FreeTrace__(Pointer, __func__, __LINE__, __FILE__)
 
 #else // MEM_TRACE
 
@@ -965,41 +900,41 @@ IsaPrintAllAllocations(void)
 ////////////////////////////////////////
 
 u32 *
-Isa__GetPCGState__(void)
+Sdb__GetPCGState__(void)
 {
-    isa_persist uint32_t Isa__PCGState = 0;
-    return &Isa__PCGState;
+    sdb_persist uint32_t Sdb__PCGState = 0;
+    return &Sdb__PCGState;
 }
 
 // Implementation of the PCG algorithm (https://www.pcg-random.org)
 // It's the caller's responsibilites to have called SeedRandPCG before use
 u32
-IsaRandPCG(void)
+SdbRandPCG(void)
 {
-    u32 State             = *Isa__GetPCGState__();
-    *Isa__GetPCGState__() = State * 747796405u + 2891336453u;
+    u32 State             = *Sdb__GetPCGState__();
+    *Sdb__GetPCGState__() = State * 747796405u + 2891336453u;
     u32 Word              = ((State >> ((State >> 28u) + 4u)) ^ State) * 277803737u;
     return (Word >> 22u) ^ Word;
 }
 
 void
-IsaSeedRandPCG(uint32_t Seed)
+SdbSeedRandPCG(uint32_t Seed)
 {
-    *Isa__GetPCGState__() = Seed;
+    *Sdb__GetPCGState__() = Seed;
 }
 
 /////////////////////////////////////////
 //              FILE IO                //
 /////////////////////////////////////////
 
-typedef struct isa_file_data
+typedef struct sdb_file_data
 {
     u64 Size;
     u8 *Data;
-} isa_file_data;
+} sdb_file_data;
 
-isa_file_data *
-IsaLoadFileIntoMemory(const char *Filename, isa_arena *Arena)
+sdb_file_data *
+SdbLoadFileIntoMemory(const char *Filename, sdb_arena *Arena)
 {
     FILE *fd = fopen(Filename, "rb");
     if(!fd)
@@ -1016,8 +951,8 @@ IsaLoadFileIntoMemory(const char *Filename, isa_arena *Arena)
     u64 FileSize = (u64)ftell(fd);
     rewind(fd);
 
-    isa_file_data *FileData = IsaPushStructZero(Arena, isa_file_data);
-    FileData->Data          = IsaPushArray(Arena, u8, FileSize + 1);
+    sdb_file_data *FileData = SdbPushStructZero(Arena, sdb_file_data);
+    FileData->Data          = SdbPushArray(Arena, u8, FileSize + 1);
     /*
     if(!FileData)
     {
@@ -1032,7 +967,7 @@ IsaLoadFileIntoMemory(const char *Filename, isa_arena *Arena)
     if(BytesRead != FileSize)
     {
         fclose(fd);
-        IsaArenaPop(Arena, sizeof(isa_file_data) + FileData->Size + 1);
+        SdbArenaPop(Arena, sizeof(sdb_file_data) + FileData->Size + 1);
         return NULL;
     }
 
@@ -1043,7 +978,7 @@ IsaLoadFileIntoMemory(const char *Filename, isa_arena *Arena)
 }
 
 bool
-IsaWriteBufferToFile(void *Buffer, u64 ElementSize, u64 ElementCount, const char *Filename)
+SdbWriteBufferToFile(void *Buffer, u64 ElementSize, u64 ElementCount, const char *Filename)
 {
     FILE *fd = fopen(Filename, "wb");
     if(!fd)
@@ -1058,7 +993,7 @@ IsaWriteBufferToFile(void *Buffer, u64 ElementSize, u64 ElementCount, const char
 }
 
 bool
-IsaWrite_isa_file_data_ToFile(isa_file_data *FileData, const char *Filename)
+SdbWrite_sdb_file_data_ToFile(sdb_file_data *FileData, const char *Filename)
 {
     FILE *fd = fopen(Filename, "wb");
     if(!fd)
@@ -1079,14 +1014,14 @@ IsaWrite_isa_file_data_ToFile(isa_file_data *FileData, const char *Filename)
 
 // TODO(ingar): This is not a general purpose tokenizer,
 // but it is an example of an implementation
-typedef struct isa_token
+typedef struct sdb_token
 {
     char *Start;
     u64   Len;
-} isa_token;
+} sdb_token;
 
-isa_token
-IsaGetNextToken(char **Cursor)
+sdb_token
+SdbGetNextToken(char **Cursor)
 {
     while('\t' != **Cursor)
     {
@@ -1095,7 +1030,7 @@ IsaGetNextToken(char **Cursor)
 
     (*Cursor)++; // Skips to start of hex number
 
-    isa_token Token;
+    sdb_token Token;
     Token.Start = *Cursor;
     Token.Len   = 0;
 
@@ -1114,9 +1049,9 @@ IsaGetNextToken(char **Cursor)
 }
 
 #if defined(__cplusplus)
-ISA_END_EXTERN_C
+SDB_END_EXTERN_C
 #endif
 
 // NOLINTEND(misc-definitions-in-headers)
 
-#endif // ISA_H_
+#endif // SDB_H_
