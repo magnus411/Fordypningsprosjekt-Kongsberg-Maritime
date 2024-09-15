@@ -1,8 +1,8 @@
 #define SDB_LOG_LEVEL    4
-#define SDB_LOG_BUF_SIZE 256
+#define SDB_LOG_BUF_SIZE 1024
 #include "sdb.h"
 
-SDB_LOG_REGISTER(main);
+SDB_LOG_REGISTER(Main);
 
 #include <stdlib.h>
 #include <libpq-fe.h>
