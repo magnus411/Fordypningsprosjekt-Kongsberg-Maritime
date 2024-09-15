@@ -1,5 +1,5 @@
-#define ISA_LOG_LEVEL    4
-#define ISA_LOG_BUF_SIZE 256
+#define SDB_LOG_LEVEL    4
+#define SDB_LOG_BUF_SIZE 256
 #include "sdb.h"
 
 SDB_LOG_REGISTER(main);
