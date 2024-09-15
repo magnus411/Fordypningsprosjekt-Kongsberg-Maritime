@@ -37,6 +37,8 @@ SDB_BEGIN_EXTERN_C
 #define sdb_persist  static
 #define sdb_global   static
 
+// TODO(ingar): Add support for custom errno codes
+/* 0 is defined as success; negative errno code otherwise. */
 typedef int_least32_t sdb_errno;
 
 typedef uint8_t  u8;
@@ -130,7 +132,7 @@ Sdb__WriteLog__(sdb__log_module__ *Module, const char *LogLevel, va_list VaArgs)
     time_t    PosixTime;
     struct tm TimeInfo;
 
-    if((time_t)-1 == time(&PosixTime))
+    if((time_t)(-1) == time(&PosixTime))
     {
         return -errno;
     }
@@ -174,7 +176,6 @@ Sdb__WriteLog__(sdb__log_module__ *Module, const char *LogLevel, va_list VaArgs)
     const char *FormatString = va_arg(VaArgs, const char *);
     FormatRet = vsnprintf(Module->Buffer + CharsWritten, BufferRemaining, FormatString, VaArgs);
 
-    sdb_errno MessageFormatFailed = 0;
     if(FormatRet < 0)
     {
         return -errno;
@@ -182,9 +183,17 @@ Sdb__WriteLog__(sdb__log_module__ *Module, const char *LogLevel, va_list VaArgs)
     else if((u64)FormatRet >= BufferRemaining)
     {
         (void)memset(Module->Buffer + CharsWritten, 0, BufferRemaining);
-        FormatRet           = snprintf(Module->Buffer + CharsWritten, BufferRemaining, "%s",
-                                       "Message dropped; too big");
-        MessageFormatFailed = -ENOMEM;
+        FormatRet = snprintf(Module->Buffer + CharsWritten, BufferRemaining, "%s",
+                             "Message dropped; too big");
+        if(FormatRet < 0)
+        {
+            return -errno;
+        }
+        else if((u64)FormatRet >= BufferRemaining)
+        {
+            assert(FormatRet);
+            return -ENOMEM;
+        }
     }
 
     CharsWritten += FormatRet;
@@ -200,12 +209,12 @@ Sdb__WriteLog__(sdb__log_module__ *Module, const char *LogLevel, va_list VaArgs)
         OutFd = STDOUT_FILENO;
     }
 
-    if(ssize_t(-1) == write(OutFd, Module->Buffer, CharsWritten))
+    if((ssize_t)(-1) == write(OutFd, Module->Buffer, CharsWritten))
     {
         return -errno;
     }
 
-    return (-ENOMEM == MessageFormatFailed) ? MessageFormatFailed : 0;
+    return 0;
 }
 
 sdb_errno
@@ -244,34 +253,33 @@ Sdb__WriteLogNoModule__(const char *LogLevel, const char *FunctionName, ...)
 
 #define SDB_LOG_LEVEL_NONE (0U)
 #define SDB_LOG_LEVEL_ERR  (1U)
-#define SDB_LOG_LEVEL_WRN  (2U)
 #define SDB_LOG_LEVEL_INF  (3U)
 #define SDB_LOG_LEVEL_DBG  (4U)
 
 #define SDB__LOG_LEVEL_CHECK__(level) (SDB_LOG_LEVEL >= SDB_LOG_LEVEL_##level)
 
 #define SDB_LOG_REGISTER(module_name)                                                              \
-    sdb_global char              SDB_CONCAT3(Sdb__LogModule, module_name, __)[SDB_LOG_BUF_SIZE];   \
+    sdb_global char SDB_CONCAT3(Sdb__LogModule, module_name, Buffer__)[SDB_LOG_BUF_SIZE];          \
     sdb_global sdb__log_module__ SDB_CONCAT3(Sdb__LogModule, module_name, __)                      \
         = { .Name       = #module_name,                                                            \
             .BufferSize = SDB_LOG_BUF_SIZE,                                                        \
-            .Buffer     = SDB_CONCAT3(Sdb__LogModule, module_name, __) };                              \
+            .Buffer     = SDB_CONCAT3(Sdb__LogModule, module_name, Buffer__) };                        \
     sdb_global sdb__log_module__ *Sdb__LogInstance__ = &SDB_CONCAT3(Sdb__LogModule, module_name, __)
 
 #define SDB_LOG_DECLARE_EXTERN(name)                                                               \
     extern sdb__log_module__      SDB_CONCAT3(Sdb__LogModule, name, __);                           \
     sdb_global sdb__log_module__ *Sdb__LogInstance__ = &SDB_CONCAT3(Sdb__LogModule, name, __)
 
-#define SDB_LOG_DECLARE_SAME_TU extern struct sdb__log_module__ *Sdb__LogInstance__
+#define SDB_LOG_DECLARE_SAME_TU extern struct sdb__log_module__ *Sdb__LogInsta
 
 #define SDB__LOG__(log_level, ...)                                                                 \
     do                                                                                             \
     {                                                                                              \
         if(SDB__LOG_LEVEL_CHECK__(log_level))                                                      \
         {                                                                                          \
-            sdb_errno Ret = Sdb__WriteLogIntermediate__(Sdb__LogInstance__,                        \
-                                                        SDB_STRINGIFY(log_level), __VA_ARGS__);    \
-            assert(Ret >= 0);                                                                      \
+            sdb_errno LogRet = Sdb__WriteLogIntermediate__(Sdb__LogInstance__,                     \
+                                                           SDB_STRINGIFY(log_level), __VA_ARGS__); \
+            assert(LogRet >= 0);                                                                   \
         }                                                                                          \
     } while(0)
 
@@ -280,9 +288,9 @@ Sdb__WriteLogNoModule__(const char *LogLevel, const char *FunctionName, ...)
     {                                                                                              \
         if(SDB__LOG_LEVEL_CHECK__(log_level))                                                      \
         {                                                                                          \
-            sdb_errno Ret                                                                          \
+            sdb_errno LogRet                                                                       \
                 = Sdb__WriteLogNoModule__(SDB_STRINGIFY(log_level), __func__, __VA_ARGS__);        \
-            assert(Ret >= 0);                                                                      \
+            assert(LogRet >= 0);                                                                   \
         }                                                                                          \
     } while(0)
 
@@ -984,8 +992,8 @@ Sdb__FreeTrace__(void *Pointer, const char *Function, int Line, const char *File
     return true;
 }
 
-// TODO(ingar): Pretty sure this code is busted. Considering I'm mostly going to be using arenas
-// from now on, fixing this isn't a priority
+// TODO(ingar): Pretty sure this code is busted. Considering I'm mostly going to be
+// using arenas from now on, fixing this isn't a priority
 #if 0
 bool
 SdbInitAllocationCollection(u64 Capacity)
