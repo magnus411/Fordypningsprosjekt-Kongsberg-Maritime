@@ -6,8 +6,9 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 cd "$DIR"
 
-mkdir -p build
+mkdir -p Build
 
+SRC="Code/Main.c Code/DatabaseModule.c"
 LIBS="-lpq"
 
 if [ "$1" = "release" ]; then
@@ -18,6 +19,6 @@ else
     CFLAGS="-g -O0 -Wall -Wextra -pedantic -DDEBUG"
 fi
 
-clang $CFLAGS src/main.c -o build/SensorDB $LIBS
+clang $CFLAGS $SRC -o Build/SensorDB $LIBS
 
 cd "$ORIGINAL_DIR"

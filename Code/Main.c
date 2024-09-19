@@ -1,6 +1,6 @@
 #define SDB_LOG_LEVEL    4
 #define SDB_LOG_BUF_SIZE 1024
-#include "sdb.h"
+#include "Sdb.h"
 
 SDB_LOG_REGISTER(Main);
 
