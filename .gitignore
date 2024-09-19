@@ -133,6 +133,7 @@ Thumbs.db
 **/Build
 
 # Different developers will have different configs
+Configs
 configs
 
 # clangd
