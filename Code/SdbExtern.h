@@ -1,6 +1,8 @@
 #ifndef SDB_EXTERN_H_
 #define SDB_EXTERN_H_
 
+#ifndef SDB_H_
+
 // NOLINTBEGIN(misc-definitions-in-headers)
 
 #include <assert.h>
@@ -466,5 +468,7 @@ SdbPrintAllAllocations(void)
 #if defined(__cplusplus)
 SDB_END_EXTERN_C
 #endif
+
+#endif // SDB_H_
 
 #endif // SDB_EXTERN_H_

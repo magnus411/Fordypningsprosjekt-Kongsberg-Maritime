@@ -2,6 +2,8 @@
 #define SDB_LOG_BUF_SIZE 1024
 #include "Sdb.h"
 
+#include "DatabaseModule.h"
+
 SDB_LOG_REGISTER(Main);
 
 #include <stdlib.h>
@@ -16,9 +18,11 @@ typedef struct
 } sensor_schema;
 
 sdb_internal void
-GetSensorSchemasFromDb(PGconn *Connection, sensor_schema **Schemas, int *SchemaCount,
-                       sdb_arena *Arena)
+GetSensorSchemasFromDb(PGconn *Connection, sdb_arena *Arena)
 {
+
+    sensor_schema *Schemas     = NULL;
+    int            SchemaCount = 0;
 
     const char *Query      = "SELECT id, name, sample_rate, variables FROM sensor_schemas";
     PGresult   *ExecResult = PQexec(Connection, Query);
@@ -30,15 +34,21 @@ GetSensorSchemasFromDb(PGconn *Connection, sensor_schema **Schemas, int *SchemaC
         return;
     }
 
-    *SchemaCount = PQntuples(ExecResult);
-    *Schemas     = SdbPushArray(Arena, sensor_schema, *SchemaCount);
+    SchemaCount = PQntuples(ExecResult);
+    Schemas     = SdbPushArray(Arena, sensor_schema, SchemaCount);
 
-    for(int i = 0; i < *SchemaCount; ++i)
+    for(int i = 0; i < SchemaCount; ++i)
     {
-        (*Schemas)[i].Id         = atoi(PQgetvalue(ExecResult, i, 0));
-        (*Schemas)[i].Name       = SdbStrdup(PQgetvalue(ExecResult, i, 1), Arena);
-        (*Schemas)[i].SampleRate = atoi(PQgetvalue(ExecResult, i, 2));
-        (*Schemas)[i].Variables  = SdbStrdup(PQgetvalue(ExecResult, i, 3), Arena);
+        Schemas[i].Id         = atoi(PQgetvalue(ExecResult, i, 0));
+        Schemas[i].Name       = SdbStrdup(PQgetvalue(ExecResult, i, 1), Arena);
+        Schemas[i].SampleRate = atoi(PQgetvalue(ExecResult, i, 2));
+        Schemas[i].Variables  = SdbStrdup(PQgetvalue(ExecResult, i, 3), Arena);
+    }
+
+    for(int i = 0; i < SchemaCount; i++)
+    {
+        SdbLogDebug("Template ID: %d, Name: %s, Sample Rate: %d, Variables: %s\n", Schemas[i].Id,
+                    Schemas[i].Name, Schemas[i].SampleRate, Schemas[i].Variables);
     }
 
     PQclear(ExecResult);
@@ -81,15 +91,8 @@ main(int ArgCount, char **ArgV)
 
     SdbLogInfo("Connected!");
 
-    sensor_schema *Schemas     = NULL;
-    int            SchemaCount = 0;
-    GetSensorSchemasFromDb(Connection, &Schemas, &SchemaCount, &MainArena);
-
-    for(int i = 0; i < SchemaCount; i++)
-    {
-        SdbLogDebug("Template ID: %d, Name: %s, Sample Rate: %d, Variables: %s\n", Schemas[i].Id,
-                    Schemas[i].Name, Schemas[i].SampleRate, Schemas[i].Variables);
-    }
+    //    GetSensorSchemasFromDb(Connection, &MainArena);
+    TestBinaryInsert(Connection);
 
     PQfinish(Connection);
 
