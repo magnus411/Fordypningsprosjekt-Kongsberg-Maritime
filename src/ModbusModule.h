@@ -3,6 +3,6 @@
 
 #include "CircularBuffer.h"
 
-void *modbus_thread(void *arg);
+void *ModbusThread(void *arg);
 
 #endif /* MODBUSMODULE_H */

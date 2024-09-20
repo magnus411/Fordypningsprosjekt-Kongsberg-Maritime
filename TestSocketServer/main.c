@@ -114,24 +114,28 @@ main(void)
             perror("accept");
             continue;
         }
-
-        inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *)&their_addr), s, sizeof s);
-        printf("server: got connection from %s\n", s);
-
-        // Send "Hello, world!" every 2 seconds
-        while(1)
+        else
         {
-            int send_result = send(new_fd, "Hello, world!", 13, 0);
-            if(send_result == -1)
-            {
-                perror("send");
-                close(new_fd); // Close the client socket on error
-                break;
-            }
+            break;
         }
-
-        close(new_fd); // Close the connection after the client disconnects
     }
+    inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *)&their_addr), s, sizeof s);
+    printf("server: got connection from %s\n", s);
+
+    // Send "Hello, world!" every 2 seconds
+    while(1)
+    {
+        int send_result = send(new_fd, "Hello, world!", 13, 0);
+        if(send_result == -1)
+        {
+            perror("send");
+            close(new_fd); // Close the client socket on error
+            break;
+        }
+        sleep(1); // Sleep for 2 seconds
+    }
+
+    close(new_fd); // Close the connection after the client disconnects
 
     return 0;
 }

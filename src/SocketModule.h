@@ -20,7 +20,7 @@
  *
  ***************************************************/
 
-int CreateSocket(const char *ip_address, int port);
+int CreateSocket(const char *IpAddress, int Port);
 
 // Event callback for socket read operations
 
