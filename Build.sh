@@ -8,7 +8,7 @@ cd "$DIR"
 
 mkdir -p Build
 
-SRC="Code/Main.c Code/DatabaseModule.c"
+SRC="Code/Main.c Code/DatabaseModule.c Code/Postgres.c"
 LIBS="-lpq"
 
 if [ "$1" = "release" ]; then
