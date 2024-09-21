@@ -18,6 +18,9 @@ column_info *GetTableStructure(PGconn *DbConn, const char *TableName, int *NCols
 void InsertSensorData(PGconn *DbConn, const char *TableName, const u8 *SensorData,
                       size_t BufferSize);
 
+void
+TestGetMetadata(PGconn *DbConn, char *MetadataQuery, int *ColCount /* Typical libpq convention that variables for sizes are passed in an filled out by the function */);
+
 void TestBinaryInsert(PGconn *DbConnection);
 
 /* Test stuff */
