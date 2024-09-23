@@ -5,10 +5,10 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <time.h>
+#include <getopt.h>
 
 #define MODBUS_TCP_HEADER_LEN 7
 #define MAX_MODBUS_PDU_SIZE   253
-#define MODBUS_PORT           3490
 #define BACKLOG               5
 
 #define READ_HOLDING_REGISTERS 0x03
@@ -48,13 +48,12 @@ GenerateModbusTcpFrame(uint8_t *Buffer, uint16_t TransactionId, uint16_t Protoco
 }
 
 int
-SendModbusData(int NewFd)
+SendModbusData(int NewFd, uint16_t UnitId)
 {
     uint8_t ModbusFrame[MODBUS_TCP_HEADER_LEN + MAX_MODBUS_PDU_SIZE];
 
     uint16_t TransactionId = 1;
     uint16_t ProtocolId    = 0;
-    uint16_t UnitId        = 1;
     uint8_t  FunctionCode  = READ_HOLDING_REGISTERS;
 
     uint8_t Data[6];
@@ -78,7 +77,7 @@ SendModbusData(int NewFd)
 }
 
 int
-main(void)
+main(int argc, char **argv)
 {
     srand(time(NULL));
 
@@ -87,7 +86,30 @@ main(void)
     socklen_t          SinSize;
     char               ClientIp[INET6_ADDRSTRLEN];
 
-    // Create the socket
+    int      port   = 3490;
+    uint16_t unitId = 1;
+    int      speed  = 1;
+
+    int opt;
+    while((opt = getopt(argc, argv, "p:u:s:")) != -1)
+    {
+        switch(opt)
+        {
+            case 'p':
+                port = atoi(optarg);
+                break;
+            case 'u':
+                unitId = (uint16_t)atoi(optarg);
+                break;
+            case 's':
+                speed = atoi(optarg);
+                break;
+            default:
+                fprintf(stderr, "Usage: %s [-p port] [-u unitId] [-s speed]\n", argv[0]);
+                exit(EXIT_FAILURE);
+        }
+    }
+
     SockFd = socket(AF_INET, SOCK_STREAM, 0);
     if(SockFd == -1)
     {
@@ -96,7 +118,7 @@ main(void)
     }
 
     ServerAddr.sin_family      = AF_INET;
-    ServerAddr.sin_port        = htons(MODBUS_PORT);
+    ServerAddr.sin_port        = htons(port);
     ServerAddr.sin_addr.s_addr = INADDR_ANY;
     memset(&(ServerAddr.sin_zero), '\0', 8);
 
@@ -114,7 +136,7 @@ main(void)
         exit(1);
     }
 
-    printf("Server: waiting for connections...\n");
+    printf("Server: waiting for connections on port %d...\n", port);
 
     while(1)
     {
@@ -131,12 +153,12 @@ main(void)
 
         while(1)
         {
-            if(SendModbusData(NewFd) == -1)
+            if(SendModbusData(NewFd, unitId) == -1)
             {
                 close(NewFd);
                 break;
             }
-            sleep(1);
+            sleep(speed);
         }
     }
 
