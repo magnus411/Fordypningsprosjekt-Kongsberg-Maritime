@@ -1,141 +1,145 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <errno.h>
 #include <string.h>
-#include <sys/types.h>
 #include <sys/socket.h>
-#include <netinet/in.h>
-#include <netdb.h>
 #include <arpa/inet.h>
-#include <sys/wait.h>
-#include <signal.h>
+#include <time.h>
 
-#define PORT    "3490" // the port users will be connecting to
-#define BACKLOG 5      // how many pending connections queue will hold
+#define MODBUS_TCP_HEADER_LEN 7
+#define MAX_MODBUS_PDU_SIZE   253
+#define MODBUS_PORT           3490
+#define BACKLOG               5
+
+#define READ_HOLDING_REGISTERS 0x03
 
 void
-sigchld_handler(int s)
+GeneratePowerShaftData(uint8_t *DataBuffer)
 {
-    int saved_errno = errno;
-    while(waitpid(-1, NULL, WNOHANG) > 0)
-        ;
-    errno = saved_errno;
+    // Simulated power shaft data (32-bit values split into two 16-bit registers)
+    uint32_t Power  = rand() % 1000 + 100; //  Power in kW (random between 100 and 1000)
+    uint32_t Torque = rand() % 500 + 50;   // Torque in Nm (random between 50 and 550)
+    uint32_t Rpm    = rand() % 5000 + 500; // RPM (random between 500 and 5500)
+
+    // Store data in 16-bit register format (big-endian)
+    DataBuffer[0] = (Power >> 8) & 0xFF;  // Power high byte
+    DataBuffer[1] = Power & 0xFF;         // Power low byte
+    DataBuffer[2] = (Torque >> 8) & 0xFF; // Torque high byte
+    DataBuffer[3] = Torque & 0xFF;        // Torque low byte
+    DataBuffer[4] = (Rpm >> 8) & 0xFF;    // RPM high byte
+    DataBuffer[5] = Rpm & 0xFF;           // RPM low byte
 }
 
-void *
-get_in_addr(struct sockaddr *sa)
+void
+GenerateModbusTcpFrame(uint8_t *Buffer, uint16_t TransactionId, uint16_t ProtocolId,
+                       uint16_t Length, uint8_t UnitId, uint8_t FunctionCode, uint8_t *Data,
+                       uint16_t DataLength)
 {
-    if(sa->sa_family == AF_INET)
+    Buffer[0] = (TransactionId >> 8) & 0xFF;
+    Buffer[1] = TransactionId & 0xFF;
+    Buffer[2] = (ProtocolId >> 8) & 0xFF;
+    Buffer[3] = ProtocolId & 0xFF;
+    Buffer[4] = (Length >> 8) & 0xFF;
+    Buffer[5] = Length & 0xFF;
+    Buffer[6] = UnitId;
+    Buffer[7] = FunctionCode;
+    Buffer[8] = DataLength;
+    memcpy(&Buffer[9], Data, DataLength);
+}
+
+int
+SendModbusData(int NewFd)
+{
+    uint8_t ModbusFrame[MODBUS_TCP_HEADER_LEN + MAX_MODBUS_PDU_SIZE];
+
+    uint16_t TransactionId = 1;
+    uint16_t ProtocolId    = 0;
+    uint16_t UnitId        = 1;
+    uint8_t  FunctionCode  = READ_HOLDING_REGISTERS;
+
+    uint8_t Data[6];
+    GeneratePowerShaftData(Data);
+
+    uint16_t DataLength = sizeof(Data);
+
+    uint16_t Length = DataLength + 3;
+
+    GenerateModbusTcpFrame(ModbusFrame, TransactionId, ProtocolId, Length, UnitId, FunctionCode,
+                           Data, DataLength);
+
+    ssize_t SendResult = send(NewFd, ModbusFrame, MODBUS_TCP_HEADER_LEN + Length, 0);
+    if(SendResult == -1)
     {
-        return &(((struct sockaddr_in *)sa)->sin_addr);
+        perror("send");
+        return -1;
     }
-    return &(((struct sockaddr_in6 *)sa)->sin6_addr);
+
+    return 0;
 }
 
 int
 main(void)
 {
-    int                     sockfd, new_fd;
-    struct addrinfo         hints, *servinfo, *p;
-    struct sockaddr_storage their_addr;
-    socklen_t               sin_size;
-    struct sigaction        sa;
-    int                     yes = 1;
-    char                    s[INET6_ADDRSTRLEN];
-    int                     rv;
+    srand(time(NULL));
 
-    memset(&hints, 0, sizeof hints);
-    hints.ai_family   = AF_UNSPEC;
-    hints.ai_socktype = SOCK_STREAM;
-    hints.ai_flags    = AI_PASSIVE; // use my IP
+    int                SockFd, NewFd;
+    struct sockaddr_in ServerAddr, ClientAddr;
+    socklen_t          SinSize;
+    char               ClientIp[INET6_ADDRSTRLEN];
 
-    if((rv = getaddrinfo(NULL, PORT, &hints, &servinfo)) != 0)
+    // Create the socket
+    SockFd = socket(AF_INET, SOCK_STREAM, 0);
+    if(SockFd == -1)
     {
-        fprintf(stderr, "getaddrinfo: %s\n", gai_strerror(rv));
-        return 1;
-    }
-
-    for(p = servinfo; p != NULL; p = p->ai_next)
-    {
-        if((sockfd = socket(p->ai_family, p->ai_socktype, p->ai_protocol)) == -1)
-        {
-            perror("server: socket");
-            continue;
-        }
-
-        if(setsockopt(sockfd, SOL_SOCKET, SO_REUSEADDR, &yes, sizeof(int)) == -1)
-        {
-            perror("setsockopt");
-            exit(1);
-        }
-
-        if(bind(sockfd, p->ai_addr, p->ai_addrlen) == -1)
-        {
-            close(sockfd);
-            perror("server: bind");
-            continue;
-        }
-
-        break;
-    }
-
-    freeaddrinfo(servinfo);
-
-    if(p == NULL)
-    {
-        fprintf(stderr, "server: failed to bind\n");
+        perror("socket");
         exit(1);
     }
 
-    if(listen(sockfd, BACKLOG) == -1)
+    ServerAddr.sin_family      = AF_INET;
+    ServerAddr.sin_port        = htons(MODBUS_PORT);
+    ServerAddr.sin_addr.s_addr = INADDR_ANY;
+    memset(&(ServerAddr.sin_zero), '\0', 8);
+
+    if(bind(SockFd, (struct sockaddr *)&ServerAddr, sizeof(struct sockaddr)) == -1)
+    {
+        perror("bind");
+        close(SockFd);
+        exit(1);
+    }
+
+    if(listen(SockFd, BACKLOG) == -1)
     {
         perror("listen");
+        close(SockFd);
         exit(1);
     }
 
-    sa.sa_handler = sigchld_handler;
-    sigemptyset(&sa.sa_mask);
-    sa.sa_flags = SA_RESTART;
-    if(sigaction(SIGCHLD, &sa, NULL) == -1)
-    {
-        perror("sigaction");
-        exit(1);
-    }
-
-    printf("server: waiting for connections...\n");
+    printf("Server: waiting for connections...\n");
 
     while(1)
     {
-        sin_size = sizeof their_addr;
-        new_fd   = accept(sockfd, (struct sockaddr *)&their_addr, &sin_size);
-        if(new_fd == -1)
+        SinSize = sizeof(ClientAddr);
+        NewFd   = accept(SockFd, (struct sockaddr *)&ClientAddr, &SinSize);
+        if(NewFd == -1)
         {
             perror("accept");
             continue;
         }
-        else
+
+        inet_ntop(ClientAddr.sin_family, &(ClientAddr.sin_addr), ClientIp, sizeof(ClientIp));
+        printf("Server: got connection from %s\n", ClientIp);
+
+        while(1)
         {
-            break;
+            if(SendModbusData(NewFd) == -1)
+            {
+                close(NewFd);
+                break;
+            }
+            sleep(1);
         }
     }
-    inet_ntop(their_addr.ss_family, get_in_addr((struct sockaddr *)&their_addr), s, sizeof s);
-    printf("server: got connection from %s\n", s);
 
-    // Send "Hello, world!" every 2 seconds
-    while(1)
-    {
-        int send_result = send(new_fd, "Hello, world!", 13, 0);
-        if(send_result == -1)
-        {
-            perror("send");
-            close(new_fd); // Close the client socket on error
-            break;
-        }
-        sleep(1); // Sleep for 2 seconds
-    }
-
-    close(new_fd); // Close the connection after the client disconnects
-
+    close(SockFd);
     return 0;
 }
