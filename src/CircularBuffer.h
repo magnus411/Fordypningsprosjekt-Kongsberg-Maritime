@@ -9,14 +9,6 @@
 
 typedef struct
 {
-    int     Protocol;
-    int     UnitId;
-    uint8_t Data[MAX_DATA_LENGTH];
-    size_t  DataLength;
-} QueueItem;
-
-typedef struct
-{
     void           *Buffer;
     size_t          Size;
     size_t          Head;
