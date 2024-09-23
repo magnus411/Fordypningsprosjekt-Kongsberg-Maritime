@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include "sdb.h"
+#include "SdbExtern.h"
 
 void
 InitCircularBuffer(CircularBuffer *Cb, size_t Size)
@@ -61,6 +61,7 @@ InsertToBuffer(CircularBuffer *Cb, void *Data, size_t Size)
 
     while(IsFull(Cb))
     {
+        fprintf(stderr, "Buffer is full. Waiting for read operation.\n");
         pthread_cond_wait(&Cb->NotFull, &Cb->WriteLock);
     }
 

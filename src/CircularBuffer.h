@@ -4,11 +4,15 @@
 #include <pthread.h>
 #include <stdint.h>
 #include <stdbool.h>
+
+#define MAX_DATA_LENGTH 260
+
 typedef struct
 {
-    int   Protocol;
-    int   SensorId;
-    void *Data;
+    int     Protocol;
+    int     UnitId;
+    uint8_t Data[MAX_DATA_LENGTH];
+    size_t  DataLength;
 } QueueItem;
 
 typedef struct
