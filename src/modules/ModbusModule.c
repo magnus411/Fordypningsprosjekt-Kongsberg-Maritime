@@ -8,7 +8,6 @@
 #include "ModbusModule.h"
 #include "SocketModule.h"
 #include "../CircularBuffer.h"
-#define MODBUS_PORT           3490
 #define MODBUS_TCP_HEADER_LEN 7
 #define MAX_MODBUS_TCP_FRAME  260
 
@@ -112,8 +111,11 @@ ParseModbusTCPFrame(const char *Buf, int NumBytes, QueueItem *Item)
 void *
 ModbusThread(void *arg)
 {
-    CircularBuffer *Cb     = (CircularBuffer *)arg;
-    int             SockFd = CreateSocket("127.0.0.1", MODBUS_PORT);
+    ModbusArgs modbus;
+    memcpy(&modbus, arg, sizeof(ModbusArgs));
+
+    CircularBuffer *Cb     = modbus.Cb;
+    int             SockFd = CreateSocket(modbus.Ip, modbus.PORT);
     if(SockFd == -1)
     {
         pthread_exit(NULL);
