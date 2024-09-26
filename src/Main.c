@@ -1,5 +1,4 @@
-#define SDB_LOG_LEVEL    4
-#define SDB_LOG_BUF_SIZE 1024
+#define SDB_LOG_LEVEL 4
 #include "Sdb.h"
 
 #include "Postgres.h"
@@ -52,42 +51,6 @@ GetSensorSchemasFromDb(PGconn *Connection, sdb_arena *Arena)
     PQclear(ExecResult);
 }
 
-void
-DiagnoseConnectionAndTable(PGconn *DbConn, const char *TableName)
-{
-    printf("Connected to database: %s\n", PQdb(DbConn));
-    printf("User: %s\n", PQuser(DbConn));
-
-    // Check if the table exists
-    const char *TableCheckQuery
-        = "SELECT EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = $1)";
-    const char *ParamValues[1] = { TableName };
-    PGresult   *TableCheckResult
-        = PQexecParams(DbConn, TableCheckQuery, 1, NULL, ParamValues, NULL, NULL, 0);
-
-    if(PQresultStatus(TableCheckResult) == PGRES_TUPLES_OK && PQntuples(TableCheckResult) > 0) {
-        printf("Table '%s' exists: %s\n", TableName,
-               strcmp(PQgetvalue(TableCheckResult, 0, 0), "t") == 0 ? "Yes" : "No");
-    } else {
-        printf("Error checking table existence: %s\n", PQerrorMessage(DbConn));
-    }
-    PQclear(TableCheckResult);
-
-    // List all tables in public schema
-    const char *ListTablesQuery  = "SELECT tablename FROM pg_tables WHERE schemaname = 'public'";
-    PGresult   *ListTablesResult = PQexec(DbConn, ListTablesQuery);
-
-    if(PQresultStatus(ListTablesResult) == PGRES_TUPLES_OK) {
-        printf("Tables in public schema:\n");
-        for(int i = 0; i < PQntuples(ListTablesResult); i++) {
-            printf("  %s\n", PQgetvalue(ListTablesResult, i, 0));
-        }
-    } else {
-        printf("Error listing tables: %s\n", PQerrorMessage(DbConn));
-    }
-    PQclear(ListTablesResult);
-}
-
 int
 main(int ArgCount, char **ArgV)
 {
@@ -123,12 +86,16 @@ main(int ArgCount, char **ArgV)
     SdbLogInfo("Connected!");
     DiagnoseConnectionAndTable(Connection, "power_shaft_sensor");
     //    GetSensorSchemasFromDb(Connection, &MainArena);
-    int   ShaftColCount;
-    char *PowerShaftMetadata
-        = GetSqlQueryFromFile("DebugStuff/column-metadata-query.sql", &MainArena);
+    int              ShaftColCount;
+    const char      *PowerShaftSensorTableName = "power_shaft_sensor";
+    u64              PSSTableNameLen           = 18;
+    pq_col_metadata *Metadata
+        = GetTableMetadata(Connection, PowerShaftSensorTableName, PSSTableNameLen, &ShaftColCount);
+    for(int i = 0; i < ShaftColCount; ++i) {
+        PrintColumnMetadata(&Metadata[i]);
+    }
 
-    // TestGetMetadata(Connection, PowerShaftMetadata, &ShaftColCount);
-    //  TestBinaryInsert(Connection);
+    TestBinaryInsert(Connection, PowerShaftSensorTableName, PSSTableNameLen);
 
     PQfinish(Connection);
 

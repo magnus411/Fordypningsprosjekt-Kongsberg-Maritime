@@ -119,6 +119,21 @@ SdbRadiansFromDegrees(double Degrees)
 
 static_assert(SDB_LOG_BUF_SIZE >= 128, "SDB_LOG_BUF_SIZE must greater than or equal to 128!");
 
+#define SDB_LOG_LEVEL_NONE (0U)
+#define SDB_LOG_LEVEL_ERR  (1U)
+#define SDB_LOG_LEVEL_INF  (3U)
+#define SDB_LOG_LEVEL_DBG  (4U)
+
+#if !defined(SDB_LOG_LEVEL)
+#define SDB_LOG_LEVEL 3
+#endif
+
+#if SDB_LOG_LEVEL >= 4
+#define SdbPrintfDebug(...) printf(__VA_ARGS__);
+#else
+#define SdbPrintfDebug(...)
+#endif
+
 typedef struct sdb__log_module__
 {
     const char *Name;
@@ -230,15 +245,6 @@ Sdb__WriteLogNoModule__(const char *LogLevel, const char *FunctionName, ...)
 
     return Ret;
 }
-
-#if !defined(SDB_LOG_LEVEL)
-#define SDB_LOG_LEVEL 3
-#endif
-
-#define SDB_LOG_LEVEL_NONE (0U)
-#define SDB_LOG_LEVEL_ERR  (1U)
-#define SDB_LOG_LEVEL_INF  (3U)
-#define SDB_LOG_LEVEL_DBG  (4U)
 
 #define SDB__LOG_LEVEL_CHECK__(level) (SDB_LOG_LEVEL >= SDB_LOG_LEVEL_##level)
 
@@ -504,6 +510,17 @@ SdbMemcpy(void *To, void *From, u64 Len)
     for(u64 i = 0; i < Len; ++i) {
         ((u8 *)To)[i] = ((u8 *)From)[i];
     }
+}
+
+u64
+SdbStrnlen(const char *String, u64 Max)
+{
+    u64 Count = 0;
+    while(*String++ != '\0' && Count < Max) {
+        ++Count;
+    }
+
+    return Count;
 }
 
 u64

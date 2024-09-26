@@ -14,18 +14,15 @@ typedef struct
 } column_info;
 
 column_info *GetTableStructure(PGconn *DbConn, const char *TableName, int *NCols);
-
-void InsertSensorData(PGconn *DbConn, const char *TableName, const u8 *SensorData,
-                      size_t BufferSize);
-
-void
-TestGetMetadata(PGconn *DbConn, char *MetadataQuery, int *ColCount /* Typical libpq convention that variables for sizes are passed in an filled out by the function */);
-
-void TestBinaryInsert(PGconn *DbConnection);
+void InsertSensorData(PGconn *DbConn, const char *TableName, u64 TableNameLen, const u8 *SensorData,
+                      size_t DataSize);
+void TestGetMetadata(PGconn *DbConn, char *MetadataQuery, int *ColCount);
+void TestBinaryInsert(PGconn *DbConnection, const char *TableName, u64 TableNameLen);
 
 /* Test stuff */
 typedef struct
 {
+    i64    Id;
     i64    Timestamp;    // TIMESTAMPTZ
     int    Rpm;          // INTEGER
     double Torque;       // DOUBLE PRECISION

@@ -6,19 +6,19 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 cd "$DIR"
 
-mkdir -p Build
+mkdir -p build
 
-SRC="Code/Main.c Code/DatabaseModule.c Code/Postgres.c"
+SRC="src/Main.c src/DatabaseModule.c src/Postgres.c"
 LIBS="-lpq"
 
 if [ "$1" = "release" ]; then
-    CFLAGS="-O3 -march=native -DNDEBUG"
+    CFLAGS="-O2 -march=native  -Wextra -pedantic -Wno-unused-function -DNDEBUG"
 elif [ "$1" = "relwdb" ]; then
-    CFLAGS="-O2 -g -DNDEBUG"
+    CFLAGS="-O2 -g -DNDEBUG -Wno-unused-function"
 else
-    CFLAGS="-g -O0 -Wall -Wextra -pedantic -DDEBUG"
+    CFLAGS="-g -O0 -Wall -Wno-unused-function -DDEBUG"
 fi
 
-clang $CFLAGS $SRC -o Build/SensorDB $LIBS
+clang $CFLAGS $SRC -o build/SensorDB $LIBS
 
 cd "$ORIGINAL_DIR"

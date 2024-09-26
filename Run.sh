@@ -6,6 +6,6 @@ DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 cd "$DIR"
 
-./Build/SensorDB Configs/ProgramConfig.sdb
+./build/SensorDB configs/ProgramConfig.sdb
 
 cd "$ORIGINAL_DIR"
