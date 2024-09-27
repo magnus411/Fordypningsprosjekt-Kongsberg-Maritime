@@ -5,7 +5,7 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include "SocketModule.h"
+#include "Socket.h"
 
 int
 CreateSocket(const char *IpAddress, int Port)

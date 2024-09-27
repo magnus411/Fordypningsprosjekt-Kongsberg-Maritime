@@ -5,8 +5,8 @@
 #include <string.h>
 #include <stdint.h>
 
-#include "ModbusModule.h"
-#include "SocketModule.h"
+#include "Modbus.h"
+#include "Socket.h"
 #include "../CircularBuffer.h"
 #define MODBUS_TCP_HEADER_LEN 7
 #define MAX_MODBUS_TCP_FRAME  260
