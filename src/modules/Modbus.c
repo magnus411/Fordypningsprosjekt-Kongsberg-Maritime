@@ -111,11 +111,11 @@ ParseModbusTCPFrame(const char *Buf, int NumBytes, QueueItem *Item)
 void *
 ModbusThread(void *arg)
 {
-    ModbusArgs modbus;
-    memcpy(&modbus, arg, sizeof(ModbusArgs));
+    Modbus_Args modbus;
+    memcpy(&modbus, arg, sizeof(Modbus_Args));
 
-    CircularBuffer *Cb     = modbus.Cb;
-    int             SockFd = CreateSocket(modbus.Ip, modbus.PORT);
+    circular_buffer *Cb     = modbus.Cb;
+    int              SockFd = CreateSocket(modbus.Ip, modbus.PORT);
     if(SockFd == -1)
     {
         pthread_exit(NULL);

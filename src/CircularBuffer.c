@@ -5,7 +5,7 @@
 #include "SdbExtern.h"
 
 void
-InitCircularBuffer(CircularBuffer *Cb, size_t Size)
+InitCircularBuffer(circular_buffer *Cb, size_t Size)
 {
     if(Size == 0)
     {
@@ -13,8 +13,8 @@ InitCircularBuffer(CircularBuffer *Cb, size_t Size)
         exit(EXIT_FAILURE);
     }
 
-    Cb->Buffer = malloc(Size);
-    if(Cb->Buffer == NULL)
+    Cb->Data = malloc(Size);
+    if(Cb->Data == NULL)
     {
         fprintf(stderr, "Error: Failed to allocate memory for buffer.\n");
         exit(EXIT_FAILURE);
@@ -31,27 +31,27 @@ InitCircularBuffer(CircularBuffer *Cb, size_t Size)
     pthread_cond_init(&Cb->NotEmpty, NULL);
     pthread_cond_init(&Cb->NotFull, NULL);
 
-    printf("Circular buffer initialized. Size: %zu, Buffer address: %p\n", Size, Cb->Buffer);
+    printf("Circular buffer initialized. Size: %zu, Buffer address: %p\n", Size, Cb->Data);
 }
 
 int
-IsFull(CircularBuffer *Cb)
+IsFull(circular_buffer *Cb)
 {
     return Cb->Full;
 }
 
 int
-IsEmpty(CircularBuffer *Cb)
+IsEmpty(circular_buffer *Cb)
 {
     return (!Cb->Full && (Cb->Head == Cb->Tail));
 }
 
 size_t
-InsertToBuffer(CircularBuffer *Cb, void *Data, size_t Size)
+InsertToBuffer(circular_buffer *Cb, void *Data, size_t Size)
 {
     pthread_mutex_lock(&Cb->WriteLock);
 
-    if(Cb->Size == 0 || Cb->Buffer == NULL)
+    if(Cb->Size == 0 || Cb->Data == NULL)
     {
         fprintf(stderr,
                 "Error: Circular buffer size is zero or buffer is NULL during insertion.\n");
@@ -80,12 +80,12 @@ InsertToBuffer(CircularBuffer *Cb, void *Data, size_t Size)
     }
 
     size_t FirstChunk = SdbMin(Size, Cb->Size - Cb->Head);
-    memcpy((uint8_t *)Cb->Buffer + Cb->Head, Data, FirstChunk);
+    memcpy((uint8_t *)Cb->Data + Cb->Head, Data, FirstChunk);
 
     size_t SecondChunk = Size - FirstChunk;
     if(SecondChunk > 0)
     {
-        memcpy(Cb->Buffer, (uint8_t *)Data + FirstChunk, SecondChunk);
+        memcpy(Cb->Data, (uint8_t *)Data + FirstChunk, SecondChunk);
     }
 
     Cb->Head = (Cb->Head + Size) % Cb->Size;
@@ -99,11 +99,11 @@ InsertToBuffer(CircularBuffer *Cb, void *Data, size_t Size)
 }
 
 size_t
-ReadFromBuffer(CircularBuffer *Cb, void *Dest, size_t Size)
+ReadFromBuffer(circular_buffer *Cb, void *Dest, size_t Size)
 {
     pthread_mutex_lock(&Cb->ReadLock);
 
-    if(Cb->Size == 0 || Cb->Buffer == NULL)
+    if(Cb->Size == 0 || Cb->Data == NULL)
     {
         fprintf(stderr, "Error: Circular buffer size is zero or buffer is NULL during read.\n");
         pthread_mutex_unlock(&Cb->ReadLock);
@@ -130,12 +130,12 @@ ReadFromBuffer(CircularBuffer *Cb, void *Dest, size_t Size)
     }
 
     size_t FirstChunk = SdbMin(Size, Cb->Size - Cb->Tail);
-    memcpy(Dest, (uint8_t *)Cb->Buffer + Cb->Tail, FirstChunk);
+    memcpy(Dest, (uint8_t *)Cb->Data + Cb->Tail, FirstChunk);
 
     size_t SecondChunk = Size - FirstChunk;
     if(SecondChunk > 0)
     {
-        memcpy((uint8_t *)Dest + FirstChunk, Cb->Buffer, SecondChunk);
+        memcpy((uint8_t *)Dest + FirstChunk, Cb->Data, SecondChunk);
     }
 
     Cb->Tail = (Cb->Tail + Size) % Cb->Size;
@@ -149,9 +149,9 @@ ReadFromBuffer(CircularBuffer *Cb, void *Dest, size_t Size)
 }
 
 void
-FreeCircularBuffer(CircularBuffer *Cb)
+FreeCircularBuffer(circular_buffer *Cb)
 {
-    free(Cb->Buffer);
+    free(Cb->Data);
     pthread_mutex_destroy(&Cb->WriteLock);
     pthread_mutex_destroy(&Cb->ReadLock);
     pthread_cond_destroy(&Cb->NotEmpty);

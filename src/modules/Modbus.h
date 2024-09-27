@@ -14,11 +14,11 @@ typedef struct
 
 typedef struct
 {
-    int             PORT;
-    char            Ip[10];
-    CircularBuffer *Cb;
+    int              PORT;
+    char             Ip[10];
+    circular_buffer *Cb;
 
-} ModbusArgs;
+} Modbus_Args;
 
 void *ModbusThread(void *arg);
 

@@ -5,11 +5,12 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#include "SdbExtern.h"
 #define MAX_DATA_LENGTH 260
 
 typedef struct
 {
-    void           *Buffer;
+    u8             *Data;
     size_t          Size;
     size_t          Head;
     size_t          Tail;
@@ -19,13 +20,13 @@ typedef struct
     pthread_mutex_t ReadLock;
     pthread_cond_t  NotEmpty;
     pthread_cond_t  NotFull;
-} CircularBuffer;
+} circular_buffer;
 
-void   InitCircularBuffer(CircularBuffer *Cb, size_t Size);
-int    IsFull(CircularBuffer *Cb);
-int    IsEmpty(CircularBuffer *Cb);
-size_t InsertToBuffer(CircularBuffer *Cb, void *Data, size_t Size);
-size_t ReadFromBuffer(CircularBuffer *Cb, void *Dest, size_t Size);
-void   FreeCircularBuffer(CircularBuffer *Cb);
+void   InitCircularBuffer(circular_buffer *Cb, size_t Size);
+int    IsFull(circular_buffer *Cb);
+int    IsEmpty(circular_buffer *Cb);
+size_t InsertToBuffer(circular_buffer *Cb, void *Data, size_t Size);
+size_t ReadFromBuffer(circular_buffer *Cb, void *Dest, size_t Size);
+void   FreeCircularBuffer(circular_buffer *Cb);
 
 #endif // CIRCULARBUFFER_H
