@@ -4,19 +4,21 @@
 #include <string.h>
 #include "SdbExtern.h"
 
+SDB_LOG_REGISTER(CircularBuffer);
+
 void
 InitCircularBuffer(circular_buffer *Cb, size_t Size)
 {
     if(Size == 0)
     {
-        fprintf(stderr, "Error: Buffer size must be greater than zero.\n");
+        SdbLogError("Error: Buffer size must be greater than zero.\n");
         exit(EXIT_FAILURE);
     }
 
     Cb->Data = malloc(Size);
     if(Cb->Data == NULL)
     {
-        fprintf(stderr, "Error: Failed to allocate memory for buffer.\n");
+        SdbLogError("Error: Failed to allocate memory for buffer.\n");
         exit(EXIT_FAILURE);
     }
 
@@ -31,7 +33,7 @@ InitCircularBuffer(circular_buffer *Cb, size_t Size)
     pthread_cond_init(&Cb->NotEmpty, NULL);
     pthread_cond_init(&Cb->NotFull, NULL);
 
-    printf("Circular buffer initialized. Size: %zu, Buffer address: %p\n", Size, Cb->Data);
+    SdbLogDebug("Circular buffer initialized. Size: %zu, Buffer address: %p\n", Size, Cb->Data);
 }
 
 int
@@ -53,22 +55,21 @@ InsertToBuffer(circular_buffer *Cb, void *Data, size_t Size)
 
     if(Cb->Size == 0 || Cb->Data == NULL)
     {
-        fprintf(stderr,
-                "Error: Circular buffer size is zero or buffer is NULL during insertion.\n");
+        SdbLogDebug("Error: Circular buffer size is zero or buffer is NULL during insertion.");
         pthread_mutex_unlock(&Cb->WriteLock);
         return 0;
     }
 
     while(IsFull(Cb))
     {
-        fprintf(stderr, "Buffer is full. Waiting for read operation.\n");
+        SdbLogDebug("Buffer is full. Waiting for read operation.");
         pthread_cond_wait(&Cb->NotFull, &Cb->WriteLock);
     }
 
     if(Cb->Head >= Cb->Size)
     {
-        fprintf(stderr, "Error: Buffer head is out of bounds. Head: %zu, Size: %zu\n", Cb->Head,
-                Cb->Size);
+        SdbLogError("Error: Buffer head is out of bounds. Head: %zu, Size: %zu\n", Cb->Head,
+                    Cb->Size);
         pthread_mutex_unlock(&Cb->WriteLock);
         return 0;
     }
