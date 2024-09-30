@@ -34,3 +34,5 @@ COMMENT ON COLUMN power_shaft_sensor.power_output IS 'Power output in kilowatts'
 COMMENT ON COLUMN power_shaft_sensor.efficiency IS 'Efficiency of power transfer as a percentage';
 COMMENT ON COLUMN power_shaft_sensor.shaft_angle IS 'Angle of the shaft in degrees';
 COMMENT ON COLUMN power_shaft_sensor.sensor_id IS 'Unique identifier for the specific sensor';
+
+-- // TODO(ingar): Convert to hypertable when using timescale
