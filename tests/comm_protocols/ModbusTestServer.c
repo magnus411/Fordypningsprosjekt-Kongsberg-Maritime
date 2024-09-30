@@ -7,19 +7,25 @@
 #include <time.h>
 #include <getopt.h>
 
+#define SDB_LOG_LEVEL 4
+#include "../sdb.h"
+
+SDB_LOG_REGISTER(main);
+
 #define MODBUS_TCP_HEADER_LEN 7
 #define MAX_MODBUS_PDU_SIZE   253
 #define BACKLOG               5
 
 #define READ_HOLDING_REGISTERS 0x03
 
-void
+// ModbusTestServer
+static void
 GeneratePowerShaftData(uint8_t *DataBuffer)
 {
     // Simulated power shaft data (32-bit values split into two 16-bit registers)
-    uint32_t Power  = rand() % 1000 + 100; //  Power in kW (random between 100 and 1000)
-    uint32_t Torque = rand() % 500 + 50;   // Torque in Nm (random between 50 and 550)
-    uint32_t Rpm    = rand() % 5000 + 500; // RPM (random between 500 and 5500)
+    u32 Power  = rand() % 1000 + 100; //  Power in kW (random between 100 and 1000)
+    u32 Torque = rand() % 500 + 50;   // Torque in Nm (random between 50 and 550)
+    u32 Rpm    = rand() % 5000 + 500; // RPM (random between 500 and 5500)
 
     // Store data in 16-bit register format (big-endian)
     DataBuffer[0] = (Power >> 8) & 0xFF;  // Power high byte
@@ -30,10 +36,9 @@ GeneratePowerShaftData(uint8_t *DataBuffer)
     DataBuffer[5] = Rpm & 0xFF;           // RPM low byte
 }
 
-void
-GenerateModbusTcpFrame(uint8_t *Buffer, uint16_t TransactionId, uint16_t ProtocolId,
-                       uint16_t Length, uint8_t UnitId, uint8_t FunctionCode, uint8_t *Data,
-                       uint16_t DataLength)
+static void
+GenerateModbusTcpFrame(u8 *Buffer, u16 TransactionId, u16 ProtocolId, u16 Length, u8 UnitId,
+                       u16 FunctionCode, u8 *Data, u16 DataLength)
 {
     Buffer[0] = (TransactionId >> 8) & 0xFF;
     Buffer[1] = TransactionId & 0xFF;
@@ -47,37 +52,31 @@ GenerateModbusTcpFrame(uint8_t *Buffer, uint16_t TransactionId, uint16_t Protoco
     memcpy(&Buffer[9], Data, DataLength);
 }
 
-int
-SendModbusData(int NewFd, uint16_t UnitId)
+sdb_errno
+SendModbusData(int NewFd, u16 UnitId)
 {
-    uint8_t ModbusFrame[MODBUS_TCP_HEADER_LEN + MAX_MODBUS_PDU_SIZE];
+    u8 ModbusFrame[MODBUS_TCP_HEADER_LEN + MAX_MODBUS_PDU_SIZE];
 
-    uint16_t TransactionId = 1;
-    uint16_t ProtocolId    = 0;
-    uint8_t  FunctionCode  = READ_HOLDING_REGISTERS;
+    u16 TransactionId = 1;
+    u16 ProtocolId    = 0;
+    u8  FunctionCode  = READ_HOLDING_REGISTERS;
 
-    uint8_t Data[6];
+    u8 Data[6];
+
+    u16 DataLength = sizeof(Data);
+    u16 Length     = DataLength + 3;
+
     GeneratePowerShaftData(Data);
-
-    uint16_t DataLength = sizeof(Data);
-
-    uint16_t Length = DataLength + 3;
-
     GenerateModbusTcpFrame(ModbusFrame, TransactionId, ProtocolId, Length, UnitId, FunctionCode,
                            Data, DataLength);
 
     ssize_t SendResult = send(NewFd, ModbusFrame, MODBUS_TCP_HEADER_LEN + Length, 0);
-    if(SendResult == -1)
-    {
-        perror("send");
-        return -1;
-    }
 
-    return 0;
+    return SendResult;
 }
 
 int
-main(int argc, char **argv)
+RunSocketTestServer(int argc, char **argv)
 {
     srand(time(NULL));
 
@@ -86,9 +85,9 @@ main(int argc, char **argv)
     socklen_t          SinSize;
     char               ClientIp[INET6_ADDRSTRLEN];
 
-    int      port   = 3490;
-    uint16_t unitId = 1;
-    int      speed  = 1;
+    int Port   = 3490;
+    u16 UnitId = 1;
+    int Speed  = 1;
 
     int opt;
     while((opt = getopt(argc, argv, "p:u:s:")) != -1)
@@ -96,47 +95,47 @@ main(int argc, char **argv)
         switch(opt)
         {
             case 'p':
-                port = atoi(optarg);
+                Port = atoi(optarg);
                 break;
             case 'u':
-                unitId = (uint16_t)atoi(optarg);
+                UnitId = (u16)atoi(optarg);
                 break;
             case 's':
-                speed = atoi(optarg);
+                Speed = atoi(optarg);
                 break;
             default:
-                fprintf(stderr, "Usage: %s [-p port] [-u unitId] [-s speed]\n", argv[0]);
-                exit(EXIT_FAILURE);
+                SdbLogError("Usage: %s [-p port] [-u unitId] [-s speed]", argv[0]);
+                return -EINVAL;
         }
     }
 
     SockFd = socket(AF_INET, SOCK_STREAM, 0);
     if(SockFd == -1)
     {
-        perror("socket");
-        exit(1);
+        SdbLogError("socket");
+        return (1);
     }
 
     ServerAddr.sin_family      = AF_INET;
-    ServerAddr.sin_port        = htons(port);
+    ServerAddr.sin_port        = htons(Port);
     ServerAddr.sin_addr.s_addr = INADDR_ANY;
     memset(&(ServerAddr.sin_zero), '\0', 8);
 
     if(bind(SockFd, (struct sockaddr *)&ServerAddr, sizeof(struct sockaddr)) == -1)
     {
-        perror("bind");
+        SdbLogDebug("bind");
         close(SockFd);
-        exit(1);
+        return (1);
     }
 
     if(listen(SockFd, BACKLOG) == -1)
     {
-        perror("listen");
+        SdbLogDebug("listen");
         close(SockFd);
-        exit(1);
+        return (1);
     }
 
-    printf("Server: waiting for connections on port %d...\n", port);
+    SdbLogDebug("Server: waiting for connections on port %d...\n", Port);
 
     while(1)
     {
@@ -144,21 +143,21 @@ main(int argc, char **argv)
         NewFd   = accept(SockFd, (struct sockaddr *)&ClientAddr, &SinSize);
         if(NewFd == -1)
         {
-            perror("accept");
+            SdbLogDebug("accept");
             continue;
         }
 
         inet_ntop(ClientAddr.sin_family, &(ClientAddr.sin_addr), ClientIp, sizeof(ClientIp));
-        printf("Server: got connection from %s\n", ClientIp);
+        SdbLogDebug("Server: got connection from %s\n", ClientIp);
 
         while(1)
         {
-            if(SendModbusData(NewFd, unitId) == -1)
+            if(SendModbusData(NewFd, UnitId) == -1)
             {
                 close(NewFd);
                 break;
             }
-            sleep(speed);
+            sleep(Speed);
         }
     }
 

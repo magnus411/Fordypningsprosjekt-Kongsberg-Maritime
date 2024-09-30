@@ -4,27 +4,36 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <sys/types.h>
+
+#define SDB_LOG_LEVEL 4
+
+#include "../SdbExtern.h"
+
+SDB_LOG_REGISTER(Modbus);
 
 #include "Modbus.h"
 #include "Socket.h"
 #include "../CircularBuffer.h"
+
 #define MODBUS_TCP_HEADER_LEN 7
 #define MAX_MODBUS_TCP_FRAME  260
 
 /**
  *
  * Resources:
+ * Modbus Application Protocol. Defines the Modbus spesifications.
  * @link https://modbus.org/docs/Modbus_Application_Protocol_V1_1b.pdf
  */
 
-int
-RecivedModbusFrame(int Sockfd, char *Buffer, int BufferSize)
+ssize_t
+RecivedModbusFrame(int Sockfd, u8 *Buffer, size_t BufferSize)
 {
     int TotalBytesRead = 0;
 
     while(TotalBytesRead < MODBUS_TCP_HEADER_LEN)
     {
-        int BytesRead
+        ssize_t BytesRead
             = recv(Sockfd, Buffer + TotalBytesRead, MODBUS_TCP_HEADER_LEN - TotalBytesRead, 0);
         if(BytesRead <= 0)
         {
@@ -33,19 +42,20 @@ RecivedModbusFrame(int Sockfd, char *Buffer, int BufferSize)
         TotalBytesRead += BytesRead;
     }
 
-    uint16_t Length = (Buffer[4] << 8) | Buffer[5]; // Length from Modbus TCP header
+    u16 Length = (Buffer[4] << 8) | Buffer[5]; // Length from Modbus TCP header
 
-    int TotalFrameSize = MODBUS_TCP_HEADER_LEN + Length;
+    ssize_t TotalFrameSize = MODBUS_TCP_HEADER_LEN + Length;
 
     if(TotalFrameSize > BufferSize)
     {
-        printf("Frame too large for buffer. Total frame size: %d\n", TotalFrameSize);
+        SdbLogDebug("Frame too large for buffer. Total frame size: %d\n", TotalFrameSize);
         return -1;
     }
 
     while(TotalBytesRead < TotalFrameSize)
     {
-        int BytesRead = recv(Sockfd, Buffer + TotalBytesRead, TotalFrameSize - TotalBytesRead, 0);
+        ssize_t BytesRead
+            = recv(Sockfd, Buffer + TotalBytesRead, TotalFrameSize - TotalBytesRead, 0);
         if(BytesRead <= 0)
         {
             return BytesRead;
@@ -56,56 +66,60 @@ RecivedModbusFrame(int Sockfd, char *Buffer, int BufferSize)
     return TotalBytesRead;
 }
 
-void
-ParseModbusTCPFrame(const char *Buf, int NumBytes, QueueItem *Item)
+sdb_errno
+ParseModbusTCPFrame(const u8 *Buffer, int NumBytes, QueueItem *Item)
 {
     if(NumBytes < MODBUS_TCP_HEADER_LEN)
     {
         printf("Invalid Modbus frame\n");
-        return;
+        return -1;
     }
 
-    uint16_t TransactionId = (Buf[0] << 8) | Buf[1];
-    uint16_t ProtocolId    = (Buf[2] << 8) | Buf[3];
-    uint16_t Length        = (Buf[4] << 8) | Buf[5];
-    uint8_t  UnitId        = Buf[6];
-    uint8_t  FunctionCode  = Buf[7];
+    u16 TransactionId = (Buffer[0] << 8) | Buffer[1];
+    u16 ProtocolId    = (Buffer[2] << 8) | Buffer[3];
+    u16 Length        = (Buffer[4] << 8) | Buffer[5];
+    u8  UnitId        = Buffer[6];
+    u8  FunctionCode  = Buffer[7];
 
-    /**
-        printf("Transaction ID: %u\n", TransactionId);
-        printf("Protocol ID: %u\n", ProtocolId);
-        printf("Length: %u\n", Length);
-        printf("Unit ID (Sensor ID): %u\n", UnitId);
-        printf("Function Code (Protocol): 0x%02x\n", FunctionCode);
-    */
-    Item->UnitId   = UnitId;
+    u8 DataLength = Buffer[8];
+    SdbLogDebug
+        /**
+            SdbLogDebug("Transaction ID: %u\n", TransactionId);
+            SdbLogDebug("Protocol ID: %u\n", ProtocolId);
+            SdbLogDebug("Length: %u\n", Length);
+            SdbLogDebug("Unit ID (Sensor ID): %u\n", UnitId);
+            SdbLogDebug("Function Code (Protocol): 0x%02x\n", FunctionCode);
+        */
+        Item->UnitId
+        = UnitId;
     Item->Protocol = FunctionCode;
 
-    if(FunctionCode == 0x03)
+    // Function code 0x03 is read multiple holding registers
+    if(FunctionCode != 0x03)
     {
-        uint8_t ByteCount = Buf[8];
-        printf("Byte Count: %u\n", ByteCount);
-
-        // Ensure byte count is even (registers are 2 bytes each)
-        if(ByteCount % 2 != 0)
-        {
-            printf("Warning: Odd byte count detected. Skipping this frame.\n");
-            return;
-        }
-
-        if(ByteCount > MAX_DATA_LENGTH)
-        {
-            printf("Byte count exceeds maximum data length. Skipping this frame.\n");
-            return;
-        }
-
-        memcpy(Item->Data, &Buf[9], ByteCount);
-        Item->DataLength = ByteCount;
+        SdbLogDebug("Unsupported function code\n");
+        return -1;
     }
-    else
+
+    SdbLogDebug("Byte Count: %u\n", DataLength);
+
+    // Ensure byte count is even (registers are 2 bytes each)
+    if(DataLength % 2 != 0)
     {
-        printf("Unsupported function code\n");
+        SdbLogDebug("Warning: Odd byte count detected. Skipping this frame.\n");
+        return -1;
     }
+
+    if(DataLength > MAX_DATA_LENGTH)
+    {
+        SdbLogDebug("Byte count exceeds maximum data length. Skipping this frame.\n");
+        return -1;
+    }
+
+    memcpy(Item->Data, &Buffer[9], DataLength);
+    Item->DataLength = DataLength;
+
+    return 0;
 }
 
 void *
@@ -121,10 +135,10 @@ ModbusThread(void *arg)
         pthread_exit(NULL);
     }
 
-    char Buf[MAX_MODBUS_TCP_FRAME];
+    u8 Buf[MAX_MODBUS_TCP_FRAME];
     while(1)
     {
-        int NumBytes = RecivedModbusFrame(SockFd, Buf, sizeof(Buf));
+        ssize_t NumBytes = RecivedModbusFrame(SockFd, Buf, sizeof(Buf));
         if(NumBytes > 0)
         {
             QueueItem Item;
@@ -149,13 +163,13 @@ ModbusThread(void *arg)
         }
         else if(NumBytes == 0)
         {
-            printf("Connection closed by server\n");
+            SdbLogDebug("Connection closed by server\n");
             close(SockFd);
             pthread_exit(NULL);
         }
         else
         {
-            perror("recv");
+            SdbLogDebug("recv");
             close(SockFd);
             pthread_exit(NULL);
         }

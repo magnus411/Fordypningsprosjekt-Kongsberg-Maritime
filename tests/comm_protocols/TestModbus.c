@@ -1,37 +1,32 @@
+#include <pthread.h>
+#include <errno.h>
+
+#define SDB_LOG_LEVEL 4
+
+#include "sdb.h"
 #include "CircularBuffer.h"
 #include "modules/Modbus.h"
-#include <pthread.h>
-#include "sdb.h"
 
-static CircularBuffer Cb = { 0 };
+SDB_LOG_REGISTER(main);
+
+static circular_buffer Cb = { 0 };
 
 int
-TestModbus(void)
+main(void)
 {
     InitCircularBuffer(&Cb, SdbMebiByte(16));
 
     // First Modbus Server
-    ModbusArgs MbArgs;
+    Modbus_Args MbArgs;
     MbArgs.PORT = 3490;
     MbArgs.Cb   = &Cb;
     strncpy(MbArgs.Ip, "127.0.0.1", 10);
 
-    // Second Modbus Server
-    ModbusArgs MbArgs2;
-    MbArgs2.PORT = 3491;
-    MbArgs2.Cb   = &Cb;
-    strncpy(MbArgs2.Ip, "127.0.0.1", 10);
-
     // Connecting to first Modbus server
-    pthread_t modbus_tid;
-    pthread_create(&modbus_tid, NULL, ModbusThread, &MbArgs);
+    pthread_t ModbusTid;
+    pthread_create(&ModbusTid, NULL, ModbusThread, &MbArgs);
 
-    // Connecting to second Modbus server
-    pthread_t modbus_tid2;
-    pthread_create(&modbus_tid2, NULL, ModbusThread, &MbArgs2);
-
-    pthread_join(modbus_tid, NULL);
-    pthread_join(modbus_tid2, NULL);
+    pthread_join(ModbusTid, NULL);
 
     FreeCircularBuffer(&Cb);
 
