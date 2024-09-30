@@ -102,8 +102,19 @@ extern double SdbRadiansFromDegrees(double Degrees);
 
 static_assert(SDB_LOG_BUF_SIZE >= 128, "SDB_LOG_BUF_SIZE must greater than or equal to 128!");
 
+#define SDB_LOG_LEVEL_NONE (0U)
+#define SDB_LOG_LEVEL_ERR  (1U)
+#define SDB_LOG_LEVEL_INF  (3U)
+#define SDB_LOG_LEVEL_DBG  (4U)
+
 #if !defined(SDB_LOG_LEVEL)
 #define SDB_LOG_LEVEL 3
+#endif
+
+#if SDB_LOG_LEVEL >= 4
+#define SdbPrintfDebug(...) printf(__VA_ARGS__);
+#else
+#define SdbPrintfDebug(...)
 #endif
 
 typedef struct sdb__log_module__
@@ -116,11 +127,6 @@ typedef struct sdb__log_module__
 extern i64       Sdb__WriteLog__(sdb__log_module__ *Module, const char *LogLevel, va_list VaArgs);
 extern sdb_errno Sdb__WriteLogIntermediate__(sdb__log_module__ *Module, const char *LogLevel, ...);
 extern sdb_errno Sdb__WriteLogNoModule__(const char *LogLevel, const char *FunctionName, ...);
-
-#define SDB_LOG_LEVEL_NONE (0U)
-#define SDB_LOG_LEVEL_ERR  (1U)
-#define SDB_LOG_LEVEL_INF  (3U)
-#define SDB_LOG_LEVEL_DBG  (4U)
 
 #define SDB__LOG_LEVEL_CHECK__(level) (SDB_LOG_LEVEL >= SDB_LOG_LEVEL_##level)
 
@@ -285,8 +291,8 @@ typedef struct sdb_string
 } sdb_string;
 
 extern void SdbMemcpy(void *To, void *From, u64 Len);
-
-extern u64 SdbStrlen(const char *String);
+extern u64  SdbStrnlen(const char *String, u64 Max);
+extern u64  SdbStrlen(const char *String);
 
 extern char *SdbStrdup(char *String, sdb_arena *Arena);
 
