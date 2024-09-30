@@ -29,4 +29,5 @@ typedef struct
 } sensor_schema;
 
 void TestGetMetadata(PGconn *DbConn, char *MetadataQuery, int *ColCount);
+
 void TestBinaryInsert(PGconn *DbConnection, const char *TableName, u64 TableNameLen);

@@ -4,9 +4,9 @@
 #include "../SdbExtern.h"
 #include "Postgres.h"
 
-#include "../../src/DatabaseModule.h"
+#include "../../src/Postgres.h"
 
-SDB_LOG_REGISTER(DatabaseModuleTest);
+SDB_LOG_REGISTER(PostgresTest);
 
 sdb_internal void
 GetSensorSchemasFromDb(PGconn *Connection, sdb_arena *Arena)

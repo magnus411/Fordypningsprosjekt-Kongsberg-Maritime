@@ -6,9 +6,9 @@
 #include <libpq-fe.h>
 #include <stdio.h>
 
-// PostgreSQL Type OIDs and Names
 // TODO(ingar): Apparently using a type with an enum is a clang extension, so we might want to not
 // use this
+// PostgreSQL Type OIDs and Names
 enum pq_oid : unsigned int
 {
     BOOL        = 16,
@@ -23,6 +23,8 @@ enum pq_oid : unsigned int
     NUMERIC     = 1700,
 };
 
+// TODO(ingar): This might not be the best way to store these strings. No, it definitiely isn't but
+// it'll do for now
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-variable"
 
@@ -49,16 +51,6 @@ static const char *PqTableMetadataQueryFmt__
 
 #pragma GCC diagnostic pop
 
-static inline char *
-PqTableMetaDataQuery(const char *TableName, u64 TableNameLen)
-{
-    u64   QueryLen = PqTableMetadataQueryFmtLen__ + TableNameLen;
-    char *QueryBuf = (char *)malloc(QueryLen);
-    snprintf(QueryBuf, QueryLen, PqTableMetadataQueryFmt__, TableName);
-
-    return QueryBuf;
-}
-
 // TODO(ingar): Create a minimal structure that only contains the necessary data to perform inserts
 // from a byte stream
 typedef struct
@@ -78,11 +70,20 @@ typedef struct
     char *FullDataType;
 } pq_col_metadata;
 
-char            *GetSqlQueryFromFile(const char *FileName, sdb_arena *Arena);
-void             PrintPGresult(const PGresult *Result);
+char *GetSqlQueryFromFile(const char *FileName, sdb_arena *Arena);
+
+void PrintPGresult(const PGresult *Result);
+
+void DiagnoseConnectionAndTable(PGconn *DbConn, const char *TableName);
+
 pq_col_metadata *GetTableMetadata(PGconn *DbConn, const char *TableName, u64 TableNameLen,
                                   int *ColCount);
-void             PrintColumnMetadata(const pq_col_metadata *Metadata);
-void             DiagnoseConnectionAndTable(PGconn *DbConn, const char *TableName);
+
+char *PqTableMetaDataQuery(const char *TableName, u64 TableNameLen);
+
+void PrintColumnMetadata(const pq_col_metadata *Metadata);
+
+void InsertSensorData(PGconn *DbConn, const char *TableName, u64 TableNameLen, const u8 *SensorData,
+                      size_t DataSize);
 
 #endif
