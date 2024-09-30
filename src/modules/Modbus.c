@@ -71,7 +71,7 @@ ParseModbusTCPFrame_(const u8 *Buffer, int NumBytes, queue_item *Item)
 {
     if(NumBytes < MODBUS_TCP_HEADER_LEN)
     {
-        SdbLogErro("Invalid Modbus frame\n");
+        SdbLogError("Invalid Modbus frame\n");
         return -EINVAL;
     }
 
@@ -148,7 +148,7 @@ ModbusThread(void *arg)
 
             InsertToBuffer(Cb, &Item, sizeof(queue_item));
         }
-        | else if(NumBytes == 0)
+        else if(NumBytes == 0)
         {
             SdbLogDebug("Connection closed by server");
             close(SockFd);
