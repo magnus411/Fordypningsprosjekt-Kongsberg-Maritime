@@ -1,7 +1,7 @@
 #include <stdint.h>
 
-#include "../CircularBuffer.h"
-#include "../SdbExtern.h"
+#include <SdbExtern.h>
+#include <common/CircularBuffer.h>
 
 #ifndef MODBUSMODULE_H
 #define MODBUSMODULE_H

@@ -1,7 +1,282 @@
 [
   {
-    "directory": ".",
-    "command": "clang src/main.c -g -O0 -Wall -Wextra -pedantic -DDEBUG -o build/SensorDB -lpq",
-    "file": "src/main.c"
+    "arguments": [
+      "/nix/store/zznja5f8v3jafffyah1rk46vpfcn38dv-gcc-wrapper-13.3.0/bin/gcc",
+      "-c",
+      "-g",
+      "-O0",
+      "-Wall",
+      "-Wno-unused-function",
+      "-Wno-cpp",
+      "-DDEBUG",
+      "-Isrc",
+      "-Itests",
+      "-o",
+      "build/SensorDB",
+      "src/comm_protocols/Socket.c"
+    ],
+    "directory": "/home/ingarsa/Fordypningsprosjekt/github",
+    "file": "/home/ingarsa/Fordypningsprosjekt/github/src/comm_protocols/Socket.c",
+    "output": "/home/ingarsa/Fordypningsprosjekt/github/build/SensorDB"
   },
+  {
+    "arguments": [
+      "/nix/store/zznja5f8v3jafffyah1rk46vpfcn38dv-gcc-wrapper-13.3.0/bin/gcc",
+      "-c",
+      "-g",
+      "-O0",
+      "-Wall",
+      "-Wno-unused-function",
+      "-Wno-cpp",
+      "-DDEBUG",
+      "-Isrc",
+      "-Itests",
+      "-o",
+      "build/SensorDB",
+      "src/comm_protocols/Modbus.c"
+    ],
+    "directory": "/home/ingarsa/Fordypningsprosjekt/github",
+    "file": "/home/ingarsa/Fordypningsprosjekt/github/src/comm_protocols/Modbus.c",
+    "output": "/home/ingarsa/Fordypningsprosjekt/github/build/SensorDB"
+  },
+  {
+    "arguments": [
+      "/nix/store/zznja5f8v3jafffyah1rk46vpfcn38dv-gcc-wrapper-13.3.0/bin/gcc",
+      "-c",
+      "-g",
+      "-O0",
+      "-Wall",
+      "-Wno-unused-function",
+      "-Wno-cpp",
+      "-DDEBUG",
+      "-Isrc",
+      "-Itests",
+      "-o",
+      "build/SensorDB",
+      "src/modules/DatabaseModule.c"
+    ],
+    "directory": "/home/ingarsa/Fordypningsprosjekt/github",
+    "file": "/home/ingarsa/Fordypningsprosjekt/github/src/modules/DatabaseModule.c",
+    "output": "/home/ingarsa/Fordypningsprosjekt/github/build/SensorDB"
+  },
+  {
+    "arguments": [
+      "/nix/store/zznja5f8v3jafffyah1rk46vpfcn38dv-gcc-wrapper-13.3.0/bin/gcc",
+      "-c",
+      "-g",
+      "-O0",
+      "-Wall",
+      "-Wno-unused-function",
+      "-Wno-cpp",
+      "-DDEBUG",
+      "-Isrc",
+      "-Itests",
+      "-o",
+      "build/SensorDB",
+      "src/common/CircularBuffer.c"
+    ],
+    "directory": "/home/ingarsa/Fordypningsprosjekt/github",
+    "file": "/home/ingarsa/Fordypningsprosjekt/github/src/common/CircularBuffer.c",
+    "output": "/home/ingarsa/Fordypningsprosjekt/github/build/SensorDB"
+  },
+  {
+    "arguments": [
+      "/nix/store/zznja5f8v3jafffyah1rk46vpfcn38dv-gcc-wrapper-13.3.0/bin/gcc",
+      "-c",
+      "-g",
+      "-O0",
+      "-Wall",
+      "-Wno-unused-function",
+      "-Wno-cpp",
+      "-DDEBUG",
+      "-Isrc",
+      "-Itests",
+      "-o",
+      "build/SensorDB",
+      "src/database_systems/Postgres.c"
+    ],
+    "directory": "/home/ingarsa/Fordypningsprosjekt/github",
+    "file": "/home/ingarsa/Fordypningsprosjekt/github/src/database_systems/Postgres.c",
+    "output": "/home/ingarsa/Fordypningsprosjekt/github/build/SensorDB"
+  },
+  {
+    "arguments": [
+      "/nix/store/zznja5f8v3jafffyah1rk46vpfcn38dv-gcc-wrapper-13.3.0/bin/gcc",
+      "-c",
+      "-g",
+      "-O0",
+      "-Wall",
+      "-Wno-unused-function",
+      "-Wno-cpp",
+      "-DDEBUG",
+      "-Isrc",
+      "-Itests",
+      "-o",
+      "build/SensorDB",
+      "src/Main.c"
+    ],
+    "directory": "/home/ingarsa/Fordypningsprosjekt/github",
+    "file": "/home/ingarsa/Fordypningsprosjekt/github/src/Main.c",
+    "output": "/home/ingarsa/Fordypningsprosjekt/github/build/SensorDB"
+  },
+  {
+    "arguments": [
+      "/nix/store/zznja5f8v3jafffyah1rk46vpfcn38dv-gcc-wrapper-13.3.0/bin/gcc",
+      "-c",
+      "-g",
+      "-O0",
+      "-Wall",
+      "-Wno-unused-function",
+      "-Wno-cpp",
+      "-DDEBUG",
+      "-Isrc",
+      "-Itests",
+      "-o",
+      "tests/build/SensorDB",
+      "tests/comm_protocols/ModbusTest.c"
+    ],
+    "directory": "/home/ingarsa/Fordypningsprosjekt/github",
+    "file": "/home/ingarsa/Fordypningsprosjekt/github/tests/comm_protocols/ModbusTest.c",
+    "output": "/home/ingarsa/Fordypningsprosjekt/github/tests/build/SensorDB"
+  },
+  {
+    "arguments": [
+      "/nix/store/zznja5f8v3jafffyah1rk46vpfcn38dv-gcc-wrapper-13.3.0/bin/gcc",
+      "-c",
+      "-g",
+      "-O0",
+      "-Wall",
+      "-Wno-unused-function",
+      "-Wno-cpp",
+      "-DDEBUG",
+      "-Isrc",
+      "-Itests",
+      "-o",
+      "tests/build/SensorDB",
+      "tests/database_systems/Postgres.c"
+    ],
+    "directory": "/home/ingarsa/Fordypningsprosjekt/github",
+    "file": "/home/ingarsa/Fordypningsprosjekt/github/tests/database_systems/Postgres.c",
+    "output": "/home/ingarsa/Fordypningsprosjekt/github/tests/build/SensorDB"
+  },
+  {
+    "arguments": [
+      "/nix/store/zznja5f8v3jafffyah1rk46vpfcn38dv-gcc-wrapper-13.3.0/bin/gcc",
+      "-c",
+      "-g",
+      "-O0",
+      "-Wall",
+      "-Wno-unused-function",
+      "-Wno-cpp",
+      "-DDEBUG",
+      "-Isrc",
+      "-Itests",
+      "-o",
+      "tests/build/SensorDB",
+      "tests/Main.c"
+    ],
+    "directory": "/home/ingarsa/Fordypningsprosjekt/github",
+    "file": "/home/ingarsa/Fordypningsprosjekt/github/tests/Main.c",
+    "output": "/home/ingarsa/Fordypningsprosjekt/github/tests/build/SensorDB"
+  },
+  {
+    "arguments": [
+      "/nix/store/zznja5f8v3jafffyah1rk46vpfcn38dv-gcc-wrapper-13.3.0/bin/gcc",
+      "-c",
+      "-g",
+      "-O0",
+      "-Wall",
+      "-Wno-unused-function",
+      "-Wno-cpp",
+      "-DDEBUG",
+      "-Isrc",
+      "-Itests",
+      "-o",
+      "tests/build/SensorDB",
+      "src/comm_protocols/Socket.c"
+    ],
+    "directory": "/home/ingarsa/Fordypningsprosjekt/github",
+    "file": "/home/ingarsa/Fordypningsprosjekt/github/src/comm_protocols/Socket.c",
+    "output": "/home/ingarsa/Fordypningsprosjekt/github/tests/build/SensorDB"
+  },
+  {
+    "arguments": [
+      "/nix/store/zznja5f8v3jafffyah1rk46vpfcn38dv-gcc-wrapper-13.3.0/bin/gcc",
+      "-c",
+      "-g",
+      "-O0",
+      "-Wall",
+      "-Wno-unused-function",
+      "-Wno-cpp",
+      "-DDEBUG",
+      "-Isrc",
+      "-Itests",
+      "-o",
+      "tests/build/SensorDB",
+      "src/comm_protocols/Modbus.c"
+    ],
+    "directory": "/home/ingarsa/Fordypningsprosjekt/github",
+    "file": "/home/ingarsa/Fordypningsprosjekt/github/src/comm_protocols/Modbus.c",
+    "output": "/home/ingarsa/Fordypningsprosjekt/github/tests/build/SensorDB"
+  },
+  {
+    "arguments": [
+      "/nix/store/zznja5f8v3jafffyah1rk46vpfcn38dv-gcc-wrapper-13.3.0/bin/gcc",
+      "-c",
+      "-g",
+      "-O0",
+      "-Wall",
+      "-Wno-unused-function",
+      "-Wno-cpp",
+      "-DDEBUG",
+      "-Isrc",
+      "-Itests",
+      "-o",
+      "tests/build/SensorDB",
+      "src/modules/DatabaseModule.c"
+    ],
+    "directory": "/home/ingarsa/Fordypningsprosjekt/github",
+    "file": "/home/ingarsa/Fordypningsprosjekt/github/src/modules/DatabaseModule.c",
+    "output": "/home/ingarsa/Fordypningsprosjekt/github/tests/build/SensorDB"
+  },
+  {
+    "arguments": [
+      "/nix/store/zznja5f8v3jafffyah1rk46vpfcn38dv-gcc-wrapper-13.3.0/bin/gcc",
+      "-c",
+      "-g",
+      "-O0",
+      "-Wall",
+      "-Wno-unused-function",
+      "-Wno-cpp",
+      "-DDEBUG",
+      "-Isrc",
+      "-Itests",
+      "-o",
+      "tests/build/SensorDB",
+      "src/common/CircularBuffer.c"
+    ],
+    "directory": "/home/ingarsa/Fordypningsprosjekt/github",
+    "file": "/home/ingarsa/Fordypningsprosjekt/github/src/common/CircularBuffer.c",
+    "output": "/home/ingarsa/Fordypningsprosjekt/github/tests/build/SensorDB"
+  },
+  {
+    "arguments": [
+      "/nix/store/zznja5f8v3jafffyah1rk46vpfcn38dv-gcc-wrapper-13.3.0/bin/gcc",
+      "-c",
+      "-g",
+      "-O0",
+      "-Wall",
+      "-Wno-unused-function",
+      "-Wno-cpp",
+      "-DDEBUG",
+      "-Isrc",
+      "-Itests",
+      "-o",
+      "tests/build/SensorDB",
+      "src/database_systems/Postgres.c"
+    ],
+    "directory": "/home/ingarsa/Fordypningsprosjekt/github",
+    "file": "/home/ingarsa/Fordypningsprosjekt/github/src/database_systems/Postgres.c",
+    "output": "/home/ingarsa/Fordypningsprosjekt/github/tests/build/SensorDB"
+  }
 ]

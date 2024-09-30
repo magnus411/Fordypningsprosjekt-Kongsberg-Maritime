@@ -6,7 +6,8 @@
 #include <stdbool.h>
 #include <sys/types.h>
 
-#include "SdbExtern.h"
+#include <SdbExtern.h>
+
 #define MAX_DATA_LENGTH 260
 
 typedef struct

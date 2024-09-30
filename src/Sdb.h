@@ -114,10 +114,26 @@ SdbRadiansFromDegrees(double Degrees)
 /* Based on the logging frontend I wrote for oec */
 
 #if !defined(SDB_LOG_BUF_SIZE)
-#define SDB_LOG_BUF_SIZE 128
+#define SDB_LOG_BUF_SIZE 2048
 #endif
 
 static_assert(SDB_LOG_BUF_SIZE >= 128, "SDB_LOG_BUF_SIZE must greater than or equal to 128!");
+
+#define SDB_LOG_LEVEL_NONE (0U)
+#define SDB_LOG_LEVEL_ERR  (1U)
+#define SDB_LOG_LEVEL_WRN  (2U)
+#define SDB_LOG_LEVEL_INF  (3U)
+#define SDB_LOG_LEVEL_DBG  (4U)
+
+#if !defined(SDB_LOG_LEVEL)
+#define SDB_LOG_LEVEL 3
+#endif
+
+#if SDB_LOG_LEVEL >= 4
+#define SdbPrintfDebug(...) printf(__VA_ARGS__);
+#else
+#define SdbPrintfDebug(...)
+#endif
 
 typedef struct sdb__log_module__
 {
@@ -132,13 +148,11 @@ Sdb__WriteLog__(sdb__log_module__ *Module, const char *LogLevel, va_list VaArgs)
     time_t    PosixTime;
     struct tm TimeInfo;
 
-    if((time_t)(-1) == time(&PosixTime))
-    {
+    if((time_t)(-1) == time(&PosixTime)) {
         return -errno;
     }
 
-    if(NULL == localtime_r(&PosixTime, &TimeInfo))
-    {
+    if(NULL == localtime_r(&PosixTime, &TimeInfo)) {
         return -errno;
     }
 
@@ -146,8 +160,7 @@ Sdb__WriteLog__(sdb__log_module__ *Module, const char *LogLevel, va_list VaArgs)
     u64 BufferRemaining = Module->BufferSize;
 
     int FormatRet = strftime(Module->Buffer, BufferRemaining, "%T: ", &TimeInfo);
-    if(0 == FormatRet)
-    {
+    if(0 == FormatRet) {
         // NOTE(ingar): Since the buffer size is at least 128, this should never happen
         assert(FormatRet);
         return -ENOMEM;
@@ -158,12 +171,9 @@ Sdb__WriteLog__(sdb__log_module__ *Module, const char *LogLevel, va_list VaArgs)
 
     FormatRet = snprintf(Module->Buffer + CharsWritten, BufferRemaining, "%s: %s: ", Module->Name,
                          LogLevel);
-    if(FormatRet < 0)
-    {
+    if(FormatRet < 0) {
         return -errno;
-    }
-    else if((u64)FormatRet >= BufferRemaining)
-    {
+    } else if((u64)FormatRet >= BufferRemaining) {
         // NOTE(ingar): If the log module name is so long that it does not fit in 128 bytes - the
         // time stamp, it should be changed
         assert(FormatRet);
@@ -176,21 +186,15 @@ Sdb__WriteLog__(sdb__log_module__ *Module, const char *LogLevel, va_list VaArgs)
     const char *FormatString = va_arg(VaArgs, const char *);
     FormatRet = vsnprintf(Module->Buffer + CharsWritten, BufferRemaining, FormatString, VaArgs);
 
-    if(FormatRet < 0)
-    {
+    if(FormatRet < 0) {
         return -errno;
-    }
-    else if((u64)FormatRet >= BufferRemaining)
-    {
+    } else if((u64)FormatRet >= BufferRemaining) {
         (void)memset(Module->Buffer + CharsWritten, 0, BufferRemaining);
         FormatRet = snprintf(Module->Buffer + CharsWritten, BufferRemaining, "%s",
                              "Message dropped; too big");
-        if(FormatRet < 0)
-        {
+        if(FormatRet < 0) {
             return -errno;
-        }
-        else if((u64)FormatRet >= BufferRemaining)
-        {
+        } else if((u64)FormatRet >= BufferRemaining) {
             assert(FormatRet);
             return -ENOMEM;
         }
@@ -200,17 +204,13 @@ Sdb__WriteLog__(sdb__log_module__ *Module, const char *LogLevel, va_list VaArgs)
     Module->Buffer[CharsWritten++] = '\n';
 
     int OutFd;
-    if('E' == LogLevel[0])
-    {
+    if('E' == LogLevel[0]) {
         OutFd = STDERR_FILENO;
-    }
-    else
-    {
+    } else {
         OutFd = STDOUT_FILENO;
     }
 
-    if((ssize_t)(-1) == write(OutFd, Module->Buffer, CharsWritten))
-    {
+    if((ssize_t)(-1) == write(OutFd, Module->Buffer, CharsWritten)) {
         return -errno;
     }
 
@@ -247,15 +247,6 @@ Sdb__WriteLogNoModule__(const char *LogLevel, const char *FunctionName, ...)
     return Ret;
 }
 
-#if !defined(SDB_LOG_LEVEL)
-#define SDB_LOG_LEVEL 3
-#endif
-
-#define SDB_LOG_LEVEL_NONE (0U)
-#define SDB_LOG_LEVEL_ERR  (1U)
-#define SDB_LOG_LEVEL_INF  (3U)
-#define SDB_LOG_LEVEL_DBG  (4U)
-
 #define SDB__LOG_LEVEL_CHECK__(level) (SDB_LOG_LEVEL >= SDB_LOG_LEVEL_##level)
 
 #define SDB_LOG_REGISTER(module_name)                                                              \
@@ -273,10 +264,8 @@ Sdb__WriteLogNoModule__(const char *LogLevel, const char *FunctionName, ...)
 #define SDB_LOG_DECLARE_SAME_TU extern struct sdb__log_module__ *Sdb__LogInsta
 
 #define SDB__LOG__(log_level, ...)                                                                 \
-    do                                                                                             \
-    {                                                                                              \
-        if(SDB__LOG_LEVEL_CHECK__(log_level))                                                      \
-        {                                                                                          \
+    do {                                                                                           \
+        if(SDB__LOG_LEVEL_CHECK__(log_level)) {                                                    \
             sdb_errno LogRet = Sdb__WriteLogIntermediate__(Sdb__LogInstance__,                     \
                                                            SDB_STRINGIFY(log_level), __VA_ARGS__); \
             assert(LogRet >= 0);                                                                   \
@@ -284,16 +273,15 @@ Sdb__WriteLogNoModule__(const char *LogLevel, const char *FunctionName, ...)
     } while(0)
 
 #define SDB__LOG_NO_MODULE__(log_level, ...)                                                       \
-    do                                                                                             \
-    {                                                                                              \
-        if(SDB__LOG_LEVEL_CHECK__(log_level))                                                      \
-        {                                                                                          \
+    do {                                                                                           \
+        if(SDB__LOG_LEVEL_CHECK__(log_level)) {                                                    \
             sdb_errno LogRet                                                                       \
                 = Sdb__WriteLogNoModule__(SDB_STRINGIFY(log_level), __func__, __VA_ARGS__);        \
             assert(LogRet >= 0);                                                                   \
         }                                                                                          \
     } while(0)
 
+// TODO(ingar): Add line number to log
 #define SdbLogDebug(...)   SDB__LOG__(DBG, __VA_ARGS__)
 #define SdbLogInfo(...)    SDB__LOG__(INF, __VA_ARGS__)
 #define SdbLogWarning(...) SDB__LOG__(WRN, __VA_ARGS__)
@@ -306,10 +294,8 @@ Sdb__WriteLogNoModule__(const char *LogLevel, const char *FunctionName, ...)
 #define SdbLogErrorNoModule(...)   SDB__LOG_NO_MODULE__(ERR, __VA_ARGS__)
 
 #define SdbAssert(condition)                                                                       \
-    do                                                                                             \
-    {                                                                                              \
-        if(!(condition))                                                                           \
-        {                                                                                          \
+    do {                                                                                           \
+        if(!(condition)) {                                                                         \
             SdbLogError("Assertion failed: " SDB_STRINGIFY(condition));                            \
             assert(condition);                                                                     \
         }                                                                                          \
@@ -322,8 +308,7 @@ Sdb__WriteLogNoModule__(const char *LogLevel, const char *FunctionName, ...)
 void
 SdbMemZero(void *Mem, u64 Size)
 {
-    for(u64 i = 0; i < Size; ++i)
-    {
+    for(u64 i = 0; i < Size; ++i) {
         ((u8 *)Mem)[i] = 0;
     }
 }
@@ -365,8 +350,7 @@ SdbArenaInit(sdb_arena *Arena, u8 *Mem, u64 Size)
 sdb_arena *
 SdbArenaCreateContiguous(u8 *Mem, u64 Size)
 {
-    if(Size < (sizeof(sdb_arena) + 1))
-    {
+    if(Size < (sizeof(sdb_arena) + 1)) {
         return NULL;
     }
 
@@ -401,8 +385,7 @@ SdbArenaF9(sdb_arena *Arena)
 void *
 SdbArenaPush(sdb_arena *Arena, u64 Size)
 {
-    if((Arena->Cur + Size) < Arena->Cap)
-    {
+    if((Arena->Cur + Size) < Arena->Cap) {
         u8 *AllocedMem = Arena->Mem + Arena->Cur;
         Arena->Cur += Size;
 
@@ -415,8 +398,7 @@ SdbArenaPush(sdb_arena *Arena, u64 Size)
 void *
 SdbArenaPushZero(sdb_arena *Arena, u64 Size)
 {
-    if((Arena->Cur + Size) < Arena->Cap)
-    {
+    if((Arena->Cur + Size) < Arena->Cap) {
         u8 *AllocedMem = Arena->Mem + Arena->Cur;
         Arena->Cur += Size;
         SdbMemZero(AllocedMem, Size);
@@ -464,16 +446,14 @@ SdbArenaClearZero(sdb_arena *Arena)
 void
 SdbArrayShift(void *Mem, u64 From, u64 To, u64 Count, u64 ElementSize)
 {
-    if(From != To)
-    {
+    if(From != To) {
         u8 *Array = (u8 *)Mem;
         u8 *Src   = Array + (From * ElementSize);
         u8 *Dst   = Array + (To * ElementSize);
 
         u64 NumElements = (Count > From) ? (Count - From) : 0;
 
-        if(NumElements > 0)
-        {
+        if(NumElements > 0) {
             u64 NBytes = NumElements * ElementSize;
             memmove(Dst, Src, NBytes);
         }
@@ -498,13 +478,10 @@ SdbArrayShift(void *Mem, u64 From, u64 To, u64 Count, u64 ElementSize)
     type_name *func_name##Alloc(type_name##_pool *Pool)                                            \
     {                                                                                              \
         type_name *Result = Pool->FirstFree;                                                       \
-        if(Result)                                                                                 \
-        {                                                                                          \
+        if(Result) {                                                                               \
             Pool->FirstFree = Pool->FirstFree->Next;                                               \
             SdbMemZeroStruct(Result);                                                              \
-        }                                                                                          \
-        else                                                                                       \
-        {                                                                                          \
+        } else {                                                                                   \
             Result = SdbPushStructZero(Pool->Arena, type_name);                                    \
         }                                                                                          \
                                                                                                    \
@@ -531,18 +508,27 @@ void
 SdbMemcpy(void *To, void *From, u64 Len)
 {
     // NOTE(ingar): The compiler should replace this with memcpy if it's available
-    for(u64 i = 0; i < Len; ++i)
-    {
+    for(u64 i = 0; i < Len; ++i) {
         ((u8 *)To)[i] = ((u8 *)From)[i];
     }
+}
+
+u64
+SdbStrnlen(const char *String, u64 Max)
+{
+    u64 Count = 0;
+    while(*String++ != '\0' && Count < Max) {
+        ++Count;
+    }
+
+    return Count;
 }
 
 u64
 SdbStrlen(const char *String)
 {
     u64 Count = 0;
-    while(*String++ != '\0')
-    {
+    while(*String++ != '\0') {
         ++Count;
     }
 
@@ -602,13 +588,11 @@ sdb_file_data *
 SdbLoadFileIntoMemory(const char *Filename, sdb_arena *Arena)
 {
     FILE *fd = fopen(Filename, "rb");
-    if(!fd)
-    {
+    if(!fd) {
         return NULL;
     }
 
-    if(fseek(fd, 0L, SEEK_END) != 0)
-    {
+    if(fseek(fd, 0L, SEEK_END) != 0) {
         fclose(fd);
         return NULL;
     }
@@ -629,8 +613,7 @@ SdbLoadFileIntoMemory(const char *Filename, sdb_arena *Arena)
 
     FileData->Size = FileSize;
     u64 BytesRead  = fread(FileData->Data, 1, FileSize, fd);
-    if(BytesRead != FileSize)
-    {
+    if(BytesRead != FileSize) {
         fclose(fd);
         SdbArenaPop(Arena, sizeof(sdb_file_data) + FileData->Size + 1);
         return NULL;
@@ -646,8 +629,7 @@ bool
 SdbWriteBufferToFile(void *Buffer, u64 ElementSize, u64 ElementCount, const char *Filename)
 {
     FILE *fd = fopen(Filename, "wb");
-    if(!fd)
-    {
+    if(!fd) {
         fprintf(stderr, "Unable to open file %s!\n", Filename);
         return false;
     }
@@ -661,8 +643,7 @@ bool
 SdbWrite_sdb_file_data_ToFile(sdb_file_data *FileData, const char *Filename)
 {
     FILE *fd = fopen(Filename, "wb");
-    if(!fd)
-    {
+    if(!fd) {
         fprintf(stderr, "Failed to open file during file_data write!\n");
         return false;
     }
@@ -688,8 +669,7 @@ typedef struct sdb_token
 sdb_token
 SdbGetNextToken(char **Cursor)
 {
-    while('\t' != **Cursor)
-    {
+    while('\t' != **Cursor) {
         (*Cursor)++;
     }
 
@@ -699,14 +679,12 @@ SdbGetNextToken(char **Cursor)
     Token.Start = *Cursor;
     Token.Len   = 0;
 
-    while('\n' != **Cursor && '\r' != **Cursor)
-    {
+    while('\n' != **Cursor && '\r' != **Cursor) {
         (*Cursor)++;
         ++Token.Len;
     }
 
-    if('\0' != **Cursor)
-    {
+    if('\0' != **Cursor) {
         **Cursor = '\0';
     }
 
@@ -754,8 +732,7 @@ Sdb__AllocGlobalPointerCollection__(u64 NewCapacity)
 {
     Sdb__global_allocation_collection__ *Collection = Sdb__GetGlobalAllocationCollection__();
     u64                                  NewEnd     = NewCapacity - 1;
-    if(Collection->End >= NewEnd)
-    {
+    if(Collection->End >= NewEnd) {
         // TODO(ingar): Error handling
         return false;
     }
@@ -768,8 +745,7 @@ Sdb__AllocGlobalPointerCollection__(u64 NewCapacity)
     void *LineRealloc     = realloc(Collection->Line, NewCapacity);
     void *FileRealloc     = realloc(Collection->File, NewCapacity);
 
-    if(!OccupiedRealloc || !PointerRealloc || !FunctionRealloc || !LineRealloc || !FileRealloc)
-    {
+    if(!OccupiedRealloc || !PointerRealloc || !FunctionRealloc || !LineRealloc || !FileRealloc) {
         // TODO(ingar): Error handling
         return false;
     }
@@ -789,16 +765,13 @@ Sdb__GetGlobalAllocationCollectionEntry__(void *Pointer)
     Sdb__global_allocation_collection__ *Collection = Sdb__GetGlobalAllocationCollection__();
 
     u64 Idx = 0;
-    for(; Idx <= Collection->End; ++Idx)
-    {
-        if(Collection->Pointer[Idx] == Pointer)
-        {
+    for(; Idx <= Collection->End; ++Idx) {
+        if(Collection->Pointer[Idx] == Pointer) {
             break;
         }
     }
 
-    if(Idx > Collection->End)
-    {
+    if(Idx > Collection->End) {
         // TODO(ingar): Error handling
         Sdb__allocation_collection_entry__ Entry = { 0 };
         return Entry;
@@ -823,20 +796,16 @@ Sdb__RegisterNewAllocation__(void *Pointer, const char *Function, int Line, cons
     // TODO(ingar): This loop should never fail if we don't run out of memory
     //  but I should still add some error handling at some point
     u64 EntryIdx = 0;
-    for(u64 i = 0; i <= Collection->End; ++i)
-    {
-        if(i > Collection->End)
-        {
+    for(u64 i = 0; i <= Collection->End; ++i) {
+        if(i > Collection->End) {
             u64 NewCapacity = (u64)(1.5 * (double)Collection->End);
-            if(NewCapacity <= Collection->End)
-            {
+            if(NewCapacity <= Collection->End) {
                 // TODO(ingar): Handle wrapping
             }
             Sdb__AllocGlobalPointerCollection__(NewCapacity);
         }
 
-        if(!Collection->Occupied[i])
-        {
+        if(!Collection->Occupied[i]) {
             EntryIdx = i;
             break;
         }
@@ -848,8 +817,7 @@ Sdb__RegisterNewAllocation__(void *Pointer, const char *Function, int Line, cons
     char *FunctionNameString = (char *)malloc(FunctionNameLength);
     char *FileNameString     = (char *)malloc(FileNameLength);
 
-    if(!FunctionNameString || !FileNameString)
-    {
+    if(!FunctionNameString || !FileNameString) {
         // TODO(ingar): Error handling
     }
 
@@ -872,8 +840,7 @@ void
 Sdb__RemoveAllocationFromGlobalCollection__(void *Pointer)
 {
     Sdb__allocation_collection_entry__ Entry = Sdb__GetGlobalAllocationCollectionEntry__(Pointer);
-    if(!Entry.Pointer)
-    {
+    if(!Entry.Pointer) {
         // TODO(ingar): Error handling
     }
 
@@ -891,16 +858,13 @@ Sdb__UpdateRegisteredAllocation__(void *Original, void *New)
     Sdb__global_allocation_collection__ *Collection = Sdb__GetGlobalAllocationCollection__();
 
     u64 Idx = 0;
-    for(; Idx <= Collection->End; ++Idx)
-    {
-        if(Collection->Pointer[Idx] == Original)
-        {
+    for(; Idx <= Collection->End; ++Idx) {
+        if(Collection->Pointer[Idx] == Original) {
             break;
         }
     }
 
-    if(Idx > Collection->End)
-    {
+    if(Idx > Collection->End) {
         // TODO(ingar): Error handling
         return;
     }
@@ -929,8 +893,7 @@ Sdb__CallocTrace__(u64 ElementCount, u64 ElementSize, const char *Function, int 
 
     printf("CALLOC: In %s on line %d in %s\n\n", Function, Line, File);
 #if MEM_LOG
-    if(!Pointer)
-    {
+    if(!Pointer) {
         return NULL;
     }
     Sdb__RegisterNewAllocation(Pointer, Function, Line, File);
@@ -942,16 +905,14 @@ Sdb__CallocTrace__(u64 ElementCount, u64 ElementSize, const char *Function, int 
 void *
 Sdb__ReallocTrace__(void *Pointer, u64 Size, const char *Function, int Line, const char *File)
 {
-    if(!Pointer)
-    {
+    if(!Pointer) {
         return NULL;
     }
 
     printf("REALLOC: In %s on line %d in %s\n", Function, Line, File);
 #if MEM_LOG
     Sdb__allocation_collection_entry Entry = Sdb__GetGlobalAllocationCollectionEntry(Pointer);
-    if(!Entry.Pointer)
-    {
+    if(!Entry.Pointer) {
         // TODO(ingar): Error handling
     }
     printf("         Previously allocated in %s on line %d in %s\n\n", *Entry.Function, *Entry.Line,
@@ -960,8 +921,7 @@ Sdb__ReallocTrace__(void *Pointer, u64 Size, const char *Function, int Line, con
 #endif
 
     void *PointerRealloc = realloc(Pointer, Size);
-    if(!PointerRealloc)
-    {
+    if(!PointerRealloc) {
         return NULL;
     }
     Sdb__RegisterNewAllocation__(PointerRealloc, Function, Line, File);
@@ -972,16 +932,14 @@ Sdb__ReallocTrace__(void *Pointer, u64 Size, const char *Function, int Line, con
 bool
 Sdb__FreeTrace__(void *Pointer, const char *Function, int Line, const char *File)
 {
-    if(!Pointer)
-    {
+    if(!Pointer) {
         return false;
     }
 
     printf("FREE: In %s on line %d in %s:\n", Function, Line, File);
 #if MEM_LOG
     Sdb__allocation_collection_entry Entry = Sdb__GetGlobalAllocationCollectionEntry(Pointer);
-    if(!Entry.Pointer)
-    {
+    if(!Entry.Pointer) {
         // TODO(ingar): Error handling
     }
     printf("      Allocated in %s on line %d in %s\n\n", *Entry.Function, *Entry.Line, *Entry.File);
