@@ -1,12 +1,13 @@
-#include <stdlib.h>
 #include <libpq-fe.h>
 
 #define SDB_LOG_LEVEL 4
 #include "Sdb.h"
 
-#include "Postgres.h"
+#include "databases/Postgres.h"
+#include "../src/Postgres.h"
+#include "../src/DatabaseModule.h"
 
-SDB_LOG_REGISTER(Main);
+SDB_LOG_REGISTER(TestMain);
 
 int
 main(int ArgCount, char **ArgV)
@@ -20,10 +21,6 @@ main(int ArgCount, char **ArgV)
     sdb_arena MainArena;
     u64       ArenaMemorySize = SdbMebiByte(128);
     u8       *ArenaMemory     = malloc(ArenaMemorySize);
-    if(NULL == ArenaMemory) {
-        SdbLogError("Failed to allocate memory for arena!");
-        return 1;
-    }
     SdbArenaInit(&MainArena, ArenaMemory, ArenaMemorySize);
 
     const char    *ConfigFilePath = ArgV[1];
@@ -46,7 +43,7 @@ main(int ArgCount, char **ArgV)
 
     SdbLogInfo("Connected!");
     DiagnoseConnectionAndTable(Connection, "power_shaft_sensor");
-
+    //    GetSensorSchemasFromDb(Connection, &MainArena);
     int              ShaftColCount;
     const char      *PowerShaftSensorTableName = "power_shaft_sensor";
     u64              PSSTableNameLen           = 18;
@@ -56,8 +53,9 @@ main(int ArgCount, char **ArgV)
         PrintColumnMetadata(&Metadata[i]);
     }
 
+    TestBinaryInsert(Connection, PowerShaftSensorTableName, PSSTableNameLen);
+
     PQfinish(Connection);
-    SdbLogInfo("Connection to database closed. Goodbye!");
 
     return 0;
 }
