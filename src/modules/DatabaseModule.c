@@ -15,9 +15,9 @@
 #include <iconv.h>
 
 #define SDB_LOG_LEVEL 4
-#include "SdbExtern.h"
+#include <SdbExtern.h>
 
-#include "Postgres.h"
-#include "DatabaseModule.h"
+#include <database_systems/Postgres.h>
+#include <modules/DatabaseModule.h>
 
 SDB_LOG_REGISTER(DatabaseModule);

@@ -4,8 +4,8 @@
 #include <string.h>
 
 #define SDB_LOG_LEVEL 4
-#include "SdbExtern.h"
-#include "Postgres.h"
+#include <SdbExtern.h>
+#include <database_systems/Postgres.h>
 
 SDB_LOG_REGISTER(Postgres);
 

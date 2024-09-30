@@ -104,6 +104,7 @@ static_assert(SDB_LOG_BUF_SIZE >= 128, "SDB_LOG_BUF_SIZE must greater than or eq
 
 #define SDB_LOG_LEVEL_NONE (0U)
 #define SDB_LOG_LEVEL_ERR  (1U)
+#define SDB_LOG_LEVEL_WRN  (2U)
 #define SDB_LOG_LEVEL_INF  (3U)
 #define SDB_LOG_LEVEL_DBG  (4U)
 

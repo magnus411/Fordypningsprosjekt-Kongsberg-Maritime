@@ -1,7 +1,7 @@
 #ifndef POSTGRES_H_
 #define POSTGRES_H_
 
-#include "SdbExtern.h"
+#include <SdbExtern.h>
 
 #include <libpq-fe.h>
 #include <stdio.h>

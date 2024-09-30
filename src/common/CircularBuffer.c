@@ -5,24 +5,22 @@
 #include <errno.h>
 
 #define SDB_LOG_LEVEL 4
-
-#include "SdbExtern.h"
-#include "CircularBuffer.h"
+#include <SdbExtern.h>
 
 SDB_LOG_REGISTER(CircularBuffer);
+
+#include <common/CircularBuffer.h>
 
 sdb_errno
 InitCircularBuffer(circular_buffer *Cb, size_t Size)
 {
-    if(Size == 0)
-    {
+    if(Size == 0) {
         SdbLogError("Error: Buffer size must be greater than zero.\n");
-        -EINVAL;
+        return -EINVAL;
     }
 
     Cb->Data = malloc(Size);
-    if(Cb->Data == NULL)
-    {
+    if(Cb->Data == NULL) {
         SdbLogError("Error: Failed to allocate memory for buffer.\n");
         return -ENOMEM;
     }
@@ -39,6 +37,8 @@ InitCircularBuffer(circular_buffer *Cb, size_t Size)
     pthread_cond_init(&Cb->NotFull, NULL);
 
     SdbLogDebug("Circular buffer initialized. Size: %zu, Buffer address: %p\n", Size, Cb->Data);
+
+    return 0;
 }
 
 bool
@@ -58,18 +58,16 @@ InsertToBuffer(circular_buffer *Cb, void *Data, size_t Size)
 {
     pthread_mutex_lock(&Cb->WriteLock);
 
-    while(IsFull(Cb))
-    {
+    while(IsFull(Cb)) {
         SdbLogDebug("Buffer is full. Waiting for read operation.");
         pthread_cond_wait(&Cb->NotFull, &Cb->WriteLock);
     }
 
-      size_t FirstChunk = SdbMin(Size, Cb->Size - Cb->Head);
+    size_t FirstChunk = SdbMin(Size, Cb->Size - Cb->Head);
     memcpy(Cb->Data + Cb->Head, Data, FirstChunk);
 
     size_t SecondChunk = Size - FirstChunk;
-    if(SecondChunk > 0)
-    {
+    if(SecondChunk > 0) {
         memcpy(Cb->Data, Data + FirstChunk, SecondChunk);
     }
 
@@ -88,14 +86,12 @@ ReadFromBuffer(circular_buffer *Cb, void *Dest, size_t Size)
 {
     pthread_mutex_lock(&Cb->ReadLock);
 
-    while(IsEmpty(Cb))
-    {
+    while(IsEmpty(Cb)) {
         pthread_cond_wait(&Cb->NotEmpty, &Cb->ReadLock);
     }
 
     size_t AvailableBytes = Cb->Count;
-    if(Size > AvailableBytes)
-    {
+    if(Size > AvailableBytes) {
         SdbLogError("Error: Requested size is greater than available bytes in buffer.\n");
         return -1;
     }
@@ -104,8 +100,7 @@ ReadFromBuffer(circular_buffer *Cb, void *Dest, size_t Size)
     memcpy(Dest, Cb->Data + Cb->Tail, FirstChunk);
 
     size_t SecondChunk = Size - FirstChunk;
-    if(SecondChunk > 0)
-    {
+    if(SecondChunk > 0) {
         memcpy(Dest + FirstChunk, Cb->Data, SecondChunk);
     }
 

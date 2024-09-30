@@ -2,16 +2,17 @@
 #include <libpq-fe.h>
 
 #define SDB_LOG_LEVEL 4
-#include "Sdb.h"
-
-#include "Postgres.h"
+#include <Sdb.h>
 
 SDB_LOG_REGISTER(Main);
+
+#include <database_systems/Postgres.h>
 
 int
 main(int ArgCount, char **ArgV)
 {
     if(ArgCount <= 1) {
+
         SdbLogError("Please provide the path to the configuration.sdb file!\nRelative paths start "
                     "from where YOU launch the executable from.");
         return 1;
