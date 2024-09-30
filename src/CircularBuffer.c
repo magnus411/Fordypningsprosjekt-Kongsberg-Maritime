@@ -17,7 +17,7 @@ InitCircularBuffer(circular_buffer *Cb, size_t Size)
     if(Size == 0)
     {
         SdbLogError("Error: Buffer size must be greater than zero.\n");
-        return -1;
+        -EINVAL;
     }
 
     Cb->Data = malloc(Size);
@@ -41,13 +41,13 @@ InitCircularBuffer(circular_buffer *Cb, size_t Size)
     SdbLogDebug("Circular buffer initialized. Size: %zu, Buffer address: %p\n", Size, Cb->Data);
 }
 
-int
+bool
 IsFull(circular_buffer *Cb)
 {
     return Cb->Full;
 }
 
-int
+bool
 IsEmpty(circular_buffer *Cb)
 {
     return (!Cb->Full && (Cb->Head == Cb->Tail));
@@ -64,14 +64,7 @@ InsertToBuffer(circular_buffer *Cb, void *Data, size_t Size)
         pthread_cond_wait(&Cb->NotFull, &Cb->WriteLock);
     }
 
-    /*
-     size_t FreeBytes = Cb->Size - Cb->Count;
-    if(Size > FreeBytes)
-    {
-        Size = FreeBytes;
-    }*/
-
-    size_t FirstChunk = SdbMin(Size, Cb->Size - Cb->Head);
+      size_t FirstChunk = SdbMin(Size, Cb->Size - Cb->Head);
     memcpy(Cb->Data + Cb->Head, Data, FirstChunk);
 
     size_t SecondChunk = Size - FirstChunk;

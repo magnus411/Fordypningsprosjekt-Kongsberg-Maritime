@@ -7,17 +7,17 @@
 #include "CircularBuffer.h"
 #include "modules/Modbus.h"
 
-SDB_LOG_REGISTER(main);
+SDB_LOG_REGISTER(TestModbus);
 
 static circular_buffer Cb = { 0 };
 
 int
-main(void)
+TestModbus(void)
 {
     InitCircularBuffer(&Cb, SdbMebiByte(16));
 
     // First Modbus Server
-    Modbus_Args MbArgs;
+    modbus_args MbArgs;
     MbArgs.PORT = 3490;
     MbArgs.Cb   = &Cb;
     strncpy(MbArgs.Ip, "127.0.0.1", 10);

@@ -12,7 +12,7 @@ typedef struct
     int    UnitId;
     u8     Data[MAX_DATA_LENGTH];
     size_t DataLength;
-} QueueItem;
+} queue_item;
 
 typedef struct
 {
@@ -20,7 +20,7 @@ typedef struct
     char             Ip[10];
     circular_buffer *Cb;
 
-} Modbus_Args;
+} modbus_args;
 
 void *ModbusThread(void *arg);
 

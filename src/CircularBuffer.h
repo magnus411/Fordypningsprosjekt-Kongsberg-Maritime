@@ -24,8 +24,8 @@ typedef struct
 } circular_buffer;
 
 sdb_errno InitCircularBuffer(circular_buffer *Cb, size_t Size);
-int       IsFull(circular_buffer *Cb);
-int       IsEmpty(circular_buffer *Cb);
+bool      IsFull(circular_buffer *Cb);
+bool      IsEmpty(circular_buffer *Cb);
 ssize_t   InsertToBuffer(circular_buffer *Cb, void *Data, size_t Size);
 ssize_t   ReadFromBuffer(circular_buffer *Cb, void *Dest, size_t Size);
 void      FreeCircularBuffer(circular_buffer *Cb);

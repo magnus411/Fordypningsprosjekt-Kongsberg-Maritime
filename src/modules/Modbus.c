@@ -26,10 +26,10 @@ SDB_LOG_REGISTER(Modbus);
  * @link https://modbus.org/docs/Modbus_Application_Protocol_V1_1b.pdf
  */
 
-ssize_t
-RecivedModbusFrame(int Sockfd, u8 *Buffer, size_t BufferSize)
+static ssize_t
+RecivedModbusTCPFrame_(int Sockfd, u8 *Buffer, size_t BufferSize)
 {
-    int TotalBytesRead = 0;
+    ssize_t TotalBytesRead = 0;
 
     while(TotalBytesRead < MODBUS_TCP_HEADER_LEN)
     {
@@ -66,32 +66,33 @@ RecivedModbusFrame(int Sockfd, u8 *Buffer, size_t BufferSize)
     return TotalBytesRead;
 }
 
-sdb_errno
-ParseModbusTCPFrame(const u8 *Buffer, int NumBytes, QueueItem *Item)
+static sdb_errno
+ParseModbusTCPFrame_(const u8 *Buffer, int NumBytes, queue_item *Item)
 {
     if(NumBytes < MODBUS_TCP_HEADER_LEN)
     {
-        printf("Invalid Modbus frame\n");
-        return -1;
+        SdbLogErro("Invalid Modbus frame\n");
+        return -EINVAL;
     }
 
+    /**Modbus TCP frame structure:
+     *
+     * Resources:
+     * @link https://en.wikipedia.org/wiki/Modbus#Public_function_codes
+     *
+     * | Transaction ID | Protocol ID | Length | Unit ID | Function Code | DataLength | Data  |
+     * |----------------|-------------|--------|---------|---------------|----------|---------|
+     * | 2 bytes        | 2 bytes     | 2 bytes| 1 byte  | 1 byte        | 1 byte   | n bytes |
+     * ----------------------------------------------------------------------------------------
+     */
     u16 TransactionId = (Buffer[0] << 8) | Buffer[1];
     u16 ProtocolId    = (Buffer[2] << 8) | Buffer[3];
     u16 Length        = (Buffer[4] << 8) | Buffer[5];
     u8  UnitId        = Buffer[6];
     u8  FunctionCode  = Buffer[7];
 
-    u8 DataLength = Buffer[8];
-    SdbLogDebug
-        /**
-            SdbLogDebug("Transaction ID: %u\n", TransactionId);
-            SdbLogDebug("Protocol ID: %u\n", ProtocolId);
-            SdbLogDebug("Length: %u\n", Length);
-            SdbLogDebug("Unit ID (Sensor ID): %u\n", UnitId);
-            SdbLogDebug("Function Code (Protocol): 0x%02x\n", FunctionCode);
-        */
-        Item->UnitId
-        = UnitId;
+    u8 DataLength  = Buffer[8];
+    Item->UnitId   = UnitId;
     Item->Protocol = FunctionCode;
 
     // Function code 0x03 is read multiple holding registers
@@ -106,13 +107,13 @@ ParseModbusTCPFrame(const u8 *Buffer, int NumBytes, QueueItem *Item)
     // Ensure byte count is even (registers are 2 bytes each)
     if(DataLength % 2 != 0)
     {
-        SdbLogDebug("Warning: Odd byte count detected. Skipping this frame.\n");
+        SdbLogWarning("Warning: Odd byte count detected. Skipping this frame.\n");
         return -1;
     }
 
     if(DataLength > MAX_DATA_LENGTH)
     {
-        SdbLogDebug("Byte count exceeds maximum data length. Skipping this frame.\n");
+        SdbLogWarning("Byte count exceeds maximum data length. Skipping this frame.\n");
         return -1;
     }
 
@@ -125,51 +126,37 @@ ParseModbusTCPFrame(const u8 *Buffer, int NumBytes, QueueItem *Item)
 void *
 ModbusThread(void *arg)
 {
-    Modbus_Args modbus;
-    memcpy(&modbus, arg, sizeof(Modbus_Args));
+    modbus_args modbus;
+    memcpy(&modbus, arg, sizeof(modbus_args));
 
     circular_buffer *Cb     = modbus.Cb;
     int              SockFd = CreateSocket(modbus.Ip, modbus.PORT);
     if(SockFd == -1)
     {
+        SdbLogError("Failed to create socket\n");
         pthread_exit(NULL);
     }
 
     u8 Buf[MAX_MODBUS_TCP_FRAME];
     while(1)
     {
-        ssize_t NumBytes = RecivedModbusFrame(SockFd, Buf, sizeof(Buf));
+        ssize_t NumBytes = RecivedModbusTCPFrame_(SockFd, Buf, sizeof(Buf));
         if(NumBytes > 0)
         {
-            QueueItem Item;
-            ParseModbusTCPFrame(Buf, NumBytes, &Item);
+            queue_item Item;
+            ParseModbusTCPFrame_(Buf, NumBytes, &Item);
 
-            InsertToBuffer(Cb, &Item, sizeof(QueueItem));
-
-            /*
-                        QueueItem RecivedData;
-                        ReadFromBuffer(Cb, &RecivedData, sizeof(QueueItem));
-
-                        printf("Parsed QueueItem:\n");
-                        printf("Data (Registers): ");
-                        for(int i = 0; i < RecivedData.DataLength / 2; i++)
-                        {
-                            uint16_t RegisterValue
-                                = (RecivedData.Data[i * 2] << 8) | RecivedData.Data[i * 2 + 1];
-                            printf("%u ", RegisterValue);
-                        }
-                        printf("\n-----------------\n");
-                        */
+            InsertToBuffer(Cb, &Item, sizeof(queue_item));
         }
-        else if(NumBytes == 0)
+        | else if(NumBytes == 0)
         {
-            SdbLogDebug("Connection closed by server\n");
+            SdbLogDebug("Connection closed by server");
             close(SockFd);
             pthread_exit(NULL);
         }
         else
         {
-            SdbLogDebug("recv");
+            SdbLogError("Error during read operattion. Closing connection\n");
             close(SockFd);
             pthread_exit(NULL);
         }

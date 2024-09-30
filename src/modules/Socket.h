@@ -22,6 +22,4 @@
 
 int CreateSocket(const char *IpAddress, int Port);
 
-// Event callback for socket read operations
-
 #endif /* SOCKETMODULE_H */

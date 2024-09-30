@@ -21,7 +21,7 @@ CreateSocket(const char *IpAddress, int Port)
 
     if((SockFd = socket(AF_INET, SOCK_STREAM, 0)) == -1)
     {
-        SdbLogDebug("client: socket");
+        SdbLogError("Error creating socket: %s ", errno);
         return -1;
     }
 
@@ -31,14 +31,15 @@ CreateSocket(const char *IpAddress, int Port)
 
     if(inet_pton(AF_INET, IpAddress, &ServerAddr.sin_addr) <= 0)
     {
-        SdbLogError("inet_pton");
+        SdbLogError("Invalid IP address format: %s", IpAddress);
         close(SockFd);
         return -1;
     }
 
     if(connect(SockFd, (struct sockaddr *)&ServerAddr, sizeof(ServerAddr)) == -1)
     {
-        SdbLogDebug("client: connect");
+        SdbLogError("Failed to connect to server (%s:%d): %s (errno: %d)", IpAddress,
+                    ntohs(ServerAddr.sin_port), strerror(errno), errno);
         close(SockFd);
         return -1;
     }
