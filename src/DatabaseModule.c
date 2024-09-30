@@ -1,9 +1,3 @@
-#define SDB_LOG_BUF_SIZE 2048
-#define SDB_LOG_LEVEL    4
-#include "SdbExtern.h"
-
-SDB_LOG_REGISTER(DatabaseModule);
-
 /*
  * Save to database
  * Read from buffers
@@ -21,8 +15,13 @@ SDB_LOG_REGISTER(DatabaseModule);
 #include <arpa/inet.h>
 #include <iconv.h>
 
+#define SDB_LOG_LEVEL 4
+#include "SdbExtern.h"
+
 #include "Postgres.h"
 #include "DatabaseModule.h"
+
+SDB_LOG_REGISTER(DatabaseModule);
 
 void
 InsertSensorData(PGconn *DbConn, const char *TableName, u64 TableNameLen, const u8 *SensorData,
@@ -31,6 +30,7 @@ InsertSensorData(PGconn *DbConn, const char *TableName, u64 TableNameLen, const 
     int              NTableCols;
     pq_col_metadata *ColMetadata = GetTableMetadata(DbConn, TableName, TableNameLen, &NTableCols);
     if(NULL == ColMetadata) {
+        SdbLogError("Failed to get column metadata for table %s", TableName);
         return;
     }
     if(0 == NTableCols) {
@@ -56,7 +56,7 @@ InsertSensorData(PGconn *DbConn, const char *TableName, u64 TableNameLen, const 
         }
         strcat(Query, "$");
         char ParamNumber[8];
-        snprintf(ParamNumber, sizeof(ParamNumber), "%d", i + 1);
+        snprintf(ParamNumber, sizeof(ParamNumber), "%lu", (u64)(i + 1));
         strcat(Query, ParamNumber);
     }
     strcat(Query, ")");
@@ -73,13 +73,11 @@ InsertSensorData(PGconn *DbConn, const char *TableName, u64 TableNameLen, const 
     PQclear(PqPrepareResult);
 
     // Set up parameter arrays
-    const char **ParamValues  = malloc(NTableCols * sizeof(char *));
-    int         *ParamLengths = malloc(NTableCols * sizeof(int));
-    int         *ParamFormats = malloc(NTableCols * sizeof(int));
+    char **ParamValues  = malloc(NTableCols * sizeof(char *));
+    int   *ParamLengths = malloc(NTableCols * sizeof(int));
+    int   *ParamFormats = malloc(NTableCols * sizeof(int));
+    size_t ParamOffset  = 0;
 
-    int    AllocedString = 0;
-    char **AllocedStrings;
-    size_t ParamOffset = 0;
     for(int i = 0; i < NTableCols; i++) {
         if((ParamOffset + ColMetadata[i].TypeLength) > DataSize) {
             SdbLogError("Buffer overflow at column %s\n", ColMetadata[i].ColumnName);
@@ -88,20 +86,17 @@ InsertSensorData(PGconn *DbConn, const char *TableName, u64 TableNameLen, const 
 
         ParamValues[i]  = (char *)SensorData + ParamOffset;
         ParamLengths[i] = ColMetadata[i].TypeLength;
-        ParamFormats[i]
-            = 1; // Use binary format as default. Will changed to 0 if a column is varchar.
+        // Use binary format as default. Will changed to 0 if a column is varchar
+        ParamFormats[i] = 1;
 
-        // For certain types, we might need to convert to network byte order
+        // NOTE(ingar): Convert to network order
         if(ColMetadata[i].TypeOid == INT4 || ColMetadata[i].TypeOid == INT8
            || ColMetadata[i].TypeOid == FLOAT8) {
-            // Note: This modifies the buffer. If you need to preserve the original,
-            // you should work with a copy.
+            // Note(ingar): This modifies the buffer.
             if(4 == ColMetadata[i].TypeLength) {
-                printf("Attribute %d: %u\n", i, *(u32 *)(SensorData + ParamOffset));
                 *(uint32_t *)(SensorData + ParamOffset)
                     = htonl(*(uint32_t *)(SensorData + ParamOffset));
             } else if(8 == ColMetadata[i].TypeLength) {
-                printf("Attribute %d: %f\n", i, *(double *)(SensorData + ParamOffset));
                 *(uint64_t *)(SensorData + ParamOffset)
                     = htobe64(*(uint64_t *)(SensorData + ParamOffset));
             }
@@ -111,18 +106,16 @@ InsertSensorData(PGconn *DbConn, const char *TableName, u64 TableNameLen, const 
             const char *StringStart = ParamValues[i];
             u64         VarCharLen  = ColMetadata[i].TypeModifier - 4;
             ParamLengths[i]         = SdbStrnlen(StringStart, VarCharLen);
-            ParamFormats[i]         = 0; // NOTE(ingar): Changed from binary to text format
-            // char *utf8_string       = convert_encoding(StringStart, "ISO-8859-1", "UTF-8");
+            ParamFormats[i]         = 0; // NOTE(ingar): Set to use text format instead of binary
 
             SdbLogDebug("Attempting to inser %lu chars into varchar", ParamLengths[i]);
         }
 
         ParamOffset += ColMetadata[i].TypeLength;
-        SdbLogDebug("Insert %d: ParamValue %p, ParamLength %d, ParamFormat %d", i, ParamValues[i],
-                    ParamLengths[i], ParamFormats[i]);
+        SdbLogDebug("Insert %d: ParamValue %p, ParamLength %d, ParamType %d, ParamFormat %d", i,
+                    ParamValues[i], ParamLengths[i], ColMetadata[i].TypeOid, ParamFormats[i]);
     }
 
-    // Execute the prepared statement
     PqPrepareResult = PQexecPrepared(DbConn, "", NTableCols, (const char *const *)ParamValues,
                                      ParamLengths, ParamFormats, 1);
 
@@ -147,59 +140,4 @@ InsertSensorData(PGconn *DbConn, const char *TableName, u64 TableNameLen, const 
     free(ParamValues);
     free(ParamLengths);
     free(ParamFormats);
-}
-
-void
-TestBinaryInsert(PGconn *DbConnection, const char *TableName, u64 TableNameLen)
-{
-    // Create an array of test data
-    power_shaft_sensor_data SensorData[] = {
-        {.Id          = 0,
-         .Timestamp   = 0,
-         .Rpm         = 3000,
-         .Torque      = 150.5,
-         .Temperature = 85.2,
-         .Vibration_x = 0.05,
-         .Vibration_y = 0.03,
-         .Vibration_z = 0.04,
-         .Strain      = 0.002,
-         .PowerOutput = 470.3,
-         .Efficiency  = 0.92,
-         .ShaftAngle  = 45.0,
-         .SensorId    = "SHAFT_SENSOR_01"},
-
-        {.Id          = 1,
-         .Timestamp   = 60,
-         .Rpm         = 3050,
-         .Torque      = 155.2,
-         .Temperature = 86.5,
-         .Vibration_x = 0.06,
-         .Vibration_y = 0.04,
-         .Vibration_z = 0.05,
-         .Strain      = 0.0022,
-         .PowerOutput = 480.1,
-         .Efficiency  = 0.91,
-         .ShaftAngle  = 46.5,
-         .SensorId    = "SHAFT_SENSOR_01"},
-
-        {.Id          = 2,
-         .Timestamp   = 120,
-         .Rpm         = 2980,
-         .Torque      = 148.9,
-         .Temperature = 84.8,
-         .Vibration_x = 0.04,
-         .Vibration_y = 0.03,
-         .Vibration_z = 0.03,
-         .Strain      = 0.0019,
-         .PowerOutput = 465.7,
-         .Efficiency  = 0.93,
-         .ShaftAngle  = 44.2,
-         .SensorId    = "SHAFT_SENSOR_01"}
-    };
-
-    for(int i = 0; i < 3; ++i) {
-        SdbLogDebug("Inserting sensor %d into database", i);
-        InsertSensorData(DbConnection, TableName, TableNameLen, (u8 *)&SensorData[i],
-                         sizeof(power_shaft_sensor_data));
-    }
 }
