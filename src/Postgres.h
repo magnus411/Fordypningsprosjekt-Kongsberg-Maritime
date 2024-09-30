@@ -23,6 +23,9 @@ enum pq_oid : unsigned int
     NUMERIC     = 1700,
 };
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
+
 static const char *PQ_BOOL_NAME        = "boolean";
 static const char *PQ_INT8_NAME        = "bigint";
 static const char *PQ_INT4_NAME        = "integer";
@@ -43,6 +46,8 @@ static const char *PqTableMetadataQueryFmt__
       "AS full_data_type FROM pg_catalog.pg_class c JOIN pg_catalog.pg_attribute a ON a.attrelid = "
       "c.oid JOIN pg_catalog.pg_type t ON a.atttypid = t.oid WHERE c.relname = "
       "'%s' AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum";
+
+#pragma GCC diagnostic pop
 
 static inline char *
 PqTableMetaDataQuery(const char *TableName, u64 TableNameLen)
