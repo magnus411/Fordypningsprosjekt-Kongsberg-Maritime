@@ -35,6 +35,6 @@ typedef struct
     double Efficiency;   // DOUBLE PRECISION
     double ShaftAngle;   // DOUBLE PRECISION
     char   SensorId[51]; // VARCHAR(50)
-} power_shaft_sensor_data;
+} power_shaft_sensor_data __attribute__((packed));
 
 #endif

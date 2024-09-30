@@ -24,31 +24,6 @@ SDB_LOG_REGISTER(DatabaseModule);
 #include "Postgres.h"
 #include "DatabaseModule.h"
 
-char *
-convert_encoding(const char *input, const char *from_charset, const char *to_charset)
-{
-    iconv_t cd = iconv_open(to_charset, from_charset);
-    if(cd == (iconv_t)-1) {
-        // Handle error
-        return NULL;
-    }
-
-    size_t inbytesleft  = strlen(input);
-    size_t outbytesleft = inbytesleft * 4; // Allocate more space for UTF-8
-    char  *output       = malloc(outbytesleft);
-    char  *outbuf       = output;
-
-    if(iconv(cd, &input, &inbytesleft, &outbuf, &outbytesleft) == (size_t)-1) {
-        // Handle error
-        free(output);
-        iconv_close(cd);
-        return NULL;
-    }
-
-    iconv_close(cd);
-    return output;
-}
-
 void
 InsertSensorData(PGconn *DbConn, const char *TableName, u64 TableNameLen, const u8 *SensorData,
                  size_t DataSize)
@@ -64,8 +39,7 @@ InsertSensorData(PGconn *DbConn, const char *TableName, u64 TableNameLen, const 
     }
 
     // Construct INSERT query
-
-    char Query[1024] = "INSERT INTO ";
+    char Query[1024] = "INSERT INTO "; // TODO(ingar): Better memory management
     strcat(Query, TableName);
     strcat(Query, " (");
     for(int i = 0; i < NTableCols; i++) {
@@ -107,14 +81,15 @@ InsertSensorData(PGconn *DbConn, const char *TableName, u64 TableNameLen, const 
     char **AllocedStrings;
     size_t ParamOffset = 0;
     for(int i = 0; i < NTableCols; i++) {
-        if(ParamOffset + ColMetadata[i].TypeLength > DataSize) {
+        if((ParamOffset + ColMetadata[i].TypeLength) > DataSize) {
             SdbLogError("Buffer overflow at column %s\n", ColMetadata[i].ColumnName);
             break;
         }
 
         ParamValues[i]  = (char *)SensorData + ParamOffset;
         ParamLengths[i] = ColMetadata[i].TypeLength;
-        ParamFormats[i] = 1; // Use binary format for all
+        ParamFormats[i]
+            = 1; // Use binary format as default. Will changed to 0 if a column is varchar.
 
         // For certain types, we might need to convert to network byte order
         if(ColMetadata[i].TypeOid == INT4 || ColMetadata[i].TypeOid == INT8
@@ -122,9 +97,11 @@ InsertSensorData(PGconn *DbConn, const char *TableName, u64 TableNameLen, const 
             // Note: This modifies the buffer. If you need to preserve the original,
             // you should work with a copy.
             if(4 == ColMetadata[i].TypeLength) {
+                printf("Attribute %d: %u\n", i, *(u32 *)(SensorData + ParamOffset));
                 *(uint32_t *)(SensorData + ParamOffset)
                     = htonl(*(uint32_t *)(SensorData + ParamOffset));
             } else if(8 == ColMetadata[i].TypeLength) {
+                printf("Attribute %d: %f\n", i, *(double *)(SensorData + ParamOffset));
                 *(uint64_t *)(SensorData + ParamOffset)
                     = htobe64(*(uint64_t *)(SensorData + ParamOffset));
             }
@@ -134,9 +111,10 @@ InsertSensorData(PGconn *DbConn, const char *TableName, u64 TableNameLen, const 
             const char *StringStart = ParamValues[i];
             u64         VarCharLen  = ColMetadata[i].TypeModifier - 4;
             ParamLengths[i]         = SdbStrnlen(StringStart, VarCharLen);
-            char *utf8_string       = convert_encoding(StringStart, "ISO-8859-1", "UTF-8");
+            ParamFormats[i]         = 0; // NOTE(ingar): Changed from binary to text format
+            // char *utf8_string       = convert_encoding(StringStart, "ISO-8859-1", "UTF-8");
 
-            SdbLogDebug("Attempting to inser %ldu chars into varchar", ParamLengths[i]);
+            SdbLogDebug("Attempting to inser %lu chars into varchar", ParamLengths[i]);
         }
 
         ParamOffset += ColMetadata[i].TypeLength;
