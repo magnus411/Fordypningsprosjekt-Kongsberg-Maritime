@@ -131,6 +131,8 @@ Thumbs.db
 # =========================
 **/build
 **/Build
+**/tests/build
+**/tests/Build
 
 # Different developers will have different configs
 Configs
