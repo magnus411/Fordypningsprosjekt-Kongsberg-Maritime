@@ -1,14 +1,39 @@
 #include <libpq-fe.h>
 
 #define SDB_LOG_LEVEL 4
-#include "../SdbExtern.h"
-#include "Postgres.h"
-
-#include "../../src/Postgres.h"
+#include <SdbExtern.h>
 
 SDB_LOG_REGISTER(PostgresTest);
 
-sdb_internal void
+#include <database_systems/Postgres.h>
+
+/* Test stuff */
+typedef struct __attribute__((packed))
+{
+    i64    Id;
+    i64    Timestamp;    // TIMESTAMPTZ
+    int    Rpm;          // INTEGER
+    double Torque;       // DOUBLE PRECISION
+    double Temperature;  // DOUBLE PRECISION
+    double Vibration_x;  // DOUBLE PRECISION
+    double Vibration_y;  // DOUBLE PRECISION
+    double Vibration_z;  // DOUBLE PRECISION
+    double Strain;       // DOUBLE PRECISION
+    double PowerOutput;  // DOUBLE PRECISION
+    double Efficiency;   // DOUBLE PRECISION
+    double ShaftAngle;   // DOUBLE PRECISION
+    char   SensorId[51]; // VARCHAR(50)
+} power_shaft_sensor_data;
+
+typedef struct
+{
+    int   Id;
+    char *Name;
+    int   SampleRate;
+    char *Variables;
+} sensor_schema;
+
+void
 GetSensorSchemasFromDb(PGconn *Connection, sdb_arena *Arena)
 {
 
