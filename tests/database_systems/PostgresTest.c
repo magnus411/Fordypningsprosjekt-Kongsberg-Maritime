@@ -10,8 +10,6 @@ SDB_LOG_REGISTER(PostgresTest);
 
 #include "PostgresTest.h"
 
-#include "../comm_protocols/ModbusTest.h"
-
 typedef struct __attribute__((packed))
 {
     i64    Id;
