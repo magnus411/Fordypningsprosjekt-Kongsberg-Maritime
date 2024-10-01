@@ -93,7 +93,7 @@ main(int Argc, char **Argv)
                 return 0;
             case 't':
                 printf(COLOR_GREEN "Running MQTT Publisher Test...\n" COLOR_RESET);
-                MQTTPublisher(Argc, Argv);
+                MQTTPublisher(2, (char *[]){ Argv[0], optarg });
                 return 0;
             case 'h':
             default:
