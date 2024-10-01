@@ -1,63 +1,115 @@
-#include <libpq-fe.h>
-
-#define SDB_LOG_LEVEL 4
-#include <Sdb.h>
-
-SDB_LOG_REGISTER(TestMain);
-
-// NOTE(ingar): <> includes are for the actual program, "" are for exported test functions
-#include <database_systems/Postgres.h>
-
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <getopt.h>
+#include <pthread.h>
+#include <MQTTClient.h>
+#include <SdbExtern.h>
+#include <common/CircularBuffer.h>
+#include <comm_protocols/MQTT.h>
+#include "database_systems/PostgresTest.h"
 #include "comm_protocols/UNIXSocket/ModbusSocketTest.h"
-#include "database_systems/Postgres.h"
+#include "comm_protocols/MQTT/Subscriber/MQTTSubscriber.h"
+#include "comm_protocols/MQTT/Publisher/MQTTPublisher.h"
+
+#define COLOR_RESET  "\033[0m"
+#define COLOR_GREEN  "\033[32m"
+#define COLOR_BLUE   "\033[34m"
+#define COLOR_YELLOW "\033[33m"
+#define COLOR_CYAN   "\033[36m"
+#define COLOR_RED    "\033[31m"
+
+static circular_buffer Cb = { 0 };
+
+void
+PrintUsage(void)
+{
+    printf(COLOR_CYAN "----------------------------------------------------------\n" COLOR_RESET);
+    printf(COLOR_GREEN "Usage: TestApp [OPTIONS]\n" COLOR_RESET);
+    printf(COLOR_CYAN "----------------------------------------------------------\n" COLOR_RESET);
+    printf(COLOR_BLUE "Options:\n" COLOR_RESET);
+    printf(COLOR_YELLOW "  -p, --postgres   " COLOR_RESET
+                        "Run the Postgres test (requires config file path)\n");
+    printf(COLOR_YELLOW "  -m, --modbus     " COLOR_RESET "Run the Modbus test\n");
+    printf(COLOR_YELLOW "                   Modbus options:\n" COLOR_RESET);
+    printf(COLOR_YELLOW "                     --client        " COLOR_RESET
+                        "Run the Modbus client test\n");
+    printf(COLOR_YELLOW "                     --server        " COLOR_RESET
+                        "Run the Modbus server test (optional: -p port, -u unitId, -s speed)\n");
+    printf(COLOR_YELLOW "  -s, --mqtt-sub   " COLOR_RESET "Run the MQTT Subscriber test\n");
+    printf(COLOR_YELLOW "  -t, --mqtt-pub   " COLOR_RESET
+                        "Run the MQTT Publisher test (requires rate in Hz)\n");
+    printf(COLOR_YELLOW "  -h, --help       " COLOR_RESET "Show this help message\n");
+    printf(COLOR_CYAN "----------------------------------------------------------\n" COLOR_RESET);
+}
 
 int
-main(int ArgCount, char **ArgV)
+main(int Argc, char **Argv)
 {
-    if(ArgCount <= 1) {
-        SdbLogError("Please provide the path to the configuration.sdb file!\nRelative paths start "
-                    "from where YOU launch the executable from.");
+    if(Argc < 2) {
+        PrintUsage();
         return 1;
     }
 
-    sdb_arena MainArena;
-    u64       ArenaMemorySize = SdbMebiByte(128);
-    u8       *ArenaMemory     = malloc(ArenaMemorySize);
-    SdbArenaInit(&MainArena, ArenaMemory, ArenaMemorySize);
+    int         Opt;
+    int         OptionIndex    = 0;
+    const char *PostgresConfig = NULL;
 
-    const char    *ConfigFilePath = ArgV[1];
-    sdb_file_data *ConfigFile     = SdbLoadFileIntoMemory(ConfigFilePath, &MainArena);
-    if(NULL == ConfigFile) {
-        SdbLogError("Failed to open file!");
-        return 1;
+    static struct option LongOptions[] = {
+        { "postgres", required_argument, 0, 'p' },
+        {   "modbus",       no_argument, 0, 'm' },
+        {   "client",       no_argument, 0,   1 },
+        {   "server",       no_argument, 0,   2 },
+        { "mqtt-sub",       no_argument, 0, 's' },
+        { "mqtt-pub", required_argument, 0, 't' },
+        {     "help",       no_argument, 0, 'h' },
+        {          0,                 0, 0,   0 }
+    };
+
+    int ModbusTest = 0;
+    while((Opt = getopt_long(Argc, Argv, "p:mst:h", LongOptions, &OptionIndex)) != -1) {
+        switch(Opt) {
+            case 'p':
+                PostgresConfig = optarg;
+                break;
+            case 'm':
+                ModbusTest = 1;
+                break;
+            case 1:
+                if(ModbusTest) {
+                    printf(COLOR_GREEN "Running Modbus Client Test...\n" COLOR_RESET);
+                    RunModbusModuleClient();
+                }
+                return 0;
+            case 2:
+                if(ModbusTest) {
+                    printf(COLOR_GREEN "Running Modbus Server Test...\n" COLOR_RESET);
+                    RunModbusServer(Argc, Argv);
+                }
+                return 0;
+            case 's':
+                printf(COLOR_GREEN "Running MQTT Subscriber Test...\n" COLOR_RESET);
+                MQTTSubscriber("tcp://localhost:1883", "ModbusSub", "MODBUS");
+                return 0;
+            case 't':
+                printf(COLOR_GREEN "Running MQTT Publisher Test...\n" COLOR_RESET);
+                MQTTPublisher(Argc, Argv);
+                return 0;
+            case 'h':
+            default:
+                PrintUsage();
+                return 0;
+        }
     }
 
-    // TODO(ingar): Make parser for config file
-    const char *ConnectionInfo = (const char *)ConfigFile->Data;
-    SdbLogInfo("Attempting to connect to database using:\n%s", ConnectionInfo);
-
-    PGconn *Connection = PQconnectdb(ConnectionInfo);
-    if(PQstatus(Connection) != CONNECTION_OK) {
-        SdbLogError("Connection to database failed. Libpq error:\n%s", PQerrorMessage(Connection));
-        PQfinish(Connection);
-        return 1;
+    if(PostgresConfig) {
+        printf(COLOR_GREEN "Running Postgres Test...\n" COLOR_RESET);
+        RunPostgresTest(PostgresConfig);
+    } else if(ModbusTest) {
+        PrintUsage();
+    } else {
+        PrintUsage();
     }
-
-    SdbLogInfo("Connected!");
-    DiagnoseConnectionAndTable(Connection, "power_shaft_sensor");
-    //    GetSensorSchemasFromDb(Connection, &MainArena);
-    int              ShaftColCount;
-    const char      *PowerShaftSensorTableName = "power_shaft_sensor";
-    u64              PSSTableNameLen           = 18;
-    pq_col_metadata *Metadata
-        = GetTableMetadata(Connection, PowerShaftSensorTableName, PSSTableNameLen, &ShaftColCount);
-    for(int i = 0; i < ShaftColCount; ++i) {
-        PrintColumnMetadata(&Metadata[i]);
-    }
-
-    TestBinaryInsert(Connection, PowerShaftSensorTableName, PSSTableNameLen);
-
-    PQfinish(Connection);
 
     return 0;
 }
