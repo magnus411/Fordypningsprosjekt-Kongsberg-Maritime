@@ -2,11 +2,12 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
-#include "MQTTClient.h"
 #include <time.h>
+#include <MQTTClient.h>
 
 #define SDB_LOG_LEVEL 4
-#include "../../../../src/SdbExtern.h"
+#include <SdbExtern.h>
+
 SDB_LOG_REGISTER(MQTT);
 
 #define ADDRESS  "tcp://localhost:1883"
@@ -15,12 +16,11 @@ SDB_LOG_REGISTER(MQTT);
 #define QOS      1
 #define TIMEOUT  10000L
 
-//! Remember to use flag -lpaho-mqtt3c when compiling and have it installed
+// TODO(ingar): Is this right? Is there only ever one token?
+volatile MQTTClient_deliveryToken DeliveredToken;
 
-volatile MQTTClient_deliveryToken deliveredtoken;
-
-void
-GeneratePowerShaftData(uint8_t *DataBuffer)
+static void
+GeneratePowerShaftData_(u8 *DataBuffer)
 {
     // Simulated power shaft data (32-bit values split into two 16-bit registers)
     u32 Power  = rand() % 1000 + 100; //  Power in kW (random between 100 and 1000)
@@ -37,8 +37,8 @@ GeneratePowerShaftData(uint8_t *DataBuffer)
 }
 
 void
-GenerateModbusTcpFrame(u8 *Buffer, u16 TransactionId, u16 ProtocolId, u16 Length, u8 UnitId,
-                       u16 FunctionCode, u8 *Data, u16 DataLength)
+GenerateModbusTcpFrame_(u8 *Buffer, u16 TransactionId, u16 ProtocolId, u16 Length, u8 UnitId,
+                        u16 FunctionCode, u8 *Data, u16 DataLength)
 {
     Buffer[0] = (TransactionId >> 8) & 0xFF;
     Buffer[1] = TransactionId & 0xFF;
@@ -53,43 +53,43 @@ GenerateModbusTcpFrame(u8 *Buffer, u16 TransactionId, u16 ProtocolId, u16 Length
 }
 
 void
-Delivered(void *Context, MQTTClient_deliveryToken Dt)
+TokenDelivered(void *Context, MQTTClient_deliveryToken Dt)
 {
-    SdbLogDebug("Message with token value %d delivery confirmed\n", Dt);
-    deliveredtoken = Dt;
+    SdbLogDebug("Message with token value %d delivery confirmed", Dt);
+    DeliveredToken = Dt;
 }
 
 int
 MsgArrivedServer(void *Context, char *TopicName, int TopicLen, MQTTClient_message *Message)
 {
-    SdbLogDebug("Message arrived\n     topic: %s\n   message: %.*s\n", TopicName,
-                Message->payloadlen, (char *)Message->payload);
+    SdbLogDebug("Message arrived\n     topic: %s\n   message: %.*s", TopicName, Message->payloadlen,
+                (char *)Message->payload);
     MQTTClient_freeMessage(&Message);
     MQTTClient_free(TopicName);
     return 1;
 }
 
 void
-ConnLostServer(void *Context, char *Cause)
+ServerConnLost(void *Context, char *Cause)
 {
-    SdbLogDebug("\nConnection lost\n     cause: %s\n", Cause);
+    SdbLogDebug("\nConnection lost\n     cause: %s", Cause);
 }
 
-int
-MQTTPublisher(int argc, char *argv[])
+sdb_errno
+MQTTPublisher(int ArgCount, char **ArgV)
 {
-    if(argc < 2) {
-        SdbLogDebug("Usage: %s <Rate (Hz)>\n", argv[0]);
-        return EXIT_FAILURE;
+    if(ArgCount < 2) {
+        SdbLogError("Usage: %s <Rate (Hz)>", ArgV[0]);
+        return -EINVAL;
     }
 
-    int RateHz = atoi(argv[1]);
+    int RateHz = atoi(ArgV[1]);
     if(RateHz <= 0) {
-        SdbLogError("Invalid rate. Must be greater than 0.\n");
-        return EXIT_FAILURE;
+        SdbLogError("Invalid rate. Must be greater than 0.");
+        return -EINVAL;
     }
 
-    long delayMicroseconds = 1000000 / RateHz;
+    u64 DelayMicroseconds = 1000000 / RateHz;
 
     MQTTClient                Client;
     MQTTClient_connectOptions ConnOpts = MQTTClient_connectOptions_initializer;
@@ -101,36 +101,38 @@ MQTTPublisher(int argc, char *argv[])
     ConnOpts.keepAliveInterval = 20;
     ConnOpts.cleansession      = 1;
 
-    MQTTClient_setCallbacks(Client, NULL, ConnLostServer, MsgArrivedServer, Delivered);
+    MQTTClient_setCallbacks(Client, NULL, ServerConnLost, MsgArrivedServer, TokenDelivered);
     if((Rc = MQTTClient_connect(Client, &ConnOpts)) != MQTTCLIENT_SUCCESS) {
-        SdbLogDebug("Failed to connect, return code %d\n", Rc);
-        return EXIT_FAILURE;
+        SdbLogError("Failed to connect, return code %d", Rc);
+        return -1;
     }
 
     uint8_t DataBuffer[6];
     uint8_t ModbusFrame[256];
 
     while(1) {
-        GeneratePowerShaftData(DataBuffer);
-
-        GenerateModbusTcpFrame(ModbusFrame, 1, 0, 9, 1, 3, DataBuffer, 6);
+        GeneratePowerShaftData_(DataBuffer);
+        GenerateModbusTcpFrame_(ModbusFrame, 1, 0, 9, 1, 3, DataBuffer, 6);
 
         PubMsg.payload    = ModbusFrame;
         PubMsg.payloadlen = 15; // 9 bytes for Modbus frame header + 6 bytes of data
         PubMsg.qos        = QOS;
         PubMsg.retained   = 0;
 
-        deliveredtoken = 0;
+        DeliveredToken = 0;
         MQTTClient_publishMessage(Client, TOPIC, &PubMsg, &Token);
-        SdbLogDebug("Published Modbus frame on topic %s\n", TOPIC);
+        SdbLogDebug("Published Modbus frame on topic %s", TOPIC);
 
-        while(deliveredtoken != Token)
+        // TODO(ingar): Since it's test code, a spinlock might be fine, but they should generally be
+        // avoided
+        while(DeliveredToken != Token)
             ;
 
-        usleep(delayMicroseconds);
+        usleep(DelayMicroseconds);
     }
 
     MQTTClient_disconnect(Client, TIMEOUT);
     MQTTClient_destroy(&Client);
+
     return Rc;
 }

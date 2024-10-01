@@ -1,18 +1,17 @@
-#include "MQTTClient.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <pthread.h>
+#include <MQTTClient.h>
 
 #define SDB_LOG_LEVEL 4
-
-#include "../SdbExtern.h"
+#include <SdbExtern.h>
 
 SDB_LOG_REGISTER(MQTT);
 
-#include "../CircularBuffer.h"
-#include "Modbus.h"
-#include "MQTT.h"
+#include <common/CircularBuffer.h>
+#include <comm_protocols/Modbus.h>
+#include <comm_protocols/MQTT.h>
 
 #define MAX_MODBUS_TCP_FRAME  260
 #define MODBUS_TCP_HEADER_LEN 7
@@ -20,47 +19,43 @@ SDB_LOG_REGISTER(MQTT);
 /**
  * @resources: https://eclipse.dev/paho/files/mqttdoc/MQTTClient/html/index.html
  */
-
-//! Remember to use -lpaho-mqtt3c flag for compiling!
-
 static sdb_errno
-ParseModbusTCPFrame_(const u8 *Buffer, int NumBytes, queue_item *Item)
+ParseModbusTCPFrame_(const u8 *Buffer, size_t NumBytes, queue_item *Item)
 {
     if(NumBytes < MODBUS_TCP_HEADER_LEN) {
-        SdbLogError("Invalid Modbus frame\n");
+        SdbLogError("Invalid Modbus frame");
         return -EINVAL;
     }
 
     // Modbus TCP frame structure:
     // | Transaction ID | Protocol ID | Length | Unit ID | Function Code | DataLength | Data  |
     // | 2 bytes        | 2 bytes     | 2 bytes| 1 byte  | 1 byte        | 1 byte     | n bytes |
-
-    u16 TransactionId = (Buffer[0] << 8) | Buffer[1];
-    u16 ProtocolId    = (Buffer[2] << 8) | Buffer[3];
-    u16 Length        = (Buffer[4] << 8) | Buffer[5];
-    u8  UnitId        = Buffer[6];
-    u8  FunctionCode  = Buffer[7];
-    u8  DataLength    = Buffer[8];
+    // u16 TransactionId = (Buffer[0] << 8) | Buffer[1];
+    // u16 ProtocolId    = (Buffer[2] << 8) | Buffer[3];
+    // u16 Length        = (Buffer[4] << 8) | Buffer[5];
+    u8 UnitId       = Buffer[6];
+    u8 FunctionCode = Buffer[7];
+    u8 DataLength   = Buffer[8];
 
     Item->UnitId   = UnitId;
     Item->Protocol = FunctionCode;
 
     // Handle function code 0x03: read multiple holding registers
     if(FunctionCode != 0x03) {
-        SdbLogDebug("Unsupported function code: %u\n", FunctionCode);
+        SdbLogWarning("Unsupported function code: %u", FunctionCode);
         return -1;
     }
 
-    SdbLogDebug("Byte Count: %u\n", DataLength);
+    SdbLogDebug("Byte Count: %u", DataLength);
 
     // Ensure the byte count is even and does not exceed the maximum allowed length
     if(DataLength % 2 != 0) {
-        SdbLogWarning("Odd byte count detected. Skipping this frame.\n");
+        SdbLogWarning("Odd byte count detected. Skipping this frame.");
         return -1;
     }
 
     if(DataLength > MAX_MODBUS_TCP_FRAME - MODBUS_TCP_HEADER_LEN) {
-        SdbLogWarning("Byte count exceeds maximum allowed frame size. Skipping this frame.\n");
+        SdbLogWarning("Byte count exceeds maximum allowed frame size. Skipping this frame.");
         return -1;
     }
 
@@ -71,8 +66,8 @@ ParseModbusTCPFrame_(const u8 *Buffer, int NumBytes, queue_item *Item)
     return 0;
 }
 
-void
-InitSubscriber(MQTTSubscriber *Sub, const char *Address, const char *ClientId, const char *Topic,
+sdb_errno
+InitSubscriber(mqtt_subscriber *Sub, const char *Address, const char *ClientId, const char *Topic,
                int Qos, circular_buffer *Cb)
 {
     Sub->Address  = strdup(Address);
@@ -81,48 +76,58 @@ InitSubscriber(MQTTSubscriber *Sub, const char *Address, const char *ClientId, c
     Sub->Qos      = Qos;
     Sub->Timeout  = 10000L;
     Sub->Cb       = Cb;
+
+    return (Sub->Address == NULL || Sub->ClientId == NULL || Sub->Topic == NULL) ? -ENOMEM : 0;
 }
 
+// NOTE(ingar): Callback function, do not change signature!
 void
-ConnLost(void *context, char *cause)
+ConnLost(void *Context, char *Cause)
 {
-    SdbLogError("Connection lost. Cause: %s", cause);
+    SdbLogError("Connection lost. Cause: %s", Cause);
 }
 
+// NOTE(ingar): Callback function, do not change signature! Do not free message and topic name when
+// returning 0!
 int
-MsgArrived(void *context, char *topicName, int topicLen, MQTTClient_message *message)
+MsgArrived(void *Context, char *TopicName, int TopicLen, MQTTClient_message *Message)
 {
-    MQTTSubscriber *Sub = (MQTTSubscriber *)context;
-    SdbLogDebug("Message arrived. Topic: %s", topicName);
+    mqtt_subscriber *Sub = (mqtt_subscriber *)Context;
+    SdbLogDebug("Message arrived. Topic: %s", TopicName);
 
-    if(message->payloadlen > MAX_MODBUS_TCP_FRAME) {
+    if(Message->payloadlen > MAX_MODBUS_TCP_FRAME) {
         SdbLogWarning("Message too large to store in buffer. Skipping...");
-        return 1;
+        goto exit; // TODO(ingar): Returning 0 will make the library run the function again, which
+                   // is pointless in this case
     }
 
-    u8        *Buffer = (u8 *)message->payload;
+    u8        *Buffer = (u8 *)Message->payload;
     queue_item Item;
 
-    if(ParseModbusTCPFrame_(Buffer, message->payloadlen, &Item) == 0) {
-        ssize_t bytesWritten = InsertToBuffer(Sub->Cb, Item.Data, Item.DataLength);
-        if(bytesWritten > 0) {
-            SdbLogDebug("Inserted Modbus data into buffer. Bytes written: %zd", bytesWritten);
+    if(ParseModbusTCPFrame_(Buffer, Message->payloadlen, &Item) == 0) {
+        ssize_t BytesWritten = InsertToBuffer(Sub->Cb, Item.Data, Item.DataLength);
+        if(BytesWritten > 0) {
+            SdbLogDebug("Inserted Modbus data into buffer. Bytes written: %zd", BytesWritten);
         } else {
             SdbLogError("Failed to insert Modbus data into buffer.");
+            return 0;
         }
     } else {
         SdbLogError("Failed to parse Modbus frame from MQTT message.");
+        return 0;
     }
 
-    MQTTClient_freeMessage(&message);
-    MQTTClient_free(topicName);
+exit:
+    MQTTClient_freeMessage(&Message);
+    MQTTClient_free(TopicName);
+
     return 1;
 }
 
 void *
 MQTTSubscriberThread(void *arg)
 {
-    MQTTSubscriber *Subscriber = (MQTTSubscriber *)arg;
+    mqtt_subscriber *Subscriber = (mqtt_subscriber *)arg;
 
     MQTTClient                Client;
     MQTTClient_connectOptions ConnOptions = MQTTClient_connectOptions_initializer;
@@ -145,6 +150,7 @@ MQTTSubscriberThread(void *arg)
     MQTTClient_subscribe(Client, Subscriber->Topic, Subscriber->Qos);
 
     while(1) {
+        // TODO(ingar): lmao. Add termination logic plz
         // Keep running until manually stopped or thread termination logic is added
     }
 
