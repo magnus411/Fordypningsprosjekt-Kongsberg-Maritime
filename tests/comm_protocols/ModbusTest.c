@@ -80,8 +80,10 @@ SendModbusData(int NewFd, u16 UnitId)
 }
 
 sdb_errno
-RunSocketTestServer(int argc, char **argv)
+RunModbusServer(int argc, char **argv)
 {
+    SdbLogInfo("Running Modbus Test Server over Unix Sockets ...");
+
     srand(time(NULL));
 
     int                SockFd, NewFd;
@@ -169,8 +171,10 @@ RunSocketTestServer(int argc, char **argv)
 }
 
 sdb_errno
-TestModbus(void)
+RunModbusModuleClient(void)
 {
+    SdbLogInfo("Running Modbus Unix Module ...");
+
     // TODO(ingar): Add thread for server
 
     InitCircularBuffer(&Cb, SdbMebiByte(16));
