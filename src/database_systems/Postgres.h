@@ -9,7 +9,7 @@
 // TODO(ingar): Apparently using a type with an enum is a clang extension, so we might want to not
 // use this
 // PostgreSQL Type OIDs and Names
-enum pq_oid : unsigned int
+enum pq_oid
 {
     BOOL        = 16,
     INT8        = 20,
