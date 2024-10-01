@@ -150,10 +150,8 @@ extern sdb_errno Sdb__WriteLogNoModule__(const char *LogLevel, const char *Funct
     extern struct sdb__log_module__ *Sdb__LogInstance__ __attribute__((used));
 
 #define SDB__LOG__(log_level, ...)                                                                 \
-    do                                                                                             \
-    {                                                                                              \
-        if(SDB__LOG_LEVEL_CHECK__(log_level))                                                      \
-        {                                                                                          \
+    do {                                                                                           \
+        if(SDB__LOG_LEVEL_CHECK__(log_level)) {                                                    \
             sdb_errno LogRet = Sdb__WriteLogIntermediate__(Sdb__LogInstance__,                     \
                                                            SDB_STRINGIFY(log_level), __VA_ARGS__); \
             assert(LogRet >= 0);                                                                   \
@@ -161,10 +159,8 @@ extern sdb_errno Sdb__WriteLogNoModule__(const char *LogLevel, const char *Funct
     } while(0)
 
 #define SDB__LOG_NO_MODULE__(log_level, ...)                                                       \
-    do                                                                                             \
-    {                                                                                              \
-        if(SDB__LOG_LEVEL_CHECK__(log_level))                                                      \
-        {                                                                                          \
+    do {                                                                                           \
+        if(SDB__LOG_LEVEL_CHECK__(log_level)) {                                                    \
             sdb_errno LogRet                                                                       \
                 = Sdb__WriteLogNoModule__(SDB_STRINGIFY(log_level), __func__, __VA_ARGS__);        \
             assert(LogRet >= 0);                                                                   \
@@ -183,10 +179,8 @@ extern sdb_errno Sdb__WriteLogNoModule__(const char *LogLevel, const char *Funct
 #define SdbLogErrorNoModule(...)   SDB__LOG_NO_MODULE__(ERR, __VA_ARGS__)
 
 #define SdbAssert(condition)                                                                       \
-    do                                                                                             \
-    {                                                                                              \
-        if(!(condition))                                                                           \
-        {                                                                                          \
+    do {                                                                                           \
+        if(!(condition)) {                                                                         \
             SdbLogError("Assertion failed: " SDB_STRINGIFY(condition));                            \
             assert(condition);                                                                     \
         }                                                                                          \
@@ -271,13 +265,10 @@ extern void SdbArrayShift(void *Mem, u64 From, u64 To, u64 Count, u64 ElementSiz
     type_name *func_name##Alloc(type_name##_pool *Pool)                                            \
     {                                                                                              \
         type_name *Result = Pool->FirstFree;                                                       \
-        if(Result)                                                                                 \
-        {                                                                                          \
+        if(Result) {                                                                               \
             Pool->FirstFree = Pool->FirstFree->Next;                                               \
             SdbMemZeroStruct(Result);                                                              \
-        }                                                                                          \
-        else                                                                                       \
-        {                                                                                          \
+        } else {                                                                                   \
             Result = SdbPushStructZero(Pool->Arena, type_name);                                    \
         }                                                                                          \
                                                                                                    \

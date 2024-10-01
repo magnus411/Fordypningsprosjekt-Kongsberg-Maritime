@@ -26,8 +26,7 @@ SDB_LOG_REGISTER(MQTT);
 static sdb_errno
 ParseModbusTCPFrame_(const u8 *Buffer, int NumBytes, queue_item *Item)
 {
-    if(NumBytes < MODBUS_TCP_HEADER_LEN)
-    {
+    if(NumBytes < MODBUS_TCP_HEADER_LEN) {
         SdbLogError("Invalid Modbus frame\n");
         return -EINVAL;
     }
@@ -47,8 +46,7 @@ ParseModbusTCPFrame_(const u8 *Buffer, int NumBytes, queue_item *Item)
     Item->Protocol = FunctionCode;
 
     // Handle function code 0x03: read multiple holding registers
-    if(FunctionCode != 0x03)
-    {
+    if(FunctionCode != 0x03) {
         SdbLogDebug("Unsupported function code: %u\n", FunctionCode);
         return -1;
     }
@@ -56,14 +54,12 @@ ParseModbusTCPFrame_(const u8 *Buffer, int NumBytes, queue_item *Item)
     SdbLogDebug("Byte Count: %u\n", DataLength);
 
     // Ensure the byte count is even and does not exceed the maximum allowed length
-    if(DataLength % 2 != 0)
-    {
+    if(DataLength % 2 != 0) {
         SdbLogWarning("Odd byte count detected. Skipping this frame.\n");
         return -1;
     }
 
-    if(DataLength > MAX_MODBUS_TCP_FRAME - MODBUS_TCP_HEADER_LEN)
-    {
+    if(DataLength > MAX_MODBUS_TCP_FRAME - MODBUS_TCP_HEADER_LEN) {
         SdbLogWarning("Byte count exceeds maximum allowed frame size. Skipping this frame.\n");
         return -1;
     }
@@ -99,8 +95,7 @@ MsgArrived(void *context, char *topicName, int topicLen, MQTTClient_message *mes
     MQTTSubscriber *Sub = (MQTTSubscriber *)context;
     SdbLogDebug("Message arrived. Topic: %s", topicName);
 
-    if(message->payloadlen > MAX_MODBUS_TCP_FRAME)
-    {
+    if(message->payloadlen > MAX_MODBUS_TCP_FRAME) {
         SdbLogWarning("Message too large to store in buffer. Skipping...");
         return 1;
     }
@@ -108,20 +103,14 @@ MsgArrived(void *context, char *topicName, int topicLen, MQTTClient_message *mes
     u8        *Buffer = (u8 *)message->payload;
     queue_item Item;
 
-    if(ParseModbusTCPFrame_(Buffer, message->payloadlen, &Item) == 0)
-    {
+    if(ParseModbusTCPFrame_(Buffer, message->payloadlen, &Item) == 0) {
         ssize_t bytesWritten = InsertToBuffer(Sub->Cb, Item.Data, Item.DataLength);
-        if(bytesWritten > 0)
-        {
+        if(bytesWritten > 0) {
             SdbLogDebug("Inserted Modbus data into buffer. Bytes written: %zd", bytesWritten);
-        }
-        else
-        {
+        } else {
             SdbLogError("Failed to insert Modbus data into buffer.");
         }
-    }
-    else
-    {
+    } else {
         SdbLogError("Failed to parse Modbus frame from MQTT message.");
     }
 
@@ -146,8 +135,7 @@ MQTTSubscriberThread(void *arg)
 
     MQTTClient_setCallbacks(Client, Subscriber, ConnLost, MsgArrived, NULL);
 
-    if((Rc = MQTTClient_connect(Client, &ConnOptions)) != MQTTCLIENT_SUCCESS)
-    {
+    if((Rc = MQTTClient_connect(Client, &ConnOptions)) != MQTTCLIENT_SUCCESS) {
         SdbLogError("Failed to connect to MQTT broker. Error: %d", Rc);
         pthread_exit(NULL);
     }
@@ -156,8 +144,7 @@ MQTTSubscriberThread(void *arg)
                 Subscriber->ClientId, Subscriber->Qos);
     MQTTClient_subscribe(Client, Subscriber->Topic, Subscriber->Qos);
 
-    while(1)
-    {
+    while(1) {
         // Keep running until manually stopped or thread termination logic is added
     }
 

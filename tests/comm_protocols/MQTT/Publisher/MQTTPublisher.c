@@ -78,15 +78,13 @@ ConnLostServer(void *Context, char *Cause)
 int
 MQTTPublisher(int argc, char *argv[])
 {
-    if(argc < 2)
-    {
+    if(argc < 2) {
         SdbLogDebug("Usage: %s <Rate (Hz)>\n", argv[0]);
         return EXIT_FAILURE;
     }
 
     int RateHz = atoi(argv[1]);
-    if(RateHz <= 0)
-    {
+    if(RateHz <= 0) {
         SdbLogError("Invalid rate. Must be greater than 0.\n");
         return EXIT_FAILURE;
     }
@@ -104,8 +102,7 @@ MQTTPublisher(int argc, char *argv[])
     ConnOpts.cleansession      = 1;
 
     MQTTClient_setCallbacks(Client, NULL, ConnLostServer, MsgArrivedServer, Delivered);
-    if((Rc = MQTTClient_connect(Client, &ConnOpts)) != MQTTCLIENT_SUCCESS)
-    {
+    if((Rc = MQTTClient_connect(Client, &ConnOpts)) != MQTTCLIENT_SUCCESS) {
         SdbLogDebug("Failed to connect, return code %d\n", Rc);
         return EXIT_FAILURE;
     }
@@ -113,8 +110,7 @@ MQTTPublisher(int argc, char *argv[])
     uint8_t DataBuffer[6];
     uint8_t ModbusFrame[256];
 
-    while(1)
-    {
+    while(1) {
         GeneratePowerShaftData(DataBuffer);
 
         GenerateModbusTcpFrame(ModbusFrame, 1, 0, 9, 1, 3, DataBuffer, 6);
