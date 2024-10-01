@@ -5,7 +5,7 @@
 
 CC = gcc
 INCLUDES = -Isrc -Itests
-LIBS = -lpq
+LIBS = -lpq -lpaho-mqtt3c
 
 # Find all .c files in src directory except Main.c
 SRC = $(filter-out src/Main.c, $(shell find src -name "*.c"))
