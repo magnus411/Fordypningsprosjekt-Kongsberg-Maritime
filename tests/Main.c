@@ -1,63 +1,95 @@
-#include <libpq-fe.h>
-
-#define SDB_LOG_LEVEL 4
-#include <Sdb.h>
-
-SDB_LOG_REGISTER(TestMain);
-
-// NOTE(ingar): <> includes are for the actual program, "" are for exported test functions
-#include <database_systems/Postgres.h>
-
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <getopt.h>
+#include "database_systems/PostgresTest.h"
 #include "comm_protocols/ModbusTest.h"
-#include "database_systems/Postgres.h"
+
+#define COLOR_RESET  "\033[0m"
+#define COLOR_GREEN  "\033[32m"
+#define COLOR_BLUE   "\033[34m"
+#define COLOR_YELLOW "\033[33m"
+#define COLOR_CYAN   "\033[36m"
+#define COLOR_RED    "\033[31m"
+
+//! Btw, using printf here ingar, since its interface
+void
+PrintUsage()
+{
+    printf(COLOR_CYAN "----------------------------------------------------------\n" COLOR_RESET);
+    printf(COLOR_GREEN "Usage: TestApp [OPTIONS]\n" COLOR_RESET);
+    printf(COLOR_CYAN "----------------------------------------------------------\n" COLOR_RESET);
+    printf(COLOR_BLUE "Options:\n" COLOR_RESET);
+    printf(COLOR_YELLOW "  -p, --postgres   " COLOR_RESET
+                        "Run the Postgres test (requires config file path)\n");
+    printf(COLOR_YELLOW "  -m, --modbus     " COLOR_RESET "Run the Modbus test\n");
+    printf(COLOR_YELLOW "                   Modbus options:\n" COLOR_RESET);
+    printf(COLOR_YELLOW "                     --client        " COLOR_RESET
+                        "Run the Modbus client test\n");
+    printf(COLOR_YELLOW "                     --server        " COLOR_RESET
+                        "Run the Modbus server test (optional: -p port, -u unitId, -s speed)\n");
+    printf(COLOR_YELLOW "  -h, --help       " COLOR_RESET "Show this help message\n");
+    printf(COLOR_CYAN "----------------------------------------------------------\n" COLOR_RESET);
+}
 
 int
-main(int ArgCount, char **ArgV)
+main(int argc, char **argv)
 {
-    if(ArgCount <= 1) {
-        SdbLogError("Please provide the path to the configuration.sdb file!\nRelative paths start "
-                    "from where YOU launch the executable from.");
+    if(argc < 2) {
+        PrintUsage();
         return 1;
     }
 
-    sdb_arena MainArena;
-    u64       ArenaMemorySize = SdbMebiByte(128);
-    u8       *ArenaMemory     = malloc(ArenaMemorySize);
-    SdbArenaInit(&MainArena, ArenaMemory, ArenaMemorySize);
+    int         opt;
+    int         option_index    = 0;
+    const char *postgres_config = NULL;
 
-    const char    *ConfigFilePath = ArgV[1];
-    sdb_file_data *ConfigFile     = SdbLoadFileIntoMemory(ConfigFilePath, &MainArena);
-    if(NULL == ConfigFile) {
-        SdbLogError("Failed to open file!");
-        return 1;
+    static struct option long_options[] = {
+        { "postgres", required_argument, 0, 'p' },
+        {   "modbus",       no_argument, 0, 'm' },
+        {   "client",       no_argument, 0,   1 },
+        {   "server",       no_argument, 0,   2 },
+        {     "help",       no_argument, 0, 'h' },
+        {          0,                 0, 0,   0 }
+    };
+
+    int modbus_test = 0;
+
+    while((opt = getopt_long(argc, argv, "p:mh", long_options, &option_index)) != -1) {
+        switch(opt) {
+            case 'p':
+                postgres_config = optarg;
+                break;
+            case 'm':
+                modbus_test = 1;
+                break;
+            case 1:
+                if(modbus_test) {
+                    printf(COLOR_GREEN "Running Modbus Client Test...\n" COLOR_RESET);
+                    RunModbusModuleClient();
+                }
+                return 0;
+            case 2:
+                if(modbus_test) {
+                    printf(COLOR_GREEN "Running Modbus Server Test...\n" COLOR_RESET);
+                    RunModbusServer(argc, argv);
+                }
+                return 0;
+            case 'h':
+            default:
+                PrintUsage();
+                return 0;
+        }
     }
 
-    // TODO(ingar): Make parser for config file
-    const char *ConnectionInfo = (const char *)ConfigFile->Data;
-    SdbLogInfo("Attempting to connect to database using:\n%s", ConnectionInfo);
-
-    PGconn *Connection = PQconnectdb(ConnectionInfo);
-    if(PQstatus(Connection) != CONNECTION_OK) {
-        SdbLogError("Connection to database failed. Libpq error:\n%s", PQerrorMessage(Connection));
-        PQfinish(Connection);
-        return 1;
+    if(postgres_config) {
+        printf(COLOR_GREEN "Running Postgres Test...\n" COLOR_RESET);
+        RunPostgresTest(postgres_config);
+    } else if(modbus_test) {
+        PrintUsage();
+    } else {
+        PrintUsage();
     }
-
-    SdbLogInfo("Connected!");
-    DiagnoseConnectionAndTable(Connection, "power_shaft_sensor");
-    //    GetSensorSchemasFromDb(Connection, &MainArena);
-    int              ShaftColCount;
-    const char      *PowerShaftSensorTableName = "power_shaft_sensor";
-    u64              PSSTableNameLen           = 18;
-    pq_col_metadata *Metadata
-        = GetTableMetadata(Connection, PowerShaftSensorTableName, PSSTableNameLen, &ShaftColCount);
-    for(int i = 0; i < ShaftColCount; ++i) {
-        PrintColumnMetadata(&Metadata[i]);
-    }
-
-    TestBinaryInsert(Connection, PowerShaftSensorTableName, PSSTableNameLen);
-
-    PQfinish(Connection);
 
     return 0;
 }
