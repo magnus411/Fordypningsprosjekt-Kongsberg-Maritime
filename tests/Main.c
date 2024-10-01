@@ -8,7 +8,7 @@ SDB_LOG_REGISTER(TestMain);
 // NOTE(ingar): <> includes are for the actual program, "" are for exported test functions
 #include <database_systems/Postgres.h>
 
-#include "comm_protocols/ModbusTest.h"
+#include "comm_protocols/UNIXSocket/ModbusSocketTest.h"
 #include "database_systems/Postgres.h"
 
 int
