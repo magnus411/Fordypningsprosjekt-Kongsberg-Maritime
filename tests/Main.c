@@ -14,7 +14,7 @@
 
 //! Btw, using printf here ingar, since its interface
 void
-PrintUsage()
+PrintUsage(void)
 {
     printf(COLOR_CYAN "----------------------------------------------------------\n" COLOR_RESET);
     printf(COLOR_GREEN "Usage: TestApp [OPTIONS]\n" COLOR_RESET);
@@ -33,18 +33,18 @@ PrintUsage()
 }
 
 int
-main(int argc, char **argv)
+main(int Argc, char **Argv)
 {
-    if(argc < 2) {
+    if(Argc < 2) {
         PrintUsage();
         return 1;
     }
 
-    int         opt;
-    int         option_index    = 0;
-    const char *postgres_config = NULL;
+    int         Opt;
+    int         OptionIndex    = 0;
+    const char *PostgresConfig = NULL;
 
-    static struct option long_options[] = {
+    static struct option LongOptions[] = {
         { "postgres", required_argument, 0, 'p' },
         {   "modbus",       no_argument, 0, 'm' },
         {   "client",       no_argument, 0,   1 },
@@ -53,26 +53,26 @@ main(int argc, char **argv)
         {          0,                 0, 0,   0 }
     };
 
-    int modbus_test = 0;
+    int ModbusTest = 0;
 
-    while((opt = getopt_long(argc, argv, "p:mh", long_options, &option_index)) != -1) {
-        switch(opt) {
+    while((Opt = getopt_long(Argc, Argv, "p:mh", LongOptions, &OptionIndex)) != -1) {
+        switch(Opt) {
             case 'p':
-                postgres_config = optarg;
+                PostgresConfig = optarg;
                 break;
             case 'm':
-                modbus_test = 1;
+                ModbusTest = 1;
                 break;
             case 1:
-                if(modbus_test) {
+                if(ModbusTest) {
                     printf(COLOR_GREEN "Running Modbus Client Test...\n" COLOR_RESET);
                     RunModbusModuleClient();
                 }
                 return 0;
             case 2:
-                if(modbus_test) {
+                if(ModbusTest) {
                     printf(COLOR_GREEN "Running Modbus Server Test...\n" COLOR_RESET);
-                    RunModbusServer(argc, argv);
+                    RunModbusServer(Argc, Argv);
                 }
                 return 0;
             case 'h':
@@ -82,10 +82,10 @@ main(int argc, char **argv)
         }
     }
 
-    if(postgres_config) {
+    if(PostgresConfig) {
         printf(COLOR_GREEN "Running Postgres Test...\n" COLOR_RESET);
-        RunPostgresTest(postgres_config);
-    } else if(modbus_test) {
+        RunPostgresTest(PostgresConfig);
+    } else if(ModbusTest) {
         PrintUsage();
     } else {
         PrintUsage();

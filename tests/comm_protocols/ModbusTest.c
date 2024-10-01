@@ -80,7 +80,7 @@ SendModbusData(int NewFd, u16 UnitId)
 }
 
 sdb_errno
-RunModbusServer(int argc, char **argv)
+RunModbusServer(int Argc, char **Argv)
 {
     SdbLogInfo("Running Modbus Test Server over Unix Sockets ...");
 
@@ -96,7 +96,7 @@ RunModbusServer(int argc, char **argv)
     int Speed  = 1;
 
     int Opt;
-    while((Opt = getopt(argc, argv, "p:u:s:")) != -1) {
+    while((Opt = getopt(Argc, Argv, "p:u:s:")) != -1) {
         switch(Opt) {
             case 'p':
                 Port = atoi(optarg);
@@ -108,7 +108,7 @@ RunModbusServer(int argc, char **argv)
                 Speed = atoi(optarg);
                 break;
             default:
-                SdbLogError("Usage: %s [-p port] [-u unitId] [-s speed]", argv[0]);
+                SdbLogError("Usage: %s [-p port] [-u unitId] [-s speed]", Argv[0]);
                 return -EINVAL;
         }
     }
