@@ -12,7 +12,7 @@ SDB_LOG_REGISTER(CircularBuffer);
 #include <common/CircularBuffer.h>
 
 sdb_errno
-InitCircularBuffer(circular_buffer *Cb, size_t Size)
+CbInit(circular_buffer *Cb, size_t Size)
 {
     if(Size == 0) {
         SdbLogError("Error: Buffer size must be greater than zero.\n");
@@ -42,23 +42,23 @@ InitCircularBuffer(circular_buffer *Cb, size_t Size)
 }
 
 bool
-IsFull(circular_buffer *Cb)
+CbIsFull(circular_buffer *Cb)
 {
     return Cb->Full;
 }
 
 bool
-IsEmpty(circular_buffer *Cb)
+CbIsEmpty(circular_buffer *Cb)
 {
     return (!Cb->Full && (Cb->Head == Cb->Tail));
 }
 
 ssize_t
-InsertToBuffer(circular_buffer *Cb, void *Data, size_t Size)
+CbInsert(circular_buffer *Cb, void *Data, size_t Size)
 {
     pthread_mutex_lock(&Cb->WriteLock);
 
-    while(IsFull(Cb)) {
+    while(CbIsFull(Cb)) {
         SdbLogDebug("Buffer is full. Waiting for read operation.");
         pthread_cond_wait(&Cb->NotFull, &Cb->WriteLock);
     }
@@ -82,11 +82,11 @@ InsertToBuffer(circular_buffer *Cb, void *Data, size_t Size)
 }
 
 ssize_t
-ReadFromBuffer(circular_buffer *Cb, void *Dest, size_t Size)
+CbRead(circular_buffer *Cb, void *Dest, size_t Size)
 {
     pthread_mutex_lock(&Cb->ReadLock);
 
-    while(IsEmpty(Cb)) {
+    while(CbIsEmpty(Cb)) {
         pthread_cond_wait(&Cb->NotEmpty, &Cb->ReadLock);
     }
 
@@ -115,7 +115,7 @@ ReadFromBuffer(circular_buffer *Cb, void *Dest, size_t Size)
 }
 
 void
-FreeCircularBuffer(circular_buffer *Cb)
+CbFree(circular_buffer *Cb)
 {
     free(Cb->Data);
     pthread_mutex_destroy(&Cb->WriteLock);

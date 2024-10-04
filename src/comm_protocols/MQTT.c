@@ -105,7 +105,7 @@ MsgArrived(void *Context, char *TopicName, int TopicLen, MQTTClient_message *Mes
     queue_item Item;
 
     if(ParseModbusTCPFrame_(Buffer, Message->payloadlen, &Item) == 0) {
-        ssize_t BytesWritten = InsertToBuffer(Sub->Cb, Item.Data, Item.DataLength);
+        ssize_t BytesWritten = CbInsert(Sub->Cb, Item.Data, Item.DataLength);
         if(BytesWritten > 0) {
             SdbLogDebug("Inserted Modbus data into buffer. Bytes written: %zd", BytesWritten);
         } else {

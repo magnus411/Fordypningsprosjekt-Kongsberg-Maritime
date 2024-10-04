@@ -177,7 +177,7 @@ RunModbusModuleClient(void)
 
     // TODO(ingar): Add thread for server
 
-    InitCircularBuffer(&Cb, SdbMebiByte(16));
+    CbInit(&Cb, SdbMebiByte(16));
 
     modbus_args MbArgs;
     MbArgs.PORT = 3490;
@@ -189,7 +189,7 @@ RunModbusModuleClient(void)
 
     pthread_join(ModbusTid, NULL);
 
-    FreeCircularBuffer(&Cb);
+    CbFree(&Cb);
 
     return 0;
 }

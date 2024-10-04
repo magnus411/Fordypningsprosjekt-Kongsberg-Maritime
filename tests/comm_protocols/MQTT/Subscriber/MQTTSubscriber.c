@@ -11,7 +11,7 @@ static circular_buffer Cb = { 0 };
 sdb_errno
 MQTTSubscriber(const char *Address, const char *ClientId, const char *Topic)
 {
-    InitCircularBuffer(&Cb, SdbMebiByte(16));
+    CbInit(&Cb, SdbMebiByte(16));
 
     mqtt_subscriber MqttSubscriber;
     InitSubscriber(&MqttSubscriber, "tcp://localhost:1883", "ModbusSub", "MODBUS", 1, &Cb);
@@ -20,7 +20,7 @@ MQTTSubscriber(const char *Address, const char *ClientId, const char *Topic)
     pthread_create(&MqttTid, NULL, MQTTSubscriberThread, &MqttSubscriber);
     pthread_join(MqttTid, NULL);
 
-    FreeCircularBuffer(&Cb);
+    CbFree(&Cb);
 
     return 0;
 }

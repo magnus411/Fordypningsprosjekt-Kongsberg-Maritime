@@ -132,7 +132,7 @@ ModbusThread(void *arg)
             queue_item Item;
             ParseModbusTCPFrame_(Buf, NumBytes, &Item);
 
-            InsertToBuffer(Cb, &Item, sizeof(queue_item));
+            CbInsert(Cb, &Item, sizeof(queue_item));
         } else if(NumBytes == 0) {
             SdbLogDebug("Connection closed by server");
             close(SockFd);
