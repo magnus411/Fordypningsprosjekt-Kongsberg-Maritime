@@ -1,6 +1,7 @@
 #ifndef POSTGRES_H_
 #define POSTGRES_H_
 
+#include "common/CircularBuffer.h"
 #include <SdbExtern.h>
 
 #include <libpq-fe.h>
@@ -83,5 +84,18 @@ void PrintColumnMetadata(const pq_col_metadata *Metadata);
 
 void InsertSensorData(PGconn *DbConn, const char *TableName, u64 TableNameLen, const u8 *SensorData,
                       size_t DataSize);
+
+typedef struct
+{
+    PGconn *DbConn;
+    char  **TableNames;
+    u64    *TableNameLengths;
+
+    circular_buffer *Cb;
+    void            *PgInsertBuf;
+    size_t           PgInsertBufSize;
+
+    pthread_mutex_t CtxLock;
+} pg_db_api_ctx;
 
 #endif

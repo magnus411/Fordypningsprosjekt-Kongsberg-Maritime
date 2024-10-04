@@ -8,14 +8,6 @@
 
 typedef struct
 {
-    int    Protocol;
-    int    UnitId;
-    u8     Data[MAX_DATA_LENGTH];
-    size_t DataLength;
-} queue_item;
-
-typedef struct
-{
     int              PORT;
     char             Ip[10];
     circular_buffer *Cb;

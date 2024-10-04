@@ -25,11 +25,11 @@ CbInit(circular_buffer *Cb, size_t Size)
         return -ENOMEM;
     }
 
-    Cb->Size  = Size;
-    Cb->Head  = 0;
-    Cb->Tail  = 0;
-    Cb->Count = 0;
-    Cb->Full  = false;
+    Cb->DataSize = Size;
+    Cb->Head     = 0;
+    Cb->Tail     = 0;
+    Cb->Count    = 0;
+    Cb->Full     = false;
 
     pthread_mutex_init(&Cb->WriteLock, NULL);
     pthread_mutex_init(&Cb->ReadLock, NULL);
@@ -63,7 +63,7 @@ CbInsert(circular_buffer *Cb, void *Data, size_t Size)
         pthread_cond_wait(&Cb->NotFull, &Cb->WriteLock);
     }
 
-    size_t FirstChunk = SdbMin(Size, Cb->Size - Cb->Head);
+    size_t FirstChunk = SdbMin(Size, Cb->DataSize - Cb->Head);
     memcpy(Cb->Data + Cb->Head, Data, FirstChunk);
 
     size_t SecondChunk = Size - FirstChunk;
@@ -71,9 +71,9 @@ CbInsert(circular_buffer *Cb, void *Data, size_t Size)
         memcpy(Cb->Data, Data + FirstChunk, SecondChunk);
     }
 
-    Cb->Head = (Cb->Head + Size) % Cb->Size;
+    Cb->Head = (Cb->Head + Size) % Cb->DataSize;
     Cb->Count += Size;
-    Cb->Full = (Cb->Count == Cb->Size);
+    Cb->Full = (Cb->Count == Cb->DataSize);
 
     pthread_cond_signal(&Cb->NotEmpty);
     pthread_mutex_unlock(&Cb->WriteLock);
@@ -92,11 +92,11 @@ CbRead(circular_buffer *Cb, void *Dest, size_t Size)
 
     size_t AvailableBytes = Cb->Count;
     if(Size > AvailableBytes) {
-        SdbLogError("Error: Requested size is greater than available bytes in buffer.\n");
-        return -1;
+        SdbLogError("Requested size is greater than available bytes in buffer.\n");
+        return -ENOMEM;
     }
 
-    size_t FirstChunk = SdbMin(Size, Cb->Size - Cb->Tail);
+    size_t FirstChunk = SdbMin(Size, Cb->DataSize - Cb->Tail);
     memcpy(Dest, Cb->Data + Cb->Tail, FirstChunk);
 
     size_t SecondChunk = Size - FirstChunk;
@@ -104,7 +104,7 @@ CbRead(circular_buffer *Cb, void *Dest, size_t Size)
         memcpy(Dest + FirstChunk, Cb->Data, SecondChunk);
     }
 
-    Cb->Tail = (Cb->Tail + Size) % Cb->Size;
+    Cb->Tail = (Cb->Tail + Size) % Cb->DataSize;
     Cb->Count -= Size;
     Cb->Full = false;
 

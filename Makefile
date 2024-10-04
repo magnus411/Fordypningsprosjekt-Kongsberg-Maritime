@@ -1,7 +1,7 @@
 CC = gcc
-INCLUDES = -Isrc -Itests $(shell pkg-config --cflags libpq)
+INCLUDES = -Isrc -Itests
 # -lpaho-mqtt3c is for MQTT. Install:
-LIBS = $(shell pkg-config --libs libpq) -lpaho-mqtt3c -lpthread
+LIBS = -lpaho-mqtt3c -lpthread -lpq
 LINTER = clang-tidy
 LINTER_FLAGS = -quiet
 
