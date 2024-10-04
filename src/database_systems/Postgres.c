@@ -3,6 +3,13 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if defined(__linux__)
+#include <endian.h>
+#elif defined(__APPLE__)
+#include <machine/endian.h>
+#else
+#error Unsupported platform
+#endif
 #define SDB_LOG_LEVEL 4
 #include <SdbExtern.h>
 #include <database_systems/Postgres.h>
