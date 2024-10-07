@@ -4,25 +4,16 @@
 #include <libpq-fe.h>
 #include <stdbool.h>
 #include <string.h>
-
-// Get all sensor schemas from db, grab all schema names from json.
-// Check all schema names against all existing tables.
-// If the table exists, do nothing.
-// If it does not, get all fields of schema and create a table with it.
+#include <ctype.h>
 
 char *
-get_name_from_json(const char *JsonString)
+get_name_from_json(cJSON *Json)
 {
-    cJSON *Json = cJSON_Parse(JsonString);
     cJSON *Name = cJSON_GetObjectItemCaseSensitive(Json, "name");
     if(cJSON_IsString(Name) && (Name->valuestring != NULL))
     {
-        cJSON_free(Json);
-        cJSON_free(Name);
         return strdup(Name->valuestring);
     }
-    cJSON_free(Json);
-    cJSON_free(Name);
     return NULL;
 }
 
@@ -39,24 +30,36 @@ get_all_schema_names_from_db(PGconn *Conn)
         exit(1);
     }
 
-    int    RowCount  = PQntuples(Res);
-    char **NameArray = malloc(RowCount * sizeof(char *));
+    int    RowCount     = PQntuples(Res);
+    char **NameArray    = malloc((RowCount + 1) * sizeof(char *));
+    NameArray[RowCount] = NULL;
 
     for(int i = 0; i < RowCount; i++)
     {
-        NameArray[i] = strdup(get_name_from_json(PQgetvalue(Res, i, 1)));
+        const char *SchemaJsonString = PQgetvalue(Res, i, 1);
+        cJSON      *SchemaJson       = cJSON_Parse(SchemaJsonString);
+
+        if(SchemaJson == NULL)
+        {
+            fprintf(stderr, "Error parsing JSON: %s\n", cJSON_GetErrorPtr());
+            continue;
+        }
+
+        NameArray[i] = get_name_from_json(SchemaJson);
+        cJSON_Delete(SchemaJson);
     }
 
+    PQclear(Res);
     return NameArray;
 }
 
 bool
 check_if_table_exists(PGconn *Conn, const char *Name)
 {
-    char *QueryTemplate
-        = "SELECT EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = '%s'";
-    size_t QueryLength = snprintf(NULL, 0, QueryTemplate, Name);
-    char  *Query       = malloc(QueryLength + 1);
+    char  *QueryTemplate = "SELECT EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND "
+                           "tablename = '%s')";
+    size_t QueryLength   = snprintf(NULL, 0, QueryTemplate, Name);
+    char  *Query         = malloc(QueryLength + 1);
 
     if(Query == NULL)
     {
@@ -65,8 +68,8 @@ check_if_table_exists(PGconn *Conn, const char *Name)
     }
 
     snprintf(Query, QueryLength + 1, QueryTemplate, Name);
-
     PGresult *Res = PQexec(Conn, Query);
+    free(Query);
 
     if(PQresultStatus(Res) != PGRES_TUPLES_OK)
     {
@@ -76,52 +79,102 @@ check_if_table_exists(PGconn *Conn, const char *Name)
     }
 
     bool Exists = PQgetvalue(Res, 0, 0)[0] == 't';
-
     PQclear(Res);
-
     return Exists;
 }
 
-void
+char *
 create_table_if_not_exists(PGconn *Conn, cJSON *Json)
 {
     if(Json == NULL || !cJSON_IsObject(Json))
     {
-        printf("Error: Input was not a valid, parsed JSON object.\nAttempting to parse given "
-               "object...");
+        printf("Error: Input was not a valid, parsed JSON object.\n");
+        exit(1);
     }
 
-    cJSON *JsonParsed = cJSON_Parse(*Json);
-
-    if(Json == NULL || !cJSON_IsObject(Json))
+    cJSON *TableNameItem = cJSON_GetObjectItem(Json, "name");
+    if(TableNameItem == NULL || !cJSON_IsString(TableNameItem))
     {
-        printf("Error: Input was not a valid, parsed JSON object.\nAttempting to parse given "
-               "object...");
+        printf("ERROR: JSON does not contain a \"name\" field\n");
+        exit(1);
     }
+    const char *Name = TableNameItem->valuestring;
+
+    char *Query = malloc(2048);
+    if(Query == NULL)
+    {
+        printf("Memory allocation failed");
+        exit(1);
+    }
+
+    sprintf(Query, "CREATE TABLE %s (\n id SERIAL PRIMARY KEY, \n", Name);
+
+    cJSON *CurrentElement = NULL;
+    int    FieldCount     = 0;
+
+    cJSON_ArrayForEach(CurrentElement, Json)
+    {
+        if(strcmp(CurrentElement->string, "name") == 0)
+        {
+            continue;
+        }
+        if(cJSON_IsString(CurrentElement))
+        {
+            char *Type = CurrentElement->valuestring;
+            for(char *p = Type; *p; ++p)
+            {
+                *p = toupper(*p);
+            }
+
+            FieldCount++;
+            char Field[256];
+            sprintf(Field, "%s %s", CurrentElement->string, Type);
+            strcat(Query, Field);
+            strcat(Query, ", \n");
+        }
+    }
+
+    if(FieldCount > 0)
+    {
+        Query[strlen(Query) - 2] = '\0';
+    }
+    strcat(Query, "\n);");
+    return Query;
 }
 
-int
-json_to_create_table(const char *json_string)
+void
+all_together_now(PGconn *Conn)
 {
-    int status = 0;
+    char **SchemaNames = get_all_schema_names_from_db(Conn);
 
-    cJSON *json = cJSON_Parse(json_string); // make sure json_string is zero terminated
-
-    if(json == NULL) // error handling
+    for(int i = 0; SchemaNames[i] != NULL; ++i)
     {
-        const char *error_ptr = cJSON_GetErrorPtr();
-        if(error_ptr == NULL)
+        if(check_if_table_exists(Conn, SchemaNames[i]))
         {
-            fprintf(stderr, "ERROR before %s", error_ptr);
+            printf("Table '%s' already exists, skipping...\n", SchemaNames[i]);
+            continue;
         }
-        status = 0;
-        goto end;
+        else
+        {
+            printf("Table '%s' does not exist. Creating...\n", SchemaNames[i]);
+
+            cJSON    *SchemaJson  = cJSON_Parse(SchemaNames[i]);
+            char     *CreateQuery = create_table_if_not_exists(Conn, SchemaJson);
+            PGresult *CreateRes   = PQexec(Conn, CreateQuery);
+
+            if(PQresultStatus(CreateRes) != PGRES_COMMAND_OK)
+            {
+                fprintf(stderr, "Table creation failed: %s\n", PQerrorMessage(Conn));
+            }
+            else
+            {
+                printf("Table '%s' created successfully.\n", SchemaNames[i]);
+            }
+            PQclear(CreateRes);
+            free(CreateQuery);
+            cJSON_Delete(SchemaJson);
+        }
+        free(SchemaNames[i]);
     }
-
-    char *printed = cJSON_Print(json);
-    printf("parsed and printed json data: %s", printed);
-
-end:
-    cJSON_Delete(json);
-    return status;
+    free(SchemaNames);
 }
