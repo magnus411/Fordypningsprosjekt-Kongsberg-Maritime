@@ -1,13 +1,12 @@
 CC = gcc
 INCLUDES = -Isrc -Itests
-# -lpaho-mqtt3c is for MQTT. Install:
 LIBS = -lpaho-mqtt3c -lpthread -lpq
 LINTER = clang-tidy
 LINTER_FLAGS = -quiet
 
-# Find all .c files in src directory except Main.c
+# Find all .c files in src directory except Main.c.
+# Main.c is compiled separately to not interfere with the main function in the test program
 SRC = $(filter-out src/Main.c, $(shell find src -name "*.c"))
-# Main.c is compiled separately
 MAIN_SRC = src/Main.c
 TEST_SRC = $(shell find tests -name "*.c")
 
@@ -28,26 +27,21 @@ relwdb: build_main build_tests
 release: CFLAGS = $(RELEASE_FLAGS)
 release: build_main build_tests
 
-# Lint files
 lint: compile_commands.json
 	@echo "Running clang-tidy..."
 	$(LINTER) $(SRC) $(LINTER_FLAGS)
 	@echo "Linting completed."
-# Run static analysis
 
 static_analysis: 
 	@echo "Running cppcheck..."
 	cppcheck --enable=all --inconclusive --error-exitcode=1 src tests
 	@echo "Static analysis completed."
 
-# Format code
 format:
 	@echo "Formatting code..."
 	clang-format -i $(SRC) $(TEST_SRC)
 	@echo "Code formatting completed."
 
-
-# Generate compile_commands.json
 compile_commands.json: 
 	@echo "Generating compile_commands.json..."
 	bear -- make
