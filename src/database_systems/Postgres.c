@@ -10,8 +10,10 @@
 #else
 #error Unsupported platform
 #endif
+
 #define SDB_LOG_LEVEL 4
 #include <SdbExtern.h>
+
 #include <modules/DatabaseModule.h>
 #include <database_systems/Postgres.h>
 
@@ -298,25 +300,46 @@ GetSqlQueryFromFile(const char *FileName, sdb_arena *Arena)
 }
 
 sdb_errno
-PgInsert(database_api *PgApi)
+PgInit(database_api *Pg)
 {
-    pg_db_api_ctx *PgContext = PgApi->Context;
-    pthread_mutex_lock(&PgContext->CtxLock);
-
-    ssize_t CbReadRet = CbRead(PgContext->Cb, PgContext->PgInsertBuf, PgContext->PgInsertBufSize);
-    if(CbReadRet < 0) {
-        SdbLogError("Failed to read from circular buffer");
+    sdb_file_data *ConfFile = SdbLoadFileIntoMemory(POSTGRES_CONF_FS_PATH);
+    if(ConfFile == NULL) {
+        SdbLogError("Failed to open config file");
+        return -1;
     }
 
-    pthread_mutex_unlock(&PgContext->CtxLock);
+    // TODO(ingar): Consider making this a JSON file
+    const char *ConnInfo = (const char *)ConfFile->Data;
 
+    SdbLogInfo("Attempting to connect to database using:\n%s", ConnInfo);
+    PGconn *Connection = PQconnectdb(ConnInfo);
+    if(PQstatus(Connection) != CONNECTION_OK) {
+        SdbLogError("Connection to database failed. PQ error:\n%s\n", PQerrorMessage(Connection));
+        PQfinish(Connection);
+        free(ConfFile);
+        return -1;
+    }
+
+    SdbLogInfo("Connected!");
+    DiagnoseConnectionAndTable(Connection, "power_shaft_sensor");
+
+    int         ShaftColCount;
+    const char *PowerShaftSensorTableName = "power_shaft_sensor";
+    u64         PSSTableNameLen           = 18;
+
+    pq_col_metadata *Metadata
+        = GetTableMetadata(Connection, PowerShaftSensorTableName, PSSTableNameLen, &ShaftColCount);
+    for(int i = 0; i < ShaftColCount; ++i) {
+        PrintColumnMetadata(&Metadata[i]);
+    }
+
+    free(ConfFile);
     return 0;
 }
 
 sdb_errno
-PgInit(database_api *PgApi)
+PgRun(database_api *PgApi)
 {
-    // TODO(ingar): Make
 
     return 0;
 }

@@ -2,6 +2,7 @@
 #define POSTGRES_H_
 
 #include <libpq-fe.h>
+
 #include <SdbExtern.h>
 #include <common/CircularBuffer.h>
 #include <modules/DatabaseModule.h>
@@ -43,6 +44,7 @@ enum pq_oid
     "AS full_data_type FROM pg_catalog.pg_class c JOIN pg_catalog.pg_attribute a ON a.attrelid = " \
     "c.oid JOIN pg_catalog.pg_type t ON a.atttypid = t.oid WHERE c.relname = "                     \
     "'%s' AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum"
+
 // TODO(ingar): Create a minimal structure that only contains the necessary data to perform inserts
 // from a byte stream
 typedef struct
@@ -78,6 +80,9 @@ void PrintColumnMetadata(const pq_col_metadata *Metadata);
 void InsertSensorData(PGconn *DbConn, const char *TableName, u64 TableNameLen, const u8 *SensorData,
                       size_t DataSize);
 
+sdb_errno PgInit(database_api *Pg);
+sdb_errno PgRun(database_api *Pg);
+
 typedef struct
 {
     PGconn *DbConn;
@@ -87,8 +92,6 @@ typedef struct
     circular_buffer *Cb;
     void            *PgInsertBuf;
     size_t           PgInsertBufSize;
-
-    pthread_mutex_t CtxLock;
-} pg_db_api_ctx;
+} pg_ctx;
 
 #endif
