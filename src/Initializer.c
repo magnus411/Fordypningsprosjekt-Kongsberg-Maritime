@@ -27,7 +27,7 @@ get_all_schema_names_from_db(PGconn *Conn)
         fprintf(stderr, "SELECT failed: %s", PQerrorMessage(Conn));
         PQclear(Res);
         PQfinish(Conn);
-        exit(1);
+        return NULL;
     }
 
     int    RowCount     = PQntuples(Res);
@@ -42,7 +42,7 @@ get_all_schema_names_from_db(PGconn *Conn)
         if(SchemaJson == NULL)
         {
             fprintf(stderr, "Error parsing JSON: %s\n", cJSON_GetErrorPtr());
-            continue;
+            return NULL;
         }
 
         NameArray[i] = get_name_from_json(SchemaJson);
@@ -56,20 +56,14 @@ get_all_schema_names_from_db(PGconn *Conn)
 bool
 check_if_table_exists(PGconn *Conn, const char *Name)
 {
-    char  *QueryTemplate = "SELECT EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND "
-                           "tablename = '%s')";
-    size_t QueryLength   = snprintf(NULL, 0, QueryTemplate, Name);
-    char  *Query         = malloc(QueryLength + 1);
 
-    if(Query == NULL)
-    {
-        fprintf(stderr, "Memory allocation failed");
-        return false;
-    }
+    const char *QueryTemplate
+        = "SELECT EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = $1)";
 
-    snprintf(Query, QueryLength + 1, QueryTemplate, Name);
-    PGresult *Res = PQexec(Conn, Query);
-    free(Query);
+    const char *Params[1];
+    Params[0] = Name;
+
+    PGresult *Res = PQexecParams(Conn, QueryTemplate, 1, NULL, Params, NULL, NULL, 0);
 
     if(PQresultStatus(Res) != PGRES_TUPLES_OK)
     {
@@ -100,14 +94,17 @@ create_table_if_not_exists(PGconn *Conn, cJSON *Json)
     }
     const char *Name = TableNameItem->valuestring;
 
-    char *Query = malloc(2048);
+    sprintf(Query, "CREATE TABLE IF NOT EXISTS %s (\n id SERIAL PRIMARY KEY, \n", Name);
+    size_t QueryLenght = snprintf(NULL, 0, QueryTemplate, Name);
+    char  *Query       = malloc(QueryLenght + 1);
+
     if(Query == NULL)
     {
         printf("Memory allocation failed");
-        exit(1);
+        return NULL;
     }
 
-    sprintf(Query, "CREATE TABLE %s (\n id SERIAL PRIMARY KEY, \n", Name);
+    snprintf(Query, QueryLenght + 1, QueryTemplate, Name);
 
     cJSON *CurrentElement = NULL;
     int    FieldCount     = 0;
@@ -121,10 +118,6 @@ create_table_if_not_exists(PGconn *Conn, cJSON *Json)
         if(cJSON_IsString(CurrentElement))
         {
             char *Type = CurrentElement->valuestring;
-            for(char *p = Type; *p; ++p)
-            {
-                *p = toupper(*p);
-            }
 
             FieldCount++;
             char Field[256];
@@ -136,8 +129,10 @@ create_table_if_not_exists(PGconn *Conn, cJSON *Json)
 
     if(FieldCount > 0)
     {
+
         Query[strlen(Query) - 2] = '\0';
     }
+
     strcat(Query, "\n);");
     return Query;
 }
@@ -147,33 +142,34 @@ all_together_now(PGconn *Conn)
 {
     char **SchemaNames = get_all_schema_names_from_db(Conn);
 
-    for(int i = 0; SchemaNames[i] != NULL; ++i)
+    if(SchemaNames == NULL)
     {
-        if(check_if_table_exists(Conn, SchemaNames[i]))
+
+        fprintf(stderr, "%s\n");
+        return;
+    }
+
+    int count = Sc for(int i = 0; SchemaNames[i] != NULL; ++i)
+    {
+
+        printf("Table '%s' does not exist. Creating...\n", SchemaNames[i]);
+
+        cJSON    *SchemaJson  = cJSON_Parse(SchemaNames[i]);
+        char     *CreateQuery = create_table_if_not_exists(Conn, SchemaJson);
+        PGresult *CreateRes   = PQexec(Conn, CreateQuery);
+
+        if(PQresultStatus(CreateRes) != PGRES_COMMAND_OK)
         {
-            printf("Table '%s' already exists, skipping...\n", SchemaNames[i]);
-            continue;
+            fprintf(stderr, "Table creation failed: %s\n", PQerrorMessage(Conn));
         }
         else
         {
-            printf("Table '%s' does not exist. Creating...\n", SchemaNames[i]);
-
-            cJSON    *SchemaJson  = cJSON_Parse(SchemaNames[i]);
-            char     *CreateQuery = create_table_if_not_exists(Conn, SchemaJson);
-            PGresult *CreateRes   = PQexec(Conn, CreateQuery);
-
-            if(PQresultStatus(CreateRes) != PGRES_COMMAND_OK)
-            {
-                fprintf(stderr, "Table creation failed: %s\n", PQerrorMessage(Conn));
-            }
-            else
-            {
-                printf("Table '%s' created successfully.\n", SchemaNames[i]);
-            }
-            PQclear(CreateRes);
-            free(CreateQuery);
-            cJSON_Delete(SchemaJson);
+            printf("Table '%s' created successfully.\n", SchemaNames[i]);
         }
+        PQclear(CreateRes);
+        free(CreateQuery);
+        cJSON_Delete(SchemaJson);
+
         free(SchemaNames[i]);
     }
     free(SchemaNames);

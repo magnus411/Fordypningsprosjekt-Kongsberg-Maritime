@@ -1,5 +1,5 @@
-#ifndef SENSOR_SCHEMA_H
-#define SENSOR_SCHEMA_H
+#ifndef INITIALIZER_H
+#define INITIALIZER_H
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -27,4 +27,4 @@ char *create_table_if_not_exists(PGconn *Conn, cJSON *Json);
 // Main function to retrieve schema names, check table existence, and create tables if necessary.
 void all_together_now(PGconn *Conn);
 
-#endif // SENSOR_SCHEMA_H
+#endif // INITIALIZER_H
