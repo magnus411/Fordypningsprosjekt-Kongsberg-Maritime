@@ -15,48 +15,33 @@
 typedef struct database_api database_api;
 struct database_api
 {
-    sdb_errno (*Insert)(database_api *DbApi);
-    sdb_errno (*Initialize)(database_api *DbApi);
+    // sdb_errno (*Insert)(database_api *Db);
+    sdb_errno (*Init)(database_api *Db);
+    sdb_errno (*Run)(database_api *Db);
 
-    // TODO(ingar): Should the api have a lock?
     atomic_bool IsInitialized;
     void       *Context;
 };
 
-static inline bool
-DbApiIsReady(database_api *DbApi)
+/**
+ * @brief Context for a thread running DbModuleRun
+ * @param Errno Errno value set by DbModuleRun to indicate error/success
+ * @param ThreadId
+ */
+typedef struct
 {
-    bool Expected = true;
-    if(atomic_compare_exchange_strong(&DbApi->IsInitialized, &Expected, true)) {
-        return true;
-    } else {
-        return false;
-    }
-}
+    i64 ThreadId;
 
-static inline sdb_errno
-DbInsert(database_api *DbApi)
-{
-    bool ApiIsReady = DbApiIsReady(DbApi);
-    if(!ApiIsReady) {
-        assert(ApiIsReady);
-        return -1;
-    }
+    sdb_errno Errno;
 
-    sdb_errno InsertRet = DbApi->Insert(DbApi);
-    return InsertRet;
-}
+} db_module_ctx;
 
-static inline sdb_errno
-DbApiInit(database_api *DbApi)
-{
-    bool ApiIsReady = DbApiIsReady(DbApi);
-    if(ApiIsReady) {
-        return 0;
-    }
-
-    sdb_errno InitRet = DbApi->Initialize(DbApi);
-    return InitRet;
-}
+/**
+ * @brief Database module's main function, which should be spawned in a thread.
+ *
+ * @param DbModulectx Pointer to a db_module_ctx
+ * @retval Always NULL, check @p DbModuleCtx for errno
+ */
+void *DbModuleRun(void *DbModuleCtx);
 
 #endif
