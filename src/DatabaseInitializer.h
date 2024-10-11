@@ -1,5 +1,5 @@
-#ifndef INITIALIZER_H
-#define INITIALIZER_H
+#ifndef DATABASE_INITIALIZER_H
+#define DATABASE_INITIALIZER_H
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -15,16 +15,16 @@
 char *get_name_from_json(cJSON *Json);
 
 // Fetches all schema names from the database and returns an array of strings.
-char **get_all_schema_names_from_db(PGconn *Conn);
+cJSON **DbInitGetSchemasFromDb(PGconn *Conn);
 
 // Checks if a table with the given name exists in the database.
 bool check_if_table_exists(PGconn *Conn, const char *Name);
 
 // Creates a table with the fields specified in the provided JSON object, if it does not already
 // exist.
-char *create_table_if_not_exists(PGconn *Conn, cJSON *Json);
+char *CreateTableCreationQuery(PGconn *Conn, cJSON *Json);
 
 // Main function to retrieve schema names, check table existence, and create tables if necessary.
 void all_together_now(PGconn *Conn);
 
-#endif // INITIALIZER_H
+#endif // DATABASE_INITIALIZER_H

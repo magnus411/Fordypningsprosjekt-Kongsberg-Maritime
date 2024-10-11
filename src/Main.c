@@ -1,64 +1,31 @@
+#include <stdio.h>
 #include <stdlib.h>
 #include <libpq-fe.h>
-
-#define SDB_LOG_LEVEL 4
-#include <Sdb.h>
-
-SDB_LOG_REGISTER(Main);
-
-#include <database_systems/Postgres.h>
+#include "DatabaseInitializer.h"
+#include "cjson/cJSON.h"
 
 int
-main(int ArgCount, char **ArgV)
+main(void)
 {
-    if(ArgCount <= 1) {
+    // Connect to the database
+    PGconn *Conn
+        = PQconnectdb("host=localhost port=5432 dbname=postgres user=postgres password=password");
 
-        SdbLogError("Please provide the path to the configuration.sdb file!\nRelative paths start "
-                    "from where YOU launch the executable from.");
+    if(PQstatus(Conn) != CONNECTION_OK) {
+        fprintf(stderr, "Connection to database failed: %s", PQerrorMessage(Conn));
+        PQfinish(Conn);
         return 1;
     }
 
-    sdb_arena MainArena;
-    u64       ArenaMemorySize = SdbMebiByte(128);
-    u8       *ArenaMemory     = malloc(ArenaMemorySize);
-    if(NULL == ArenaMemory) {
-        SdbLogError("Failed to allocate memory for arena!");
-        return 1;
-    }
-    SdbArenaInit(&MainArena, ArenaMemory, ArenaMemorySize);
+    cJSON **SchemaObjects = DbInitGetSchemasFromDb(Conn);
 
-    const char    *ConfigFilePath = ArgV[1];
-    sdb_file_data *ConfigFile     = SdbLoadFileIntoMemory(ConfigFilePath, &MainArena);
-    if(NULL == ConfigFile) {
-        SdbLogError("Failed to open file!");
-        return 1;
-    }
+    for(int i = 0; SchemaObjects[i] != NULL; ++i) {
+        cJSON *Schema      = SchemaObjects[i];
+        char  *CreateQuery = CreateTableCreationQuery(Conn, Schema);
+        printf("Query: %s\n", CreateQuery);
+        free(CreateQuery);
+        }
 
-    // TODO(ingar): Make parser for config file
-    const char *ConnectionInfo = (const char *)ConfigFile->Data;
-    SdbLogInfo("Attempting to connect to database using:\n%s", ConnectionInfo);
-
-    PGconn *Connection = PQconnectdb(ConnectionInfo);
-    if(PQstatus(Connection) != CONNECTION_OK) {
-        SdbLogError("Connection to database failed. Libpq error:\n%s", PQerrorMessage(Connection));
-        PQfinish(Connection);
-        return 1;
-    }
-
-    SdbLogInfo("Connected!");
-    DiagnoseConnectionAndTable(Connection, "power_shaft_sensor");
-
-    int              ShaftColCount;
-    const char      *PowerShaftSensorTableName = "power_shaft_sensor";
-    u64              PSSTableNameLen           = 18;
-    pq_col_metadata *Metadata
-        = GetTableMetadata(Connection, PowerShaftSensorTableName, PSSTableNameLen, &ShaftColCount);
-    for(int i = 0; i < ShaftColCount; ++i) {
-        PrintColumnMetadata(&Metadata[i]);
-    }
-
-    PQfinish(Connection);
-    SdbLogInfo("Connection to database closed. Goodbye!");
-
+    PQfinish(Conn);
     return 0;
 }
