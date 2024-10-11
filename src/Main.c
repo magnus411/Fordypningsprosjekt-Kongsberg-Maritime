@@ -6,7 +6,10 @@
 
 SDB_LOG_REGISTER(Main);
 
-#include <database_systems/Postgres.h>
+#include <modules/DatabaseModule.h>
+
+#define DATABASE_SYSTEM DATABASE_SYSTEM_POSTGRES
+#include <database_systems/DatabaseSystems.h>
 
 int
 main(int ArgCount, char **ArgV)
@@ -18,47 +21,16 @@ main(int ArgCount, char **ArgV)
         return 1;
     }
 
-    sdb_arena MainArena;
-    u64       ArenaMemorySize = SdbMebiByte(128);
-    u8       *ArenaMemory     = malloc(ArenaMemorySize);
-    if(NULL == ArenaMemory) {
+    sdb_arena SdbArena;
+    u64       SdbArenaSize = SdbMebiByte(32);
+    u8       *SdbArenaMem  = malloc(SdbArenaSize);
+
+    if(NULL == SdbArenaMem) {
         SdbLogError("Failed to allocate memory for arena!");
-        return 1;
-    }
-    SdbArenaInit(&MainArena, ArenaMemory, ArenaMemorySize);
-
-    const char    *ConfigFilePath = ArgV[1];
-    sdb_file_data *ConfigFile     = SdbLoadFileIntoMemory(ConfigFilePath, &MainArena);
-    if(NULL == ConfigFile) {
-        SdbLogError("Failed to open file!");
-        return 1;
+        exit(EXIT_FAILURE);
+    } else {
+        SdbArenaInit(&SdbArena, SdbArenaMem, SdbArenaSize);
     }
 
-    // TODO(ingar): Make parser for config file
-    const char *ConnectionInfo = (const char *)ConfigFile->Data;
-    SdbLogInfo("Attempting to connect to database using:\n%s", ConnectionInfo);
-
-    PGconn *Connection = PQconnectdb(ConnectionInfo);
-    if(PQstatus(Connection) != CONNECTION_OK) {
-        SdbLogError("Connection to database failed. Libpq error:\n%s", PQerrorMessage(Connection));
-        PQfinish(Connection);
-        return 1;
-    }
-
-    SdbLogInfo("Connected!");
-    DiagnoseConnectionAndTable(Connection, "power_shaft_sensor");
-
-    int              ShaftColCount;
-    const char      *PowerShaftSensorTableName = "power_shaft_sensor";
-    u64              PSSTableNameLen           = 18;
-    pq_col_metadata *Metadata
-        = GetTableMetadata(Connection, PowerShaftSensorTableName, PSSTableNameLen, &ShaftColCount);
-    for(int i = 0; i < ShaftColCount; ++i) {
-        PrintColumnMetadata(&Metadata[i]);
-    }
-
-    PQfinish(Connection);
-    SdbLogInfo("Connection to database closed. Goodbye!");
-
-    return 0;
+    exit(EXIT_SUCCESS);
 }
