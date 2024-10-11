@@ -1,11 +1,12 @@
 #ifndef POSTGRES_H_
 #define POSTGRES_H_
 
-#include "common/CircularBuffer.h"
-#include <SdbExtern.h>
-
 #include <libpq-fe.h>
-#include <stdio.h>
+#include <SdbExtern.h>
+#include <common/CircularBuffer.h>
+#include <modules/DatabaseModule.h>
+
+#define POSTGRES_CONF_FS_PATH "./postgres-conf"
 
 // PostgreSQL Type OIDs and Names
 enum pq_oid
@@ -22,34 +23,26 @@ enum pq_oid
     NUMERIC     = 1700,
 };
 
-// TODO(ingar): This might not be the best way to store these strings. No, it definitiely isn't but
-// it'll do for now
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-variable"
+#define PQ_BOOL_NAME        "boolean";
+#define PQ_INT8_NAME        "bigint";
+#define PQ_INT4_NAME        "integer";
+#define PQ_TEXT_NAME        "text";
+#define PQ_FLOAT8_NAME      "double precision";
+#define PQ_VARCHAR_NAME     "character varying";
+#define PQ_DATE_NAME        "date";
+#define PQ_TIMESTAMPTZ_NAME "timestamp with time zone";
+#define PQ_TIME_NAME        "time without time zone";
+#define PQ_NUMERIC_NAME     "numeric";
 
-static const char *PQ_BOOL_NAME        = "boolean";
-static const char *PQ_INT8_NAME        = "bigint";
-static const char *PQ_INT4_NAME        = "integer";
-static const char *PQ_TEXT_NAME        = "text";
-static const char *PQ_FLOAT8_NAME      = "double precision";
-static const char *PQ_VARCHAR_NAME     = "character varying";
-static const char *PQ_DATE_NAME        = "date";
-static const char *PQ_TIMESTAMPTZ_NAME = "timestamp with time zone";
-static const char *PQ_TIME_NAME        = "time without time zone";
-static const char *PQ_NUMERIC_NAME     = "numeric";
-
-static const u64   PqTableMetadataQueryFmtLen__ = 609;
-static const char *PqTableMetadataQueryFmt__
-    = "SELECT c.oid AS table_oid, c.relname AS table_name, a.attnum AS column_number, a.attname AS "
-      "column_name, t.oid AS type_oid, t.typname AS type_name, t.typlen AS type_length, t.typbyval "
-      "AS type_by_value, t.typalign AS type_alignment, t.typstorage AS type_storage, a.atttypmod "
-      "AS type_modifier, a.attnotnull AS not_null, pg_catalog.format_type(a.atttypid, a.atttypmod) "
-      "AS full_data_type FROM pg_catalog.pg_class c JOIN pg_catalog.pg_attribute a ON a.attrelid = "
-      "c.oid JOIN pg_catalog.pg_type t ON a.atttypid = t.oid WHERE c.relname = "
-      "'%s' AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum";
-
-#pragma GCC diagnostic pop
-
+#define PQ_TABLE_METADATA_QUERY_FMT_LEN 609
+#define PQ_TABLE_METADATA_QUERY_FMT                                                                \
+    "SELECT c.oid AS table_oid, c.relname AS table_name, a.attnum AS column_number, a.attname AS " \
+    "column_name, t.oid AS type_oid, t.typname AS type_name, t.typlen AS type_length, t.typbyval " \
+    "AS type_by_value, t.typalign AS type_alignment, t.typstorage AS type_storage, a.atttypmod "   \
+    "AS type_modifier, a.attnotnull AS not_null, pg_catalog.format_type(a.atttypid, a.atttypmod) " \
+    "AS full_data_type FROM pg_catalog.pg_class c JOIN pg_catalog.pg_attribute a ON a.attrelid = " \
+    "c.oid JOIN pg_catalog.pg_type t ON a.atttypid = t.oid WHERE c.relname = "                     \
+    "'%s' AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum"
 // TODO(ingar): Create a minimal structure that only contains the necessary data to perform inserts
 // from a byte stream
 typedef struct

@@ -96,9 +96,9 @@ PrintPGresult(const PGresult *Result)
 char *
 PqTableMetaDataQuery(const char *TableName, u64 TableNameLen)
 {
-    u64   QueryLen = PqTableMetadataQueryFmtLen__ + TableNameLen;
+    u64   QueryLen = PQ_TABLE_METADATA_QUERY_FMT_LEN + TableNameLen;
     char *QueryBuf = (char *)malloc(QueryLen);
-    snprintf(QueryBuf, QueryLen, PqTableMetadataQueryFmt__, TableName);
+    snprintf(QueryBuf, QueryLen, PQ_TABLE_METADATA_QUERY_FMT, TableName);
 
     return QueryBuf;
 }
@@ -106,20 +106,21 @@ PqTableMetaDataQuery(const char *TableName, u64 TableNameLen)
 void
 PrintColumnMetadata(const pq_col_metadata *Metadata)
 {
-    SdbPrintfDebug("Table OID: %u\n", Metadata->TableOid);
-    SdbPrintfDebug("Table Name: %s\n", Metadata->TableName);
-    SdbPrintfDebug("Column Number: %d\n", Metadata->ColumnNumber);
-    SdbPrintfDebug("Column Name: %s\n", Metadata->ColumnName);
-    SdbPrintfDebug("Type OID: %u\n", Metadata->TypeOid);
-    SdbPrintfDebug("Type Name: %s\n", Metadata->TypeName);
-    SdbPrintfDebug("Type Length: %d\n", Metadata->TypeLength);
-    SdbPrintfDebug("Type By Value: %s\n", Metadata->TypeByValue ? "Yes" : "No");
-    SdbPrintfDebug("Type Alignment: %c\n", Metadata->TypeAlignment);
-    SdbPrintfDebug("Type Storage: %c\n", Metadata->TypeStorage);
-    SdbPrintfDebug("Type Modifier: %d\n", Metadata->TypeModifier);
-    SdbPrintfDebug("Not Null: %s\n", Metadata->NotNull ? "Yes" : "No");
-    SdbPrintfDebug("Full Data Type: %s\n", Metadata->FullDataType);
-    SdbPrintfDebug("\n");
+    printf("\n");
+    printf("Table OID: %u\n", Metadata->TableOid);
+    printf("Table Name: %s\n", Metadata->TableName);
+    printf("Column Number: %d\n", Metadata->ColumnNumber);
+    printf("Column Name: %s\n", Metadata->ColumnName);
+    printf("Type OID: %u\n", Metadata->TypeOid);
+    printf("Type Name: %s\n", Metadata->TypeName);
+    printf("Type Length: %d\n", Metadata->TypeLength);
+    printf("Type By Value: %s\n", Metadata->TypeByValue ? "Yes" : "No");
+    printf("Type Alignment: %c\n", Metadata->TypeAlignment);
+    printf("Type Storage: %c\n", Metadata->TypeStorage);
+    printf("Type Modifier: %d\n", Metadata->TypeModifier);
+    printf("Not Null: %s\n", Metadata->NotNull ? "Yes" : "No");
+    printf("Full Data Type: %s\n", Metadata->FullDataType);
+    printf("\n");
 }
 
 pq_col_metadata *
@@ -292,7 +293,7 @@ InsertSensorData(PGconn *DbConn, const char *TableName, u64 TableNameLen, const 
 char *
 GetSqlQueryFromFile(const char *FileName, sdb_arena *Arena)
 {
-    sdb_file_data *File = SdbLoadFileIntoMemory(FileName, Arena);
+    sdb_file_data *File = SdbLoadFileIntoMemoryA(FileName, Arena);
     return (char *)File->Data;
 }
 
