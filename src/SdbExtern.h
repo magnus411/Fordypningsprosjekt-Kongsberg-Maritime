@@ -142,7 +142,7 @@ extern sdb_errno Sdb__WriteLogNoModule__(const char *LogLevel, const char *Funct
     = &SDB_CONCAT3(Sdb__LogModule, module_name, __)
 
 #define SDB_LOG_DECLARE_EXTERN(name)                                                               \
-    extern sdb__log_module__      SDB_CONCAT3(Sdb__LogModule, name, __) __attribute__((used));     \
+    extern sdb__log_module__      SDB_CONCAT3(Sdb__LogModule, name, __);                           \
     sdb_global sdb__log_module__ *Sdb__LogInstance__ __attribute__((used))                         \
     = &SDB_CONCAT3(Sdb__LogModule, name, __)
 

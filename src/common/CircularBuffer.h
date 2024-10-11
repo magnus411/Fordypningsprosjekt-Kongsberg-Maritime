@@ -2,7 +2,6 @@
 #define CIRCULAR_BUFFER_H
 
 #include <pthread.h>
-#include <stdint.h>
 #include <stdbool.h>
 #include <sys/types.h>
 
@@ -12,12 +11,22 @@
 
 typedef struct
 {
-    u8             *Data;
-    size_t          Size;
-    size_t          Head;
-    size_t          Tail;
-    size_t          Count;
-    bool            Full;
+    int    Protocol;
+    int    UnitId;
+    u8     Data[MAX_DATA_LENGTH];
+    size_t DataLength;
+} queue_item;
+
+typedef struct
+{
+    u8    *Data;
+    size_t DataSize;
+
+    size_t Head;
+    size_t Tail;
+    size_t Count;
+    bool   Full;
+
     pthread_mutex_t WriteLock;
     pthread_mutex_t ReadLock;
     pthread_cond_t  NotEmpty;

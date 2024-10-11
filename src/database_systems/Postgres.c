@@ -12,6 +12,7 @@
 #endif
 #define SDB_LOG_LEVEL 4
 #include <SdbExtern.h>
+#include <modules/DatabaseModule.h>
 #include <database_systems/Postgres.h>
 
 SDB_LOG_REGISTER(Postgres);
@@ -293,4 +294,28 @@ GetSqlQueryFromFile(const char *FileName, sdb_arena *Arena)
 {
     sdb_file_data *File = SdbLoadFileIntoMemory(FileName, Arena);
     return (char *)File->Data;
+}
+
+sdb_errno
+PgInsert(database_api *PgApi)
+{
+    pg_db_api_ctx *PgContext = PgApi->Context;
+    pthread_mutex_lock(&PgContext->CtxLock);
+
+    ssize_t CbReadRet = CbRead(PgContext->Cb, PgContext->PgInsertBuf, PgContext->PgInsertBufSize);
+    if(CbReadRet < 0) {
+        SdbLogError("Failed to read from circular buffer");
+    }
+
+    pthread_mutex_unlock(&PgContext->CtxLock);
+
+    return 0;
+}
+
+sdb_errno
+PgInit(database_api *PgApi)
+{
+    // TODO(ingar): Make
+
+    return 0;
 }
