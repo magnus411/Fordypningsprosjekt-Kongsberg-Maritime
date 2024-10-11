@@ -19,8 +19,6 @@
 #define COLOR_CYAN   "\033[36m"
 #define COLOR_RED    "\033[31m"
 
-static circular_buffer Cb = { 0 };
-
 void
 PrintUsage(void)
 {
@@ -56,14 +54,14 @@ main(int Argc, char **Argv)
     const char *PostgresConfig = NULL;
 
     static struct option LongOptions[] = {
-        { "postgres", required_argument, 0, 'p' },
-        {   "modbus",       no_argument, 0, 'm' },
-        {   "client",       no_argument, 0,   1 },
-        {   "server",       no_argument, 0,   2 },
-        { "mqtt-sub",       no_argument, 0, 's' },
-        { "mqtt-pub", required_argument, 0, 't' },
-        {     "help",       no_argument, 0, 'h' },
-        {          0,                 0, 0,   0 }
+        {"postgres", required_argument, 0, 'p'},
+        {  "modbus",       no_argument, 0, 'm'},
+        {  "client",       no_argument, 0,   1},
+        {  "server",       no_argument, 0,   2},
+        {"mqtt-sub",       no_argument, 0, 's'},
+        {"mqtt-pub", required_argument, 0, 't'},
+        {    "help",       no_argument, 0, 'h'},
+        {         0,                 0, 0,   0}
     };
 
     int ModbusTest = 0;

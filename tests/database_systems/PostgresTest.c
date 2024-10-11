@@ -73,7 +73,7 @@ void
 TestBinaryInsert(PGconn *DbConnection, const char *TableName, u64 TableNameLen)
 {
     power_shaft_sensor_data SensorData[] = {
-        { .Id          = 0,
+        {.Id          = 0,
          .Timestamp   = 0,
          .Rpm         = 3000,
          .Torque      = 150.5,
@@ -85,9 +85,9 @@ TestBinaryInsert(PGconn *DbConnection, const char *TableName, u64 TableNameLen)
          .PowerOutput = 470.3,
          .Efficiency  = 0.92,
          .ShaftAngle  = 45.0,
-         .SensorId    = "SHAFT_SENSOR_01" },
+         .SensorId    = "SHAFT_SENSOR_01"},
 
-        { .Id          = 1,
+        {.Id          = 1,
          .Timestamp   = 60,
          .Rpm         = 3050,
          .Torque      = 155.2,
@@ -99,9 +99,9 @@ TestBinaryInsert(PGconn *DbConnection, const char *TableName, u64 TableNameLen)
          .PowerOutput = 480.1,
          .Efficiency  = 0.91,
          .ShaftAngle  = 46.5,
-         .SensorId    = "SHAFT_SENSOR_01" },
+         .SensorId    = "SHAFT_SENSOR_01"},
 
-        { .Id          = 2,
+        {.Id          = 2,
          .Timestamp   = 120,
          .Rpm         = 2980,
          .Torque      = 148.9,
@@ -113,7 +113,7 @@ TestBinaryInsert(PGconn *DbConnection, const char *TableName, u64 TableNameLen)
          .PowerOutput = 465.7,
          .Efficiency  = 0.93,
          .ShaftAngle  = 44.2,
-         .SensorId    = "SHAFT_SENSOR_01" }
+         .SensorId    = "SHAFT_SENSOR_01"}
     };
 
     for(int i = 0; i < 3; ++i) {
@@ -133,7 +133,7 @@ RunPostgresTest(const char *ConfigFilePath)
     u8       *ArenaMemory     = malloc(ArenaMemorySize);
     SdbArenaInit(&MainArena, ArenaMemory, ArenaMemorySize);
 
-    sdb_file_data *ConfigFile = SdbLoadFileIntoMemory(ConfigFilePath, &MainArena);
+    sdb_file_data *ConfigFile = SdbLoadFileIntoMemoryA(ConfigFilePath, &MainArena);
     if(NULL == ConfigFile) {
         SdbLogError("Failed to open config file!");
         return;

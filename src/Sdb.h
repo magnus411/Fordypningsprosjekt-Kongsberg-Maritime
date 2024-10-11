@@ -585,7 +585,42 @@ typedef struct sdb_file_data
 } sdb_file_data;
 
 sdb_file_data *
-SdbLoadFileIntoMemory(const char *Filename, sdb_arena *Arena)
+SdbLoadFileIntoMemory(const char *Filename)
+{
+    FILE *File = fopen(Filename, "rb");
+    if(!File) {
+        return NULL;
+    }
+
+    if(fseek(File, 0L, SEEK_END) != 0) {
+        fclose(File);
+        return NULL;
+    }
+
+    u64 FileSize = (u64)ftell(File);
+    rewind(File);
+
+    u64            FileDataSize = sizeof(sdb_file_data) + FileSize + 1;
+    sdb_file_data *FileData     = calloc(1, FileDataSize);
+    if(!FileData) {
+        fclose(File);
+        return NULL;
+    }
+
+    FileData->Size = FileSize;
+    u64 BytesRead  = fread(&FileData->Data, 1, FileSize, File);
+    if(BytesRead != FileSize) {
+        fclose(File);
+        free(FileData);
+        return NULL;
+    }
+
+    fclose(File);
+    return FileData;
+}
+
+sdb_file_data *
+SdbLoadFileIntoMemoryA(const char *Filename, sdb_arena *Arena)
 {
     FILE *fd = fopen(Filename, "rb");
     if(!fd) {

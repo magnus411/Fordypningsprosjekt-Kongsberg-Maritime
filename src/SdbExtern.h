@@ -319,7 +319,9 @@ typedef struct sdb_file_data
     u8 *Data;
 } sdb_file_data;
 
-extern sdb_file_data *SdbLoadFileIntoMemory(const char *Filename, sdb_arena *Arena);
+extern sdb_file_data *SdbLoadFileIntoMemory(const char *Filename);
+
+extern sdb_file_data *SdbLoadFileIntoMemoryA(const char *Filename, sdb_arena *Arena);
 
 extern bool SdbWriteBufferToFile(void *Buffer, u64 ElementSize, u64 ElementCount,
                                  const char *Filename);
