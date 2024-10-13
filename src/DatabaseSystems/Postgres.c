@@ -11,10 +11,10 @@
 #error Unsupported platform
 #endif
 
-#include <Sdb.h>
+#include <src/Sdb.h>
 
-#include <DatabaseSystems/Postgres.h>
-#include <Modules/DatabaseModule.h>
+#include <src/DatabaseSystems/Postgres.h>
+#include <src/Modules/DatabaseModule.h>
 
 SDB_LOG_REGISTER(Postgres);
 
@@ -294,47 +294,57 @@ InsertSensorData(PGconn *DbConn, const char *TableName, u64 TableNameLen, const 
 char *
 GetSqlQueryFromFile(const char *FileName, sdb_arena *Arena)
 {
-    sdb_file_data *File = SdbLoadFileIntoMemoryA(FileName, Arena);
+    sdb_file_data *File = SdbLoadFileIntoMemory(FileName, Arena);
     return (char *)File->Data;
 }
 
 sdb_errno
-PgInit(database_api *Pg, db_init_args *Args)
+PgInit(database_api *Pg)
 {
-    u64 ArenaF5 = Args->Arena->Cur;
+    u64 ArenaF5 = SdbArenaGetPos(&Pg->Arena);
 
     // TODO(ingar): Consider making this a JSON file
-    sdb_file_data *ConfFile = SdbLoadFileIntoMemoryA(POSTGRES_CONF_FS_PATH, Args->Arena);
+    sdb_file_data *ConfFile = SdbLoadFileIntoMemory(POSTGRES_CONF_FS_PATH, &Pg->Arena);
     if(ConfFile == NULL) {
         SdbLogError("Failed to open config file");
         return -1;
     }
 
     const char *ConnInfo = (const char *)ConfFile->Data;
-    SdbLogInfo("Attempting to connect to Postgres database using:\n%s", ConnInfo);
+    SdbLogInfo("Attempting to connect to Postgres database using: %s", ConnInfo);
 
     PGconn *Conn = PQconnectdb(ConnInfo);
     if(PQstatus(Conn) != CONNECTION_OK) {
         SdbLogError("Connection to database failed. PQ error:\n%s\n", PQerrorMessage(Conn));
         PQfinish(Conn);
-        SdbArenaSeek(Args->Arena, ArenaF5);
+        SdbArenaSeek(&Pg->Arena, ArenaF5);
         return -1;
     } else {
         SdbLogInfo("Connected!");
     }
 
-    SdbArenaSeek(Args->Arena, ArenaF5);
+    SdbArenaSeek(&Pg->Arena, ArenaF5);
 
-    postgres_ctx *PgCtx = SdbPushStruct(Args->Arena, postgres_ctx);
-    PgCtx->DbConn       = Conn;
-    PgCtx->SdPipe       = Args->SdPipe;
+    postgres_ctx *PgCtx    = SdbPushStruct(&Pg->Arena, postgres_ctx);
+    PgCtx->DbConn          = Conn;
+    PgCtx->PgInsertBufSize = SdbKibiByte(4);
+    PgCtx->PgInsertBuf     = SdbPushArray(&Pg->Arena, u8, PgCtx->PgInsertBufSize);
+    Pg->Ctx                = PgCtx;
 
     return 0;
 }
 
 sdb_errno
-PgRun(database_api *PgApi)
+PgRun(database_api *Pg)
 {
+
+    return 0;
+}
+
+sdb_errno
+PgFinalize(database_api *Pg)
+{
+    PQfinish(PG_CTX(Pg)->DbConn);
 
     return 0;
 }
