@@ -1,8 +1,6 @@
-#include <stdint.h>
+#include <src/Sdb.h>
 
-#include <Sdb.h>
-
-#include <Common/CircularBuffer.h>
+#include <src/Common/CircularBuffer.h>
 
 #ifndef MODBUSMODULE_H
 #define MODBUSMODULE_H

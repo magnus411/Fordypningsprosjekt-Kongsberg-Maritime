@@ -2,10 +2,10 @@
 #include <pthread.h>
 #include <string.h>
 
-#include <Sdb.h>
+#include <src/Sdb.h>
 
-#include <CommProtocols/MQTT.h>
-#include <Common/CircularBuffer.h>
+#include <src/CommProtocols/MQTT.h>
+#include <src/Common/CircularBuffer.h>
 
 static circular_buffer Cb = { 0 };
 

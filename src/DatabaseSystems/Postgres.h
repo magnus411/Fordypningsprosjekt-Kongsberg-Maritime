@@ -3,12 +3,13 @@
 
 #include <libpq-fe.h>
 
-#include <Common/CircularBuffer.h>
-#include <Common/SensorDataPipe.h>
-#include <Modules/DatabaseModule.h>
-#include <Sdb.h>
+#include <src/Sdb.h>
 
-#define POSTGRES_CONF_FS_PATH "./postgres-conf"
+#include <src/Common/CircularBuffer.h>
+#include <src/Common/SensorDataPipe.h>
+#include <src/Modules/DatabaseModule.h>
+
+#define POSTGRES_CONF_FS_PATH "./Configs/postgres-conf"
 
 // PostgreSQL Type OIDs and Names
 enum pq_oid
@@ -81,8 +82,9 @@ void PrintColumnMetadata(const pq_col_metadata *Metadata);
 void InsertSensorData(PGconn *DbConn, const char *TableName, u64 TableNameLen, const u8 *SensorData,
                       size_t DataSize);
 
-sdb_errno PgInit(database_api *Pg, db_init_args *Args);
+sdb_errno PgInit(database_api *Pg);
 sdb_errno PgRun(database_api *Pg);
+sdb_errno PgFinalize(database_api *Pg);
 
 typedef struct
 {
@@ -90,9 +92,11 @@ typedef struct
     char  **TableNames;
     u64    *TableNameLengths;
 
-    sensor_data_pipe *SdPipe;
-    void             *PgInsertBuf;
-    size_t            PgInsertBufSize;
+    size_t PgInsertBufSize;
+    u8    *PgInsertBuf;
+
 } postgres_ctx;
+
+#define PG_CTX(pg) SDB_EXPAND(((postgres_ctx *)pg->Ctx))
 
 #endif

@@ -5,13 +5,13 @@
 
 #include <MQTTClient.h>
 
-#include <Sdb.h>
+#include <src/Sdb.h>
 
 SDB_LOG_REGISTER(MQTT);
 
-#include <CommProtocols/MQTT.h>
-#include <CommProtocols/Modbus.h>
-#include <Common/CircularBuffer.h>
+#include <src/CommProtocols/MQTT.h>
+#include <src/CommProtocols/Modbus.h>
+#include <src/Common/CircularBuffer.h>
 
 #define MAX_MODBUS_TCP_FRAME  260
 #define MODBUS_TCP_HEADER_LEN 7

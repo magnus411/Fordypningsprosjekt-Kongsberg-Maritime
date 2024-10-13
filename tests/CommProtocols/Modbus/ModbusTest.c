@@ -7,12 +7,12 @@
 #include <time.h>
 #include <unistd.h>
 
-#include <Sdb.h>
+#include <src/Sdb.h>
 
 SDB_LOG_REGISTER(TestModbus);
 
-#include <CommProtocols/Modbus.h>
-#include <Common/CircularBuffer.h>
+#include <src/CommProtocols/Modbus.h>
+#include <src/Common/CircularBuffer.h>
 
 #define MODBUS_TCP_HEADER_LEN 7
 #define MAX_MODBUS_PDU_SIZE   253

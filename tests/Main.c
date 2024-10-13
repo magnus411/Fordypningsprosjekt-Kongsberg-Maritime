@@ -4,16 +4,17 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include <CommProtocols/MQTT.h>
-#include <Common/CircularBuffer.h>
-
-#include <Tests/CommProtocols/MQTT/MQTTPublisher.h>
-#include <Tests/CommProtocols/MQTT/MQTTSubscriber.h>
-#include <Tests/CommProtocols/Modbus/Modbus.h>
-#include <Tests/DatabaseSystems/Postgres.h>
-
 #define SDB_H_IMPLEMENTATION
-#include <Sdb.h>
+#include <src/Sdb.h>
+#undef SDB_H_IMPLEMENTATION
+
+#include <src/CommProtocols/MQTT.h>
+#include <src/Common/CircularBuffer.h>
+
+#include <tests/CommProtocols/MQTT/MQTTPublisher.h>
+#include <tests/CommProtocols/MQTT/MQTTSubscriber.h>
+#include <tests/CommProtocols/Modbus/Modbus.h>
+#include <tests/DatabaseSystems/Postgres.h>
 
 #define COLOR_RESET  "\033[0m"
 #define COLOR_GREEN  "\033[32m"

@@ -5,13 +5,13 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include <Sdb.h>
+#include <src/Sdb.h>
 
 SDB_LOG_REGISTER(Modbus);
 
-#include <CommProtocols/Modbus.h>
-#include <CommProtocols/Socket.h>
-#include <Common/CircularBuffer.h>
+#include <src/CommProtocols/Modbus.h>
+#include <src/CommProtocols/Socket.h>
+#include <src/Common/CircularBuffer.h>
 
 #define MODBUS_TCP_HEADER_LEN 7
 #define MAX_MODBUS_TCP_FRAME  260

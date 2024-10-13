@@ -3,10 +3,10 @@
 
 #include <MQTTClient.h>
 
-#include <Sdb.h>
+#include <src/Sdb.h>
 
-#include <CommProtocols/Modbus.h>
-#include <Common/CircularBuffer.h>
+#include <src/CommProtocols/Modbus.h>
+#include <src/Common/CircularBuffer.h>
 
 // TODO(ingar): This doesn't seem right. Is there only ever one token? Also, this is not threadsafe
 // at all.

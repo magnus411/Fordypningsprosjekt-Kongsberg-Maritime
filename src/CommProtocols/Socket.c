@@ -3,11 +3,11 @@
 #include <sys/socket.h>
 #include <unistd.h>
 
-#include <Sdb.h>
+#include <src/Sdb.h>
 
 SDB_LOG_REGISTER(Modbus);
 
-#include <CommProtocols/Socket.h>
+#include <src/CommProtocols/Socket.h>
 
 int
 CreateSocket(const char *IpAddress, int Port)

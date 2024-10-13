@@ -1,6 +1,6 @@
 CC = gcc
-INCLUDES = -Iincludes
-LIBS = -lpaho-mqtt3c -lpthread -lpq
+INCLUDES = -I.
+LIBS = -lpaho-mqtt3c -lpthread -lpq -lpthread
 LINTER = clang-tidy
 LINTER_FLAGS = -quiet
 
@@ -61,4 +61,4 @@ build_tests:
 	@printf "\033[0;32mFinished building test suite\n\033[0m"
 
 clean:
-	rm -rf build tests/build
+	rm -rf build tests/build compile_commands.json

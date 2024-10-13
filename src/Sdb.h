@@ -21,7 +21,7 @@
 #include <stdbool.h>
 #endif // C/C++
 
-#include <Common/SdbErrno.h>
+#include <src/Common/SdbErrno.h>
 
 ////////////////////////////////////////
 //              DEFINES               //
@@ -186,6 +186,7 @@ typedef struct sdb_slice
 
 void       SdbArenaInit(sdb_arena *Arena, u8 *Mem, u64 Size);
 sdb_arena *SdbArenaCreateContiguous(u8 *Mem, u64 Size);
+sdb_arena *SdbArenaBootstrap(sdb_arena *Arena, sdb_arena *NewArena, u64 Size);
 
 #if 0
 u64
@@ -206,19 +207,20 @@ SdbArenaF9(sdb_arena *Arena)
 #endif
 
 void *SdbArenaPush(sdb_arena *Arena, u64 Size);
-void *SdbArenaPushZero(sdb_arena *Arena, u64 Size);
-void  SdbArenaPop(sdb_arena *Arena, u64 Size);
-u64   SdbArenaGetPos(sdb_arena *Arena);
-void  SdbArenaSeek(sdb_arena *Arena, u64 Pos);
-void  SdbArenaClear(sdb_arena *Arena);
-void  SdbArenaClearZero(sdb_arena *Arena);
-void  SdbArrayShift(void *Mem, u64 From, u64 To, u64 Count, u64 ElementSize);
+// void *SdbArenaPushZero(sdb_arena *Arena, u64 Size);
+void SdbArenaPop(sdb_arena *Arena, u64 Size);
+u64  SdbArenaGetPos(sdb_arena *Arena);
+void SdbArenaSeek(sdb_arena *Arena, u64 Pos);
+void SdbArenaClear(sdb_arena *Arena);
+void SdbArenaClearZero(sdb_arena *Arena);
+void SdbArrayShift(void *Mem, u64 From, u64 To, u64 Count, u64 ElementSize);
 
 #define SdbArrayDeleteAndShift(mem, i, count, esize) SdbArrayShift(mem, (i + 1), i, count, esize)
 #define SdbPushArray(arena, type, count)             (type *)SdbArenaPush(arena, sizeof(type) * (count))
-#define SdbPushArrayZero(arena, type, count)         (type *)SdbArenaPushZero(arena, sizeof(type) * (count))
-#define SdbPushStruct(arena, type)                   SdbPushArray(arena, type, 1)
-#define SdbPushStructZero(arena, type)               SdbPushArrayZero(arena, type, 1)
+// #define SdbPushArrayZero(arena, type, count)         (type *)SdbArenaPushZero(arena, sizeof(type)
+// * (count))
+#define SdbPushStruct(arena, type) SdbPushArray(arena, type, 1)
+// #define SdbPushStructZero(arena, type)               SdbPushArrayZero(arena, type, 1)
 
 #define SDB_DEFINE_POOL_ALLOCATOR(type_name, func_name)                                            \
     typedef struct type_name##_Pool                                                                \
@@ -276,14 +278,13 @@ void SdbSeedRandPCG(uint32_t Seed);
 //              FILE IO                //
 /////////////////////////////////////////
 
-typedef struct sdb_file_data
+typedef struct
 {
     u64 Size;
     u8 *Data;
 } sdb_file_data;
 
-sdb_file_data *SdbLoadFileIntoMemory(const char *Filename);
-sdb_file_data *SdbLoadFileIntoMemoryA(const char *Filename, sdb_arena *Arena);
+sdb_file_data *SdbLoadFileIntoMemory(const char *Filename, sdb_arena *Arena);
 bool SdbWriteBufferToFile(void *Buffer, u64 ElementSize, u64 ElementCount, const char *Filename);
 bool SdbWrite_sdb_file_data_ToFile(sdb_file_data *FileData, const char *Filename);
 
@@ -291,7 +292,7 @@ bool SdbWrite_sdb_file_data_ToFile(sdb_file_data *FileData, const char *Filename
 //             TOKENIZER              //
 ////////////////////////////////////////
 
-typedef struct sdb_token
+typedef struct
 {
     char *Start;
     u64   Len;
@@ -504,6 +505,22 @@ SdbArenaCreateContiguous(u8 *Mem, u64 Size)
     return Arena;
 }
 
+sdb_arena *
+SdbArenaBootstrap(sdb_arena *Arena, sdb_arena *NewArena, u64 Size)
+{
+    if(NewArena == NULL) {
+        NewArena = SdbPushStruct(Arena, sdb_arena);
+    }
+
+    u8 *NewArenaMem = SdbPushArray(Arena, u8, Size);
+    if(NULL != NewArena && NULL != NewArenaMem) {
+        SdbArenaInit(NewArena, NewArenaMem, Size);
+        return NewArena;
+    } else {
+        return NULL;
+    }
+}
+
 #if 0
 u64
 SdbArenaF5(sdb_arena *Arena)
@@ -529,13 +546,15 @@ SdbArenaPush(sdb_arena *Arena, u64 Size)
     if((Arena->Cur + Size) < Arena->Cap) {
         u8 *AllocedMem = Arena->Mem + Arena->Cur;
         Arena->Cur += Size;
-
+        SdbMemZero(AllocedMem, Size);
         return (void *)AllocedMem;
     }
 
     return NULL;
 }
 
+// TODO(ingar): Arena push clears to 0 by default, create a variant that doesn't clear to 0 by
+// default for perf reasons e.g. PushFast or something
 void *
 SdbArenaPushZero(sdb_arena *Arena, u64 Size)
 {
@@ -640,7 +659,7 @@ char *
 SdbStrdup(char *String, sdb_arena *Arena)
 {
     u64   StringLength = SdbStrlen(String);
-    char *NewString    = SdbPushArrayZero(Arena, char, StringLength + 1);
+    char *NewString    = SdbPushArray(Arena, char, StringLength + 1);
     SdbMemcpy(NewString, String, StringLength);
     NewString[StringLength] = '\0';
 
@@ -680,7 +699,7 @@ SdbSeedRandPCG(uint32_t Seed)
 /////////////////////////////////////////
 
 sdb_file_data *
-SdbLoadFileIntoMemory(const char *Filename)
+SdbLoadFileIntoMemory(const char *Filename, sdb_arena *Arena)
 {
     FILE *File = fopen(Filename, "rb");
     if(!File) {
@@ -695,63 +714,32 @@ SdbLoadFileIntoMemory(const char *Filename)
     u64 FileSize = (u64)ftell(File);
     rewind(File);
 
-    u64            FileDataSize = sizeof(sdb_file_data) + FileSize + 1;
-    sdb_file_data *FileData     = calloc(1, FileDataSize);
-    if(!FileData) {
-        fclose(File);
-        return NULL;
+    sdb_file_data *FileData;
+    if(NULL != Arena) {
+        FileData       = SdbPushStruct(Arena, sdb_file_data);
+        FileData->Data = SdbPushArray(Arena, u8, FileSize + 1);
+    } else {
+        u64 FileDataSize = sizeof(sdb_file_data) + FileSize + 1;
+        FileData         = calloc(1, FileDataSize);
+        if(!FileData) {
+            fclose(File);
+            return NULL;
+        }
     }
 
     FileData->Size = FileSize;
-    u64 BytesRead  = fread(&FileData->Data, 1, FileSize, File);
+    u64 BytesRead  = fread(FileData->Data, 1, FileSize, File);
     if(BytesRead != FileSize) {
         fclose(File);
-        free(FileData);
+        if(Arena != NULL) {
+            SdbArenaPop(Arena, sizeof(sdb_file_data) + FileData->Size + 1);
+        } else {
+            free(FileData);
+        }
         return NULL;
     }
 
     fclose(File);
-    return FileData;
-}
-
-sdb_file_data *
-SdbLoadFileIntoMemoryA(const char *Filename, sdb_arena *Arena)
-{
-    FILE *fd = fopen(Filename, "rb");
-    if(!fd) {
-        return NULL;
-    }
-
-    if(fseek(fd, 0L, SEEK_END) != 0) {
-        fclose(fd);
-        return NULL;
-    }
-
-    u64 FileSize = (u64)ftell(fd);
-    rewind(fd);
-
-    sdb_file_data *FileData = SdbPushStructZero(Arena, sdb_file_data);
-    FileData->Data          = SdbPushArray(Arena, u8, FileSize + 1);
-    /*
-    if(!FileData)
-    {
-        fprintf(stderr, "Could not allocate memory for file!\n");
-        fclose(fd);
-        return NULL;
-    }
-    */
-
-    FileData->Size = FileSize;
-    u64 BytesRead  = fread(FileData->Data, 1, FileSize, fd);
-    if(BytesRead != FileSize) {
-        fclose(fd);
-        SdbArenaPop(Arena, sizeof(sdb_file_data) + FileData->Size + 1);
-        return NULL;
-    }
-
-    fclose(fd);
-
-    FileData->Data[FileData->Size] = '\0';
     return FileData;
 }
 
@@ -765,21 +753,6 @@ SdbWriteBufferToFile(void *Buffer, u64 ElementSize, u64 ElementCount, const char
     }
 
     bool WriteSuccessful = fwrite(Buffer, ElementSize, ElementCount, fd) == ElementCount;
-    fclose(fd);
-    return WriteSuccessful;
-}
-
-bool
-SdbWrite_sdb_file_data_ToFile(sdb_file_data *FileData, const char *Filename)
-{
-    FILE *fd = fopen(Filename, "wb");
-    if(!fd) {
-        fprintf(stderr, "Failed to open file during file_data write!\n");
-        return false;
-    }
-
-    bool WriteSuccessful
-        = fwrite(FileData->Data, sizeof(uint8_t), FileData->Size, fd) == FileData->Size;
     fclose(fd);
     return WriteSuccessful;
 }

@@ -1,11 +1,11 @@
 #include <libpq-fe.h>
 
-#include <Sdb.h>
+#include <src/Sdb.h>
 
 SDB_LOG_REGISTER(PostgresTest);
 
-#include <DatabaseSystems/Postgres.h>
-#include <Tests/DatabaseSystems/Postgres.h>
+#include <src/DatabaseSystems/Postgres.h>
+#include <tests/DatabaseSystems/Postgres.h>
 
 typedef struct __attribute__((packed))
 {
@@ -126,11 +126,11 @@ RunPostgresTest(const char *ConfigFilePath)
     SdbLogInfo("Running Postgres Test...");
 
     sdb_arena MainArena;
-    u64       ArenaMemorySize = SdbMebiByte(128);
+    u64       ArenaMemorySize = SdbMebiByte(8);
     u8       *ArenaMemory     = malloc(ArenaMemorySize);
     SdbArenaInit(&MainArena, ArenaMemory, ArenaMemorySize);
 
-    sdb_file_data *ConfigFile = SdbLoadFileIntoMemoryA(ConfigFilePath, &MainArena);
+    sdb_file_data *ConfigFile = SdbLoadFileIntoMemory(ConfigFilePath, &MainArena);
     if(NULL == ConfigFile) {
         SdbLogError("Failed to open config file!");
         return;

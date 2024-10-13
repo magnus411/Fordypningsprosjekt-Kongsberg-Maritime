@@ -4,17 +4,17 @@
 #include <string.h>
 #include <sys/types.h>
 
-#include <Sdb.h>
+#include <src/Sdb.h>
 
 SDB_LOG_REGISTER(CircularBuffer);
 
-#include <Common/CircularBuffer.h>
+#include <src/Common/CircularBuffer.h>
 
 sdb_errno
 CbInit(circular_buffer *Cb, size_t Size, sdb_arena *Arena)
 {
     if(Size == 0) {
-        SdbLogError("Error: Buffer size must be greater than zero.\n");
+        SdbLogError("Error: Buffer size must be greater than zero.");
         return -EINVAL;
     }
 
@@ -25,7 +25,7 @@ CbInit(circular_buffer *Cb, size_t Size, sdb_arena *Arena)
     }
 
     if(Cb->Data == NULL) {
-        SdbLogError("Error: Failed to allocate memory for buffer.\n");
+        SdbLogError("Error: Failed to allocate memory for buffer.");
         return -ENOMEM;
     }
 
@@ -40,7 +40,7 @@ CbInit(circular_buffer *Cb, size_t Size, sdb_arena *Arena)
     pthread_cond_init(&Cb->NotEmpty, NULL);
     pthread_cond_init(&Cb->NotFull, NULL);
 
-    SdbLogDebug("Circular buffer initialized. Size: %zu, Buffer address: %p\n", Size, Cb->Data);
+    SdbLogDebug("Circular buffer initialized. Size: %zu, Buffer address: %p", Size, Cb->Data);
 
     return 0;
 }
@@ -96,7 +96,7 @@ CbRead(circular_buffer *Cb, void *Dest, size_t Size)
 
     size_t AvailableBytes = Cb->Count;
     if(Size > AvailableBytes) {
-        SdbLogError("Requested size is greater than available bytes in buffer.\n");
+        SdbLogError("Requested size is greater than available bytes in buffer.");
         return -ENOMEM;
     }
 
