@@ -1,14 +1,16 @@
 CC = gcc
-INCLUDES = -Isrc -Itests
+INCLUDES = -Iincludes
 LIBS = -lpaho-mqtt3c -lpthread -lpq
 LINTER = clang-tidy
 LINTER_FLAGS = -quiet
 
-# Find all .c files in src directory except Main.c.
-# Main.c is compiled separately to not interfere with the main function in the test program
 SRC = $(filter-out src/Main.c, $(shell find src -name "*.c"))
-MAIN_SRC = src/Main.c
-TEST_SRC = $(shell find tests -name "*.c")
+SRC_MAIN = src/Main.c
+TEST_SRC = $(filter-out tests/Main.c, $(shell find tests -name "*.c"))
+TEST_MAIN = tests/Main.c
+
+SDB_DEBUG = -DSDB_LOG_LEVEL=4 -DSDB_MEM_TRACE=1
+DB_SYSTEMS = -DDATABASE_SYSTEM_POSTGRES=1
 
 DEBUG_FLAGS = -g -O0 -Wall -Wno-unused-function -Wno-cpp -DDEBUG -fsanitize=address
 RELWDB_FLAGS = -O2 -g -DNDEBUG -Wno-unused-function -Wno-cpp
@@ -18,13 +20,13 @@ RELEASE_FLAGS = -O2 -march=native -Wextra -pedantic -Wno-unused-function -Wno-cp
 
 all: debug
 
-debug: CFLAGS = $(DEBUG_FLAGS)
+debug: CFLAGS = $(DEBUG_FLAGS) $(SDB_DEBUG) $(DB_SYSTEMS)
 debug: build_main build_tests
 
-relwdb: CFLAGS = $(RELWDB_FLAGS)
+relwdb: CFLAGS = $(RELWDB_FLAGS) $(SDB_DEBUG) $(DB_SYSTEMS)
 relwdb: build_main build_tests
 
-release: CFLAGS = $(RELEASE_FLAGS)
+release: CFLAGS = $(RELEASE_FLAGS) $(SDB_DEBUG) $(DB_SYSTEMS)
 release: build_main build_tests
 
 lint: compile_commands.json
@@ -48,15 +50,15 @@ compile_commands.json:
 
 build_main:
 	@mkdir -p build
-	@printf "\033[0;32m\nBuilding Sensor DB\n\033[0m"
-	$(CC) $(CFLAGS) $(INCLUDES) $(SRC) $(MAIN_SRC) -o build/SensorDB $(LIBS)
+	@printf "\033[0;32m\nBuilding Sensor Data Handler\n\033[0m"
+	$(CC) $(CFLAGS) $(INCLUDES) $(SRC) $(SRC_MAIN) -o build/SensorDataHandler $(LIBS)
 	@printf "\033[0;32mFinished building Sensor DB\n\033[0m"
 
 build_tests:
 	@mkdir -p tests/build
 	@printf "\033[0;32m\nBuilding test suite\n\033[0m"
-	$(CC) $(CFLAGS) $(INCLUDES) $(TEST_SRC) $(SRC) -o tests/build/testSuite $(LIBS)
+	$(CC) $(CFLAGS) $(INCLUDES) $(TEST_SRC) $(TEST_MAIN) $(SRC) -o tests/build/TestSuite $(LIBS)
 	@printf "\033[0;32mFinished building test suite\n\033[0m"
 
 clean:
-	rm -rf build tests/build compile_commands.json
+	rm -rf build tests/build
