@@ -1,16 +1,19 @@
+#include <getopt.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <getopt.h>
-#include <pthread.h>
-#include <MQTTClient.h>
-#include <SdbExtern.h>
-#include <common/CircularBuffer.h>
-#include <comm_protocols/MQTT.h>
-#include "database_systems/PostgresTest.h"
-#include "comm_protocols/UNIXSocket/ModbusSocketTest.h"
-#include "comm_protocols/MQTT/Subscriber/MQTTSubscriber.h"
-#include "comm_protocols/MQTT/Publisher/MQTTPublisher.h"
+
+#include <CommProtocols/MQTT.h>
+#include <Common/CircularBuffer.h>
+
+#include <Tests/CommProtocols/MQTT/MQTTPublisher.h>
+#include <Tests/CommProtocols/MQTT/MQTTSubscriber.h>
+#include <Tests/CommProtocols/Modbus/Modbus.h>
+#include <Tests/DatabaseSystems/Postgres.h>
+
+#define SDB_H_IMPLEMENTATION
+#include <Sdb.h>
 
 #define COLOR_RESET  "\033[0m"
 #define COLOR_GREEN  "\033[32m"
