@@ -138,6 +138,8 @@ Thumbs.db
 Configs
 configs
 
+compile_commands.json
+
 # clangd
 .cache
 
