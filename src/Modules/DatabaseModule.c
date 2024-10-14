@@ -20,32 +20,16 @@ DbModuleRun(void *DbmCtx_)
     DbmCtx->Errno         = 0;
 
     database_api ThreadDb;
-    switch(DbmCtx->DbsToRun) {
-        case Dbs_Postgres:
-            {
-                if(DbSystemPostgres__ == NULL) {
-                    SdbLogError("Attempting to run PostgreSQL, but its API is unavailable");
-                    DbmCtx->Errno = -SDBE_DBS_UNAVAIL;
-                    return NULL;
-                }
-                memcpy(&ThreadDb, DbSystemPostgres__, sizeof(database_api));
-            }
-            break;
-        default:
-            {
-                SdbLogError("Database id doesn't exist");
-                DbmCtx->Errno = -EINVAL;
-                return NULL;
-            }
-            break;
+    if(DbsInitApi(DbmCtx->DbsToRun, DbmCtx->SdPipe, DbmCtx->Arena, SdbMebiByte(8), &ThreadDb)
+       == -SDBE_DBS_UNAVAIL) {
+        SdbLogError("Thread %ld: Attempting to run %s, but its API is unavailable",
+                    DbmCtx->ThreadId, DbsIdToName(DbmCtx->DbsToRun));
+        DbmCtx->Errno = -SDBE_DBS_UNAVAIL;
+        return NULL;
     }
-
-    SdbArenaBootstrap(&DbmCtx->Arena, &ThreadDb.Arena, SdbMebiByte(8));
-    SdbMemcpy(&ThreadDb.SdPipe, &DbmCtx->SdPipe, sizeof(sensor_data_pipe));
 
     i64       Attempts = 0;
     sdb_errno Ret      = 0;
-
     while(((Ret = ThreadDb.Init(&ThreadDb)) != 0) && (Attempts++ < DB_INIT_ATTEMPT_THRESHOLD)) {
         SdbLogError("Thread %ld: Error on database init attempt %ld, ret: %d", DbmCtx->ThreadId,
                     Attempts, Ret);

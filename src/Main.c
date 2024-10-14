@@ -45,8 +45,8 @@ main(int ArgCount, char **ArgV)
     DbModuleCtx->DbsToRun      = Dbs_Postgres;
     DbModuleCtx->ThreadId      = NextDbmTId_++;
 
-    SdbArenaBootstrap(&SdbArena, &DbModuleCtx->Arena, SdbMebiByte(9));
-    SdbMemcpy(&DbModuleCtx->SdPipe, SdPipe, sizeof(sensor_data_pipe));
+    SdbArenaBootstrap(&SdbArena, DbModuleCtx->Arena, SdbMebiByte(9));
+    SdbMemcpy(DbModuleCtx->SdPipe, SdPipe, sizeof(sensor_data_pipe));
 
     pthread_t DbThread;
     pthread_create(&DbThread, NULL, DbModuleRun, DbModuleCtx);

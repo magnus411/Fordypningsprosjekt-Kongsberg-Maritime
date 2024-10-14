@@ -12,10 +12,10 @@ typedef struct
     i64       ThreadId;
     sdb_errno Errno;
 
-    Db_System_Id     DbsToRun;
-    void            *DbsInitArgs;
-    sensor_data_pipe SdPipe;
-    sdb_arena        Arena;
+    Db_System_Id      DbsToRun;
+    void             *DbsInitArgs;
+    sensor_data_pipe *SdPipe;
+    sdb_arena        *Arena;
 
 } db_module_ctx;
 
