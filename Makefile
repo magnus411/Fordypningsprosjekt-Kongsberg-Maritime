@@ -62,4 +62,4 @@ build_tests:
 	@printf "\033[0;32mFinished building test suite\n\033[0m"
 
 clean:
-	rm -rf build tests/build compile_commands.json
+	rm -rf build tests/build
