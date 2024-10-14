@@ -13,20 +13,6 @@ SDB_LOG_REGISTER(DbModule);
 
 #define DB_INIT_ATTEMPT_THRESHOLD (5)
 
-// The APIs will be NULL if the system is not active, which is checked in the run function
-extern database_api *DbSystemPostgres__;
-
-static inline bool
-DbIsInitialized(database_api *Db)
-{
-    bool Expected = true;
-    if(atomic_compare_exchange_strong(&Db->IsInitialized, &Expected, true)) {
-        return true;
-    } else {
-        return false;
-    }
-}
-
 void *
 DbModuleRun(void *DbmCtx_)
 {
