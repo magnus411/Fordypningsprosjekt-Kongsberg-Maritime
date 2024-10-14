@@ -4,7 +4,7 @@
 #include <getopt.h>
 #include <pthread.h>
 #include <MQTTClient.h>
-#include <SdbExtern.h>
+#include <Sdb.h>
 #include <common/CircularBuffer.h>
 #include <comm_protocols/MQTT.h>
 #include "database_systems/PostgresTest.h"

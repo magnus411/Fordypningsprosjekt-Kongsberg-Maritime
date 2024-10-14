@@ -1,7 +1,7 @@
 #include <libpq-fe.h>
 
 #define SDB_LOG_LEVEL 4
-#include <Sdb.h>
+#include <SdbExtern.h>
 
 SDB_LOG_REGISTER(PostgresTest);
 
