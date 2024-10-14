@@ -8,32 +8,21 @@
 
 typedef enum
 {
-    PROTOCOL_MODBUS_TCP,
-    PROTOCOL_MQTT,
-} protocol_type;
-
-typedef struct
-{
-    protocol_type    Type;
-    const char      *Address;
-    int              Port;
-    const char      *Topic;
-    int              Qos;
-    circular_buffer *Cb;
-
-} protocol_args;
+    Protocol_Modbus_TCP,
+    Protocol_MQTT
+} Protocol_Type;
 
 typedef struct comm_protocol_api comm_protocol_api;
 struct comm_protocol_api
 {
-    sdb_errno (*Initialize)(comm_protocol_api *ProtocolApi, protocol_args *Args);
-    sdb_errno (*StartComm)(comm_protocol_api *ProtocolApi);
-    sdb_errno (*Cleanup)(comm_protocol_api *ProtocolApi);
+    sdb_errno (*Initialize)(comm_protocol_api *Protocol, void *Args);
+    void *(*StartComm)(void *Protocol);
+    sdb_errno (*Cleanup)(comm_protocol_api *Protocol);
 
     atomic_bool IsInitialized;
     void       *Context;
 };
 
-sdb_errno PickProtocol(protocol_type Type, comm_protocol_api *ProtocolApi);
+sdb_errno PickProtocol(Protocol_Type Type, comm_protocol_api *Protocol);
 
 #endif // COMM_PROTOCOLS_H

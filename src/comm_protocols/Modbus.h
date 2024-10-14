@@ -2,7 +2,7 @@
 
 #include <SdbExtern.h>
 #include <common/CircularBuffer.h>
-
+#include <comm_protocols/CommProtocols.h>
 #ifndef MODBUSMODULE_H
 #define MODBUSMODULE_H
 
@@ -22,6 +22,10 @@ typedef struct
 
 } modbus_args;
 
-void *ModbusThread(void *arg);
+sdb_errno ModbusInitialize(comm_protocol_api *Modbus, void *Args);
+
+void *ModbusStartComm(void *Modbus);
+
+sdb_errno ModbusCleanup(comm_protocol_api *Modbus);
 
 #endif /* MODBUSMODULE_H */
