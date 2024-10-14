@@ -52,11 +52,6 @@ typedef int16_t i16;
 typedef int32_t i32;
 typedef int64_t i64;
 
-// NOTE(ingar): DO NOT USE THESE OUTSIDE OF THIS FILE! Since we are working with embedded systems
-// floats and doubles may not necessarily be 32-bit and 64-bit respectively
-typedef float  f32;
-typedef double f64;
-
 #define SDB_EXPAND(x)       x
 #define SDB__STRINGIFY__(x) #x
 #define SDB_STRINGIFY(x)    SDB__STRINGIFY__(x)
