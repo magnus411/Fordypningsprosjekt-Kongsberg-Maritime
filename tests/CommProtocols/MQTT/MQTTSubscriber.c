@@ -14,11 +14,11 @@ MQTTSubscriber(const char *Address, const char *ClientId, const char *Topic)
 {
     CbInit(&Cb, SdbMebiByte(16), NULL);
 
-    mqtt_subscriber MqttSubscriber;
+    mqtt_args MqttSubscriber;
     InitSubscriber(&MqttSubscriber, "tcp://localhost:1883", "ModbusSub", "MODBUS", 1, &Cb);
 
     pthread_t MqttTid;
-    pthread_create(&MqttTid, NULL, MQTTSubscriberThread, &MqttSubscriber);
+    pthread_create(&MqttTid, NULL, MQTTStartComm, &MqttSubscriber);
     pthread_join(MqttTid, NULL);
 
     CbFree(&Cb);

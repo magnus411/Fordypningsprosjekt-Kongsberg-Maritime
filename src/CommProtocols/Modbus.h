@@ -13,6 +13,10 @@ typedef struct
 
 } modbus_args;
 
-void *ModbusThread(void *arg);
+sdb_errno ModbusInitialize(comm_protocol_api *Modbus, void *Args);
+
+void *ModbusStartComm(void *Modbus);
+
+sdb_errno ModbusCleanup(comm_protocol_api *Modbus);
 
 #endif /* MODBUSMODULE_H */

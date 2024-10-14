@@ -22,17 +22,7 @@ typedef struct
     circular_buffer *Cb;
 } mqtt_args;
 
-typedef struct
-{
-    char            *Address;
-    char            *ClientId;
-    char            *Topic;
-    int              Qos;
-    long             Timeout;
-    circular_buffer *Cb;
-} mqtt_subscriber;
-
-sdb_errno InitSubscriber(mqtt_subscriber *Sub, const char *Address, const char *ClientId,
+sdb_errno InitSubscriber(mqtt_args *Sub, const char *Address, const char *ClientId,
                          const char *Topic, int Qos, circular_buffer *Cb);
 void      ConnLost(void *Context, char *Cause);
 int       MsgArrived(void *Context, char *TopicName, int TopicLen, MQTTClient_message *Message);

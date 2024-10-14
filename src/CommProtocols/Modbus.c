@@ -111,17 +111,34 @@ ParseModbusTCPFrame_(const u8 *Buffer, int NumBytes, queue_item *Item)
     return 0;
 }
 
-void *
-ModbusThread(void *arg)
+sdb_errno
+ModbusInitialize(comm_protocol_api *Modbus, void *Args)
 {
-    modbus_args modbus;
-    memcpy(&modbus, arg, sizeof(modbus_args));
 
-    circular_buffer *Cb     = modbus.Cb;
-    int              SockFd = CreateSocket(modbus.Ip, modbus.PORT);
+    modbus_args *ModbusArgs = malloc(sizeof(modbus_args));
+    if(ModbusArgs == NULL) {
+        return -ENOMEM;
+    }
+
+    SdbMemcpy(ModbusArgs, Args, sizeof(modbus_args));
+
+    Modbus->Context = ModbusArgs;
+    atomic_store(&Modbus->IsInitialized, true);
+    return 0;
+}
+
+void *
+ModbusStartComm(void *Modbus)
+{
+
+    //! (Magnus): Should we create a thread here, or should it be done outside chen calling this?
+    modbus_args *ModbusArgs = (modbus_args *)Modbus;
+
+    circular_buffer *Cb     = ModbusArgs->Cb;
+    int              SockFd = CreateSocket(ModbusArgs->Ip, ModbusArgs->PORT);
     if(SockFd == -1) {
         SdbLogError("Failed to create socket\n");
-        pthread_exit(NULL);
+        return NULL;
     }
 
     u8 Buf[MAX_MODBUS_TCP_FRAME];
@@ -135,11 +152,25 @@ ModbusThread(void *arg)
         } else if(NumBytes == 0) {
             SdbLogDebug("Connection closed by server");
             close(SockFd);
-            pthread_exit(NULL);
+            return NULL;
         } else {
             SdbLogError("Error during read operattion. Closing connection\n");
             close(SockFd);
-            pthread_exit(NULL);
+            return NULL;
         }
     }
+    return NULL;
+}
+
+sdb_errno
+ModbusCleanup(comm_protocol_api *Modbus)
+{
+    if(Modbus == NULL || !atomic_load(&Modbus->IsInitialized)) {
+        return -EINVAL;
+    }
+
+    free(Modbus->Context);
+    Modbus->Context = NULL;
+    atomic_store(&Modbus->IsInitialized, false);
+    return 0;
 }

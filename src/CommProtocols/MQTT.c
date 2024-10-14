@@ -67,7 +67,7 @@ ParseModbusTCPFrame_(const u8 *Buffer, size_t NumBytes, queue_item *Item)
 }
 
 sdb_errno
-InitSubscriber(mqtt_subscriber *Sub, const char *Address, const char *ClientId, const char *Topic,
+InitSubscriber(mqtt_args *Sub, const char *Address, const char *ClientId, const char *Topic,
                int Qos, circular_buffer *Cb)
 {
     Sub->Address  = strdup(Address);
@@ -92,7 +92,7 @@ ConnLost(void *Context, char *Cause)
 int
 MsgArrived(void *Context, char *TopicName, int TopicLen, MQTTClient_message *Message)
 {
-    mqtt_subscriber *Sub = (mqtt_subscriber *)Context;
+    mqtt_args *Sub = (mqtt_args *)Context;
     SdbLogDebug("Message arrived. Topic: %s", TopicName);
 
     if(Message->payloadlen > MAX_MODBUS_TCP_FRAME) {
@@ -124,10 +124,34 @@ exit:
     return 1;
 }
 
-void *
-MQTTSubscriberThread(void *arg)
+sdb_errno
+MQTTInitialize(comm_protocol_api *MQTT, void *Args)
 {
-    mqtt_subscriber *Subscriber = (mqtt_subscriber *)arg;
+
+    mqtt_args *MqttArgs = (mqtt_args *)Args;
+
+    mqtt_args *Context = malloc(sizeof(mqtt_args));
+    if(Context == NULL) {
+        return -ENOMEM;
+    }
+
+    sdb_errno Result = InitSubscriber(Context, MqttArgs->Address, "ClientID", MqttArgs->Topic,
+                                      MqttArgs->Qos, MqttArgs->Cb);
+    if(Result != 0) {
+        free(Context);
+        return Result;
+    }
+
+    MQTT->Context = Context;
+    atomic_store(&MQTT->IsInitialized, true);
+    return 0;
+}
+
+void *
+MQTTStartComm(void *MQTT)
+{
+
+    mqtt_args *Subscriber = (mqtt_args *)MQTT;
 
     MQTTClient                Client;
     MQTTClient_connectOptions ConnOptions = MQTTClient_connectOptions_initializer;
@@ -142,7 +166,7 @@ MQTTSubscriberThread(void *arg)
 
     if((Rc = MQTTClient_connect(Client, &ConnOptions)) != MQTTCLIENT_SUCCESS) {
         SdbLogError("Failed to connect to MQTT broker. Error: %d", Rc);
-        pthread_exit(NULL);
+        return NULL;
     }
 
     SdbLogDebug("Subscribing to topic %s for Client %s using QoS %d", Subscriber->Topic,
@@ -156,6 +180,22 @@ MQTTSubscriberThread(void *arg)
 
     MQTTClient_disconnect(Client, 10000);
     MQTTClient_destroy(&Client);
+    return NULL;
+}
 
-    pthread_exit(NULL);
+sdb_errno
+MQTTCleanup(comm_protocol_api *MQTT)
+{
+    if(MQTT == NULL || !atomic_load(&MQTT->IsInitialized)) {
+        return -EINVAL;
+    }
+
+    mqtt_args *MqttArgs = (mqtt_args *)MQTT->Context;
+    free(MqttArgs->Address);
+    free(MqttArgs->ClientId);
+    free(MqttArgs->Topic);
+    free(MqttArgs);
+    MQTT->Context = NULL;
+    atomic_store(&MQTT->IsInitialized, false);
+    return 0;
 }

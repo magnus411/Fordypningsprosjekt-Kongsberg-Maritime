@@ -184,7 +184,7 @@ RunModbusModuleClient(void)
     strncpy(MbArgs.Ip, "127.0.0.1", 10);
 
     pthread_t ModbusTid;
-    pthread_create(&ModbusTid, NULL, ModbusThread, &MbArgs);
+    pthread_create(&ModbusTid, NULL, ModbusStartComm, &MbArgs);
 
     pthread_join(ModbusTid, NULL);
 
