@@ -834,7 +834,7 @@ Sdb__FreeTrace__(void *Pointer, int Line, const char *Func, sdb__log_module__ *M
     }
 }
 
-#if SDB_MEM_TRACE == 1
+#if(SDB_MEM_TRACE == 1) && (SDB_LOG_LEVEL >= SDB_LOG_LEVEL_DBG)
 #define malloc(Size)        Sdb__MallocTrace__(Size, __LINE__, __func__, Sdb__LogInstance__)
 #define calloc(Count, Size) Sdb__CallocTrace__(Count, Size, __LINE__, __func__, Sdb__LogInstance__)
 #define realloc(Pointer, Size)                                                                     \
