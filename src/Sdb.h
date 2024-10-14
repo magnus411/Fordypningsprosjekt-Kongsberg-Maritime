@@ -10,6 +10,7 @@
 #include <errno.h>
 #include <float.h>
 #include <math.h>
+#include <pthread.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <stdio.h>
@@ -109,9 +110,10 @@ static_assert(SDB_LOG_BUF_SIZE >= 128, "SDB_LOG_BUF_SIZE must greater than or eq
 
 typedef struct sdb__log_module__
 {
-    const char *Name;
-    u64         BufferSize;
-    char       *Buffer;
+    const char     *Name;
+    u64             BufferSize;
+    char           *Buffer;
+    pthread_mutex_t Lock;
 } sdb__log_module__;
 
 i64       Sdb__WriteLog__(sdb__log_module__ *Module, const char *LogLevel, va_list VaArgs);
@@ -123,9 +125,10 @@ sdb_errno Sdb__WriteLogIntermediate__(sdb__log_module__ *Module, const char *Log
     sdb_global char SDB_CONCAT3(Sdb__LogModule, module_name, Buffer__)[SDB_LOG_BUF_SIZE];          \
     sdb_global sdb__log_module__ SDB_CONCAT3(Sdb__LogModule, module_name, __)                      \
         __attribute__((used))                                                                      \
-        = { .Name       = #module_name,                                                            \
+        = { .Name       = SDB_STRINGIFY(module_name),                                              \
             .BufferSize = SDB_LOG_BUF_SIZE,                                                        \
-            .Buffer     = SDB_CONCAT3(Sdb__LogModule, module_name, Buffer__) };                        \
+            .Buffer     = SDB_CONCAT3(Sdb__LogModule, module_name, Buffer__),                      \
+            .Lock       = PTHREAD_MUTEX_INITIALIZER };                                                   \
     sdb_global sdb__log_module__ *Sdb__LogInstance__ __attribute__((used))                         \
     = &SDB_CONCAT3(Sdb__LogModule, module_name, __)
 
@@ -375,6 +378,8 @@ SdbRadiansFromDegrees(double Degrees)
 i64
 Sdb__WriteLog__(sdb__log_module__ *Module, const char *LogLevel, va_list VaArgs)
 {
+    pthread_mutex_lock(&Module->Lock);
+
     time_t    PosixTime;
     struct tm TimeInfo;
 
@@ -443,6 +448,8 @@ Sdb__WriteLog__(sdb__log_module__ *Module, const char *LogLevel, va_list VaArgs)
     if((ssize_t)(-1) == write(OutFd, Module->Buffer, CharsWritten)) {
         return -errno;
     }
+
+    pthread_mutex_unlock(&Module->Lock);
 
     return 0;
 }
