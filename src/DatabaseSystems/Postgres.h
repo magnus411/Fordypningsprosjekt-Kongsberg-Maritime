@@ -9,7 +9,7 @@
 #include <src/Common/SensorDataPipe.h>
 #include <src/Modules/DatabaseModule.h>
 
-#define POSTGRES_CONF_FS_PATH "./Configs/postgres-conf"
+#define POSTGRES_CONF_FS_PATH "./configs/postgres-conf"
 
 // PostgreSQL Type OIDs and Names
 enum pq_oid
@@ -97,6 +97,6 @@ typedef struct
 
 } postgres_ctx;
 
-#define PG_CTX(pg) SDB_EXPAND(((postgres_ctx *)pg->Ctx))
+#define PG_CTX(pg) ((postgres_ctx *)pg->Ctx)
 
 #endif
