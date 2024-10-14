@@ -7,8 +7,20 @@ typedef enum
 
 } Db_System_Id;
 
-#if DATABASE_SYSTEM_POSTGRES == 1
-#include <src/DatabaseSystems/Postgres.h>
-#endif // DATABASE_SYSTEM_POSTGRES
-
+static inline const char *
+DbsIdToName(Db_System_Id Id)
+{
+    switch(Id) {
+        case Dbs_Postgres:
+            {
+                return "Postgres";
+            }
+            break;
+        default:
+            {
+                return "Dbs does not exist";
+            }
+            break;
+    }
+}
 #endif
