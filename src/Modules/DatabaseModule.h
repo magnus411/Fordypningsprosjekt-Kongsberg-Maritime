@@ -30,24 +30,22 @@ struct database_api
 
 typedef struct
 {
-    i64           DbCount;
-    database_api *Databases;
-
-} live_databases;
-
-typedef struct
-{
     i64       ThreadId;
     sdb_errno Errno;
 
-    Db_System_Id DbsToRun;
-    void        *DbsInitArgs;
-
+    Db_System_Id     DbsToRun;
+    void            *DbsInitArgs;
     sensor_data_pipe SdPipe;
-
-    sdb_arena Arena;
+    sdb_arena        Arena;
 
 } db_module_ctx;
+
+typedef struct
+{
+    i64            DbCount;
+    db_module_ctx *Databases;
+
+} live_databases;
 
 /**
  * @brief Database module's main function, which should be spawned in a thread.

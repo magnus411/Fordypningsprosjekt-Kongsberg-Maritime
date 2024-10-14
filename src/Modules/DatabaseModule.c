@@ -1,33 +1,20 @@
-/*
- * Save to database
- * Read from buffers
- * Monitor database stats
- *   - Ability to prioritize data based on it
- *
- * ? Send messages to comm module ?
- * ? Metaprogramming tool to create C structs from sensor schemas ?
- */
-
 #include <arpa/inet.h>
 #include <iconv.h>
 #include <libpq-fe.h>
 #include <stdio.h>
 
 #include <src/Sdb.h>
+SDB_LOG_REGISTER(DbModule);
 
 #include <src/Common/CircularBuffer.h>
 #include <src/Common/SdbErrno.h>
 #include <src/DatabaseSystems/DatabaseSystems.h>
 #include <src/Modules/DatabaseModule.h>
 
-SDB_LOG_REGISTER(DbModule);
-
 #define DB_INIT_ATTEMPT_THRESHOLD (5)
 
-// TODO(ingar): Figure out if there is some equivalent to zephyr sections if we
-// want to support multiple database apis
+// The APIs will be NULL if the system is not active, which is checked in the run function
 extern database_api *DbSystemPostgres__;
-// Add more systems as we use them
 
 static inline bool
 DbIsInitialized(database_api *Db)
