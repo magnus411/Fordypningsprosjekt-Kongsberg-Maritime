@@ -18,7 +18,7 @@ SDB_LOG_REGISTER(Main);
 static i64 NextDbmTId_ = 1;
 
 int
-main(int ArgCount, char **ArgV)
+main(void)
 {
     sdb_arena SdbArena;
     u64       SdbArenaSize = SdbMebiByte(32);
