@@ -14,6 +14,9 @@ SDB_LOG_REGISTER(Main);
 
 #define SD_PIPE_BUF_COUNT 4
 
+// TODO(ingar): Is it fine to keep this globally?
+static i64 NextDbmTId_ = 1;
+
 int
 main(int ArgCount, char **ArgV)
 {
@@ -22,7 +25,7 @@ main(int ArgCount, char **ArgV)
     u8       *SdbArenaMem  = malloc(SdbArenaSize);
 
     if(NULL == SdbArenaMem) {
-        SdbLogError("Failed to allocate memory for arena!");
+        SdbLogError("Failed to allocate memory for arena");
         exit(EXIT_FAILURE);
     } else {
         SdbArenaInit(&SdbArena, SdbArenaMem, SdbArenaSize);
@@ -40,8 +43,7 @@ main(int ArgCount, char **ArgV)
 
     db_module_ctx *DbModuleCtx = SdbPushStruct(&SdbArena, db_module_ctx);
     DbModuleCtx->DbsToRun      = Dbs_Postgres;
-    DbModuleCtx->ThreadId      = (i64)Dbs_Postgres;
-    // TODO(ingar): Is it a good idea to have the thread id match the database id?
+    DbModuleCtx->ThreadId      = NextDbmTId_++;
 
     SdbArenaBootstrap(&SdbArena, &DbModuleCtx->Arena, SdbMebiByte(9));
     SdbMemcpy(&DbModuleCtx->SdPipe, SdPipe, sizeof(sensor_data_pipe));
@@ -50,5 +52,13 @@ main(int ArgCount, char **ArgV)
     pthread_create(&DbThread, NULL, DbModuleRun, DbModuleCtx);
     pthread_join(DbThread, NULL);
 
-    exit(EXIT_SUCCESS);
+    if(DbModuleCtx->Errno != 0) {
+        SdbLogError("Database module thread %ld, running database %s, finished with error: %d",
+                    DbModuleCtx->ThreadId, DbsIdToName(DbModuleCtx->DbsToRun), DbModuleCtx->Errno);
+        exit(EXIT_FAILURE);
+    } else {
+        SdbLogInfo("Database module thread %ld, running database %s, finished successfully",
+                   DbModuleCtx->ThreadId, DbsIdToName(DbModuleCtx->DbsToRun));
+        exit(EXIT_SUCCESS);
+    }
 }
