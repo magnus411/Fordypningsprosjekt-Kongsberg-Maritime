@@ -16,7 +16,7 @@ DEBUG_FLAGS = -g -O0 -Wall -Wno-unused-function -Wno-cpp -DDEBUG -fsanitize=addr
 RELWDB_FLAGS = -O2 -g -DNDEBUG -Wno-unused-function -Wno-cpp
 RELEASE_FLAGS = -O2 -march=native -Wextra -pedantic -Wno-unused-function -Wno-cpp -DNDEBUG
 
-.PHONY: all debug relwdb release clean lint
+.PHONY: all debug relwdb release clean lint compile_commands.json
 
 all: debug
 
@@ -46,6 +46,7 @@ format:
 
 compile_commands.json: 
 	@echo "Generating compile_commands.json..."
+	rm -f compile_commands.json
 	bear -- make
 
 build_main:
