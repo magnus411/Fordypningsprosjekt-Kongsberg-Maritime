@@ -1,9 +1,0 @@
-{
-  "name": "shaft_power",
-  "protocol": "modbus",
-  "data": {
-    "rpm": "INT",
-    "torque": "FLOAT",
-    "power": "FLOAT"
-  }
-}
