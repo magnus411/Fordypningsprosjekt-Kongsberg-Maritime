@@ -4,19 +4,17 @@
 #include <stdlib.h>
 #include <string.h>
 
+
 #include <src/Libs/cJSON/cJSON.h>
 
-#define MAX_BUFFER_SIZE 1024
-char *
-get_name_from_json(cJSON *Json)
-{
-    cJSON *Name = cJSON_GetObjectItemCaseSensitive(Json, "name");
-    if(cJSON_IsString(Name) && (Name->valuestring != NULL)) {
-        return strdup(Name->valuestring);
-    }
-    return NULL;
-}
 
+#define SDB_LOG_LEVEL 4
+#include <SdbExtern.h>
+
+SDB_LOG_REGISTER(InitDb);
+
+#define MAX_BUFFER_SIZE 1024
+#define MAX_FILE_SIZE   1024
 cJSON **
 DbInitGetSchemasFromDb(PGconn *Conn)
 {
@@ -59,31 +57,51 @@ DbInitGetSchemasFromDb(PGconn *Conn)
     PQclear(Res);
     return SchemaArray;
 }
-bool
-check_if_table_exists(PGconn *Conn, const char *Name)
+
+cJSON *
+DbInitGetSchemaFromFile(const char *Filename)
 {
-
-    const char *QueryTemplate
-        = "SELECT EXISTS (SELECT 1 FROM pg_tables WHERE schemaname = 'public' AND tablename = $1)";
-
-    const char *Params[1];
-    Params[0] = Name;
-
-    PGresult *Res = PQexecParams(Conn, QueryTemplate, 1, NULL, Params, NULL, NULL, 0);
-
-    if(PQresultStatus(Res) != PGRES_TUPLES_OK) {
-        fprintf(stderr, "Query failed: %s", PQerrorMessage(Conn));
-        PQclear(Res);
-        return false;
+    FILE *Fp = fopen(Filename, "rb");
+    if(Fp == NULL) {
+        fprintf(stderr, "Could not open file %s\n", Filename);
+        return NULL;
     }
 
-    bool Exists = PQgetvalue(Res, 0, 0)[0] == 't';
-    PQclear(Res);
-    return Exists;
+    fseek(Fp, 0L, SEEK_END);
+    long FileSize = ftell(Fp);
+    if(FileSize > MAX_FILE_SIZE) {
+        fprintf(stderr, "File size exceeds maximum allowed size of 1MB\n");
+        fclose(Fp);
+        return NULL;
+    }
+    fseek(Fp, 0L, SEEK_SET);
+
+    char *Buffer = malloc(FileSize + 1);
+    if(Buffer == NULL) {
+        fprintf(stderr, "Memory allocation failed\n");
+        fclose(Fp);
+        return NULL;
+    }
+
+    size_t readSize  = fread(Buffer, 1, FileSize, Fp);
+    Buffer[readSize] = '\0';
+
+    fclose(Fp);
+
+    cJSON *Schema = cJSON_Parse(Buffer);
+    if(Schema == NULL) {
+        fprintf(stderr, "Error parsing JSON: %s\n", cJSON_GetErrorPtr());
+        free(Buffer);
+        return NULL;
+    }
+
+    free(Buffer);
+
+    return Schema;
 }
 
 char *
-CreateTableCreationQuery(PGconn *Conn, cJSON *Json)
+DbInitCreateTableCreationQuery(PGconn *Conn, cJSON *Json)
 {
     if(Json == NULL || !cJSON_IsObject(Json)) {
         printf("Error: Input was not a valid, parsed JSON object.\n");
@@ -144,37 +162,4 @@ CreateTableCreationQuery(PGconn *Conn, cJSON *Json)
 
     strcat(Query, "\n);");
     return Query;
-}
-
-void
-all_together_now(PGconn *Conn)
-{
-    char **SchemaNames = DbInitGetSchemasFromDb(Conn);
-
-    if(SchemaNames == NULL) {
-
-        fprintf(stderr, "%s\n");
-        return;
-    }
-
-    for(int i = 0; SchemaNames[i] != NULL; ++i) {
-
-        printf("Table '%s' does not exist. Creating...\n", SchemaNames[i]);
-
-        cJSON    *SchemaJson  = cJSON_Parse(SchemaNames[i]);
-        char     *CreateQuery = CreateTableCreationQuery(Conn, SchemaJson);
-        PGresult *CreateRes   = PQexec(Conn, CreateQuery);
-
-        if(PQresultStatus(CreateRes) != PGRES_COMMAND_OK) {
-            fprintf(stderr, "Table creation failed: %s\n", PQerrorMessage(Conn));
-        } else {
-            printf("Table '%s' created successfully.\n", SchemaNames[i]);
-        }
-        PQclear(CreateRes);
-        free(CreateQuery);
-        cJSON_Delete(SchemaJson);
-
-        free(SchemaNames[i]);
-    }
-    free(SchemaNames);
 }

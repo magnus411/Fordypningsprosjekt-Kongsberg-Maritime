@@ -1,3 +1,4 @@
+
 #include <libpq-fe.h>
 #include <pthread.h>
 #include <stdlib.h>
@@ -40,6 +41,8 @@ main(int ArgCount, char **ArgV)
         SdbLogError("Failed to init sensor data pipe");
         exit(EXIT_FAILURE);
     }
+    SdbArenaInit(&MainArena, ArenaMemory, ArenaMemorySize);
+
 
     db_module_ctx *DbModuleCtx = SdbPushStruct(&SdbArena, db_module_ctx);
     DbModuleCtx->DbsToRun      = Dbs_Postgres;
