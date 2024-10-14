@@ -1,16 +1,20 @@
+#include <getopt.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <getopt.h>
-#include <pthread.h>
-#include <MQTTClient.h>
-#include <SdbExtern.h>
-#include <common/CircularBuffer.h>
-#include <comm_protocols/MQTT.h>
-#include "database_systems/PostgresTest.h"
-#include "comm_protocols/UNIXSocket/ModbusSocketTest.h"
-#include "comm_protocols/MQTT/Subscriber/MQTTSubscriber.h"
-#include "comm_protocols/MQTT/Publisher/MQTTPublisher.h"
+
+#define SDB_H_IMPLEMENTATION
+#include <src/Sdb.h>
+#undef SDB_H_IMPLEMENTATION
+
+#include <src/CommProtocols/MQTT.h>
+#include <src/Common/CircularBuffer.h>
+
+#include <tests/CommProtocols/MQTT/MQTTPublisher.h>
+#include <tests/CommProtocols/MQTT/MQTTSubscriber.h>
+#include <tests/CommProtocols/Modbus/Modbus.h>
+#include <tests/DatabaseSystems/Postgres.h>
 
 #define COLOR_RESET  "\033[0m"
 #define COLOR_GREEN  "\033[32m"
@@ -18,8 +22,6 @@
 #define COLOR_YELLOW "\033[33m"
 #define COLOR_CYAN   "\033[36m"
 #define COLOR_RED    "\033[31m"
-
-static circular_buffer Cb = { 0 };
 
 void
 PrintUsage(void)
@@ -56,14 +58,14 @@ main(int Argc, char **Argv)
     const char *PostgresConfig = NULL;
 
     static struct option LongOptions[] = {
-        { "postgres", required_argument, 0, 'p' },
-        {   "modbus",       no_argument, 0, 'm' },
-        {   "client",       no_argument, 0,   1 },
-        {   "server",       no_argument, 0,   2 },
-        { "mqtt-sub",       no_argument, 0, 's' },
-        { "mqtt-pub", required_argument, 0, 't' },
-        {     "help",       no_argument, 0, 'h' },
-        {          0,                 0, 0,   0 }
+        {"postgres", required_argument, 0, 'p'},
+        {  "modbus",       no_argument, 0, 'm'},
+        {  "client",       no_argument, 0,   1},
+        {  "server",       no_argument, 0,   2},
+        {"mqtt-sub",       no_argument, 0, 's'},
+        {"mqtt-pub", required_argument, 0, 't'},
+        {    "help",       no_argument, 0, 'h'},
+        {         0,                 0, 0,   0}
     };
 
     int ModbusTest = 0;

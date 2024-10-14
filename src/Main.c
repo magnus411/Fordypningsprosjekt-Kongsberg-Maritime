@@ -1,64 +1,67 @@
-#include <stdlib.h>
-#include <libpq-fe.h>
 
-#define SDB_LOG_LEVEL 4
-#include <Sdb.h>
+#include <libpq-fe.h>
+#include <pthread.h>
+#include <stdlib.h>
+
+#define SDB_H_IMPLEMENTATION
+#include <src/Sdb.h>
+#undef SDB_H_IMPLEMENTATION
 
 SDB_LOG_REGISTER(Main);
 
-#include <database_systems/Postgres.h>
+#include <src/Common/SensorDataPipe.h>
+#include <src/DatabaseSystems/DatabaseSystems.h>
+#include <src/Modules/DatabaseModule.h>
+
+#define SD_PIPE_BUF_COUNT 4
+
+// TODO(ingar): Is it fine to keep this globally?
+static i64 NextDbmTId_ = 1;
 
 int
 main(int ArgCount, char **ArgV)
 {
-    if(ArgCount <= 1) {
+    sdb_arena SdbArena;
+    u64       SdbArenaSize = SdbMebiByte(32);
+    u8       *SdbArenaMem  = malloc(SdbArenaSize);
 
-        SdbLogError("Please provide the path to the configuration.sdb file!\nRelative paths start "
-                    "from where YOU launch the executable from.");
-        return 1;
+    if(NULL == SdbArenaMem) {
+        SdbLogError("Failed to allocate memory for arena");
+        exit(EXIT_FAILURE);
+    } else {
+        SdbArenaInit(&SdbArena, SdbArenaMem, SdbArenaSize);
     }
 
-    sdb_arena MainArena;
-    u64       ArenaMemorySize = SdbMebiByte(128);
-    u8       *ArenaMemory     = malloc(ArenaMemorySize);
-    if(NULL == ArenaMemory) {
-        SdbLogError("Failed to allocate memory for arena!");
-        return 1;
+    size_t BufSizes[SD_PIPE_BUF_COUNT]
+        = { SdbKibiByte(32), SdbKibiByte(32), SdbKibiByte(32), SdbKibiByte(32) };
+
+    sensor_data_pipe *SdPipe      = SdbPushStruct(&SdbArena, sensor_data_pipe);
+    sdb_errno         PipeInitRet = SdPipeInit(SdPipe, SD_PIPE_BUF_COUNT, BufSizes, &SdbArena);
+    if(PipeInitRet != 0) {
+        SdbLogError("Failed to init sensor data pipe");
+        exit(EXIT_FAILURE);
     }
     SdbArenaInit(&MainArena, ArenaMemory, ArenaMemorySize);
 
-    const char    *ConfigFilePath = ArgV[1];
-    sdb_file_data *ConfigFile     = SdbLoadFileIntoMemory(ConfigFilePath, &MainArena);
-    if(NULL == ConfigFile) {
-        SdbLogError("Failed to open file!");
-        return 1;
+
+    db_module_ctx *DbModuleCtx = SdbPushStruct(&SdbArena, db_module_ctx);
+    DbModuleCtx->DbsToRun      = Dbs_Postgres;
+    DbModuleCtx->ThreadId      = NextDbmTId_++;
+
+    SdbArenaBootstrap(&SdbArena, &DbModuleCtx->Arena, SdbMebiByte(9));
+    SdbMemcpy(&DbModuleCtx->SdPipe, SdPipe, sizeof(sensor_data_pipe));
+
+    pthread_t DbThread;
+    pthread_create(&DbThread, NULL, DbModuleRun, DbModuleCtx);
+    pthread_join(DbThread, NULL);
+
+    if(DbModuleCtx->Errno != 0) {
+        SdbLogError("Database module thread %ld, running database %s, finished with error: %d",
+                    DbModuleCtx->ThreadId, DbsIdToName(DbModuleCtx->DbsToRun), DbModuleCtx->Errno);
+        exit(EXIT_FAILURE);
+    } else {
+        SdbLogInfo("Database module thread %ld, running database %s, finished successfully",
+                   DbModuleCtx->ThreadId, DbsIdToName(DbModuleCtx->DbsToRun));
+        exit(EXIT_SUCCESS);
     }
-
-    // TODO(ingar): Make parser for config file
-    const char *ConnectionInfo = (const char *)ConfigFile->Data;
-    SdbLogInfo("Attempting to connect to database using:\n%s", ConnectionInfo);
-
-    PGconn *Connection = PQconnectdb(ConnectionInfo);
-    if(PQstatus(Connection) != CONNECTION_OK) {
-        SdbLogError("Connection to database failed. Libpq error:\n%s", PQerrorMessage(Connection));
-        PQfinish(Connection);
-        return 1;
-    }
-
-    SdbLogInfo("Connected!");
-    DiagnoseConnectionAndTable(Connection, "power_shaft_sensor");
-
-    int              ShaftColCount;
-    const char      *PowerShaftSensorTableName = "power_shaft_sensor";
-    u64              PSSTableNameLen           = 18;
-    pq_col_metadata *Metadata
-        = GetTableMetadata(Connection, PowerShaftSensorTableName, PSSTableNameLen, &ShaftColCount);
-    for(int i = 0; i < ShaftColCount; ++i) {
-        PrintColumnMetadata(&Metadata[i]);
-    }
-
-    PQfinish(Connection);
-    SdbLogInfo("Connection to database closed. Goodbye!");
-
-    return 0;
 }

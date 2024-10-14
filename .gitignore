@@ -134,9 +134,7 @@ Thumbs.db
 **/tests/build
 **/tests/Build
 
-# Different developers will have different configs
-Configs
-configs
+compile_commands.json
 
 # clangd
 .cache
