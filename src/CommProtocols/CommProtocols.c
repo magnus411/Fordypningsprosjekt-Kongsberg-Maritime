@@ -1,14 +1,14 @@
-#include <stdlib.h>
-#include <string.h>
+#include <errno.h>
 #include <pthread.h>
 #include <stdatomic.h>
-#include <errno.h>
-#include <SdbExtern.h>
+#include <stdlib.h>
+#include <string.h>
 
-#include <comm_protocols/CommProtocols.h>
+#include <src/Sdb.h>
 
-#include <comm_protocols/Modbus.h>
-#include <comm_protocols/MQTT.h>
+#include <src/CommProtocols/CommProtocols.h>
+#include <src/CommProtocols/MQTT.h>
+#include <src/CommProtocols/Modbus.h>
 
 #if COMM_PROTOCOL_MODBUS == 1
 static bool ModbusAvailable_ = true;

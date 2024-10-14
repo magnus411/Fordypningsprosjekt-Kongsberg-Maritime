@@ -1,9 +1,10 @@
-#include <src/Sdb.h>
-
-#include <src/Common/CircularBuffer.h>
-
 #ifndef MODBUSMODULE_H
 #define MODBUSMODULE_H
+
+#include <src/Sdb.h>
+
+#include <src/CommProtocols/CommProtocols.h>
+#include <src/Common/CircularBuffer.h>
 
 typedef struct
 {

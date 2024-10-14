@@ -5,7 +5,7 @@
 
 #include <src/Sdb.h>
 
-#include <src/CommProtocols/Modbus.h>
+#include <src/CommProtocols/CommProtocols.h>
 #include <src/Common/CircularBuffer.h>
 
 // TODO(ingar): This doesn't seem right. Is there only ever one token? Also, this is not threadsafe
@@ -27,5 +27,9 @@ sdb_errno InitSubscriber(mqtt_args *Sub, const char *Address, const char *Client
 void      ConnLost(void *Context, char *Cause);
 int       MsgArrived(void *Context, char *TopicName, int TopicLen, MQTTClient_message *Message);
 void     *MQTTSubscriberThread(void *Arg);
+
+sdb_errno MQTTInitialize(comm_protocol_api *MQTT, void *Args);
+void     *MQTTStartComm(void *MQTT);
+sdb_errno MQTTCleanup(comm_protocol_api *MQTT);
 
 #endif // MQTT_H

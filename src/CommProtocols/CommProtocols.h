@@ -1,10 +1,9 @@
 #ifndef COMM_PROTOCOLS_H
 #define COMM_PROTOCOLS_H
-
 #include <stdatomic.h>
 #include <stddef.h>
-#include <SdbExtern.h>
-#include <common/CircularBuffer.h>
+
+#include <src/Common/CircularBuffer.h>
 
 typedef enum
 {

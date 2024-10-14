@@ -9,6 +9,7 @@
 
 SDB_LOG_REGISTER(MQTT);
 
+#include <src/CommProtocols/CommProtocols.h>
 #include <src/CommProtocols/MQTT.h>
 #include <src/CommProtocols/Modbus.h>
 #include <src/Common/CircularBuffer.h>
