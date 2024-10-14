@@ -49,7 +49,7 @@ DbsInitApi(Db_System_Id DbsId, sensor_data_pipe *SdPipe, sdb_arena *Arena, u64 A
     }
 
     SdbMemcpy(&Dbs->SdPipe, SdPipe, sizeof(sensor_data_pipe));
-    SdbArenaBootstrap(&Dbs->Arena, Arena, ArenaSize);
+    SdbArenaBootstrap(Arena, &Dbs->Arena, ArenaSize);
 
     return 0;
 }

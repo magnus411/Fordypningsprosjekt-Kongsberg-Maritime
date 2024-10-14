@@ -18,7 +18,7 @@ SDB_LOG_REGISTER(Main);
 static i64 NextDbmTId_ = 1;
 
 int
-main(void)
+main(int ArgCount, char **ArgV)
 {
     sdb_arena SdbArena;
     u64       SdbArenaSize = SdbMebiByte(32);
@@ -45,8 +45,8 @@ main(void)
     DbModuleCtx->DbsToRun      = Dbs_Postgres;
     DbModuleCtx->ThreadId      = NextDbmTId_++;
 
-    SdbArenaBootstrap(&SdbArena, DbModuleCtx->Arena, SdbMebiByte(9));
-    SdbMemcpy(DbModuleCtx->SdPipe, SdPipe, sizeof(sensor_data_pipe));
+    SdbArenaBootstrap(&SdbArena, &DbModuleCtx->Arena, SdbMebiByte(9));
+    SdbMemcpy(&DbModuleCtx->SdPipe, SdPipe, sizeof(sensor_data_pipe));
 
     pthread_t DbThread;
     pthread_create(&DbThread, NULL, DbModuleRun, DbModuleCtx);

@@ -20,7 +20,7 @@ DbModuleRun(void *DbmCtx_)
     DbmCtx->Errno         = 0;
 
     database_api ThreadDb;
-    if(DbsInitApi(DbmCtx->DbsToRun, DbmCtx->SdPipe, DbmCtx->Arena, SdbMebiByte(8), &ThreadDb)
+    if(DbsInitApi(DbmCtx->DbsToRun, &DbmCtx->SdPipe, &DbmCtx->Arena, SdbMebiByte(8), &ThreadDb)
        == -SDBE_DBS_UNAVAIL) {
         SdbLogError("Thread %ld: Attempting to run %s, but its API is unavailable",
                     DbmCtx->ThreadId, DbsIdToName(DbmCtx->DbsToRun));
