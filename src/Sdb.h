@@ -4,7 +4,8 @@
 // NOLINTBEGIN(misc-definitions-in-headers)
 
 // WARN: Do not remove any includes without first checking if they are used in the implementation
-// part by uncommenting #define SDB_H_IMPLEMENTATION
+// part by uncommenting #define SDB_H_IMPLEMENTATION (and remember to comment it out again
+// afterwards,
 #include <assert.h>
 #include <errno.h>
 #include <float.h>
