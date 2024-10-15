@@ -9,7 +9,8 @@ SRC_MAIN = src/Main.c
 TEST_SRC = $(filter-out tests/Main.c, $(shell find tests -name "*.c"))
 TEST_MAIN = tests/Main.c
 
-SDB_DEBUG = -DSDB_LOG_LEVEL=4 -DSDB_MEM_TRACE=1
+SDB_LOG_LEVEL ?= -DSDB_LOG_LEVEL=0
+SDB_DEBUG = -DSDB_MEM_TRACE=1 -DSDB_PRINTF_DEBUG_ENABLE=1
 DB_SYSTEMS = -DDATABASE_SYSTEM_POSTGRES=1
 
 DEBUG_FLAGS = -g -O0 -Wall -Wno-unused-function -Wno-cpp -DDEBUG -fsanitize=address
@@ -20,13 +21,13 @@ RELEASE_FLAGS = -O2 -march=native -Wextra -pedantic -Wno-unused-function -Wno-cp
 
 all: debug
 
-debug: CFLAGS = $(DEBUG_FLAGS) $(SDB_DEBUG) $(DB_SYSTEMS)
+debug: CFLAGS = $(DEBUG_FLAGS) $(SDB_LOG_LEVEL) $(SDB_DEBUG) $(DB_SYSTEMS)
 debug: build_main build_tests
 
-relwdb: CFLAGS = $(RELWDB_FLAGS) $(SDB_DEBUG) $(DB_SYSTEMS)
+relwdb: CFLAGS = $(RELWDB_FLAGS) $(SDB_LOG_LEVEL) $(SDB_DEBUG) $(DB_SYSTEMS)
 relwdb: build_main build_tests
 
-release: CFLAGS = $(RELEASE_FLAGS) $(SDB_DEBUG) $(DB_SYSTEMS)
+release: CFLAGS = $(RELEASE_FLAGS) $(SDB_LOG_LEVEL) $(SDB_DEBUG) $(DB_SYSTEMS)
 release: build_main build_tests
 
 lint: compile_commands.json
