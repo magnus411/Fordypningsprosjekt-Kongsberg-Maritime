@@ -14,7 +14,7 @@
 #include <tests/CommProtocols/MQTT/MQTTPublisher.h>
 #include <tests/CommProtocols/MQTT/MQTTSubscriber.h>
 #include <tests/CommProtocols/Modbus/Modbus.h>
-#include <tests/DatabaseSystems/Postgres.h>
+#include <tests/DatabaseSystems/PostgresTest.h>
 
 #define COLOR_RESET  "\033[0m"
 #define COLOR_GREEN  "\033[32m"
@@ -105,8 +105,9 @@ main(int Argc, char **Argv)
     }
 
     if(PostgresConfig) {
-        printf(COLOR_GREEN "Running Postgres Test...\n" COLOR_RESET);
-        RunPostgresTest(PostgresConfig);
+        // printf(COLOR_GREEN "Running Postgres Test...\n" COLOR_RESET);
+        printf("WRN: The current Postgres test implementation is deprecated\n");
+        // RunPostgresTest(PostgresConfig);
     } else if(ModbusTest) {
         PrintUsage();
     } else {
