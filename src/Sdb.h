@@ -102,7 +102,7 @@ static_assert(SDB_LOG_BUF_SIZE >= 128, "SDB_LOG_BUF_SIZE must greater than or eq
 #define SDB_LOG_LEVEL 3
 #endif
 
-#if SDB_LOG_LEVEL >= 4
+#if SDB_LOG_LEVEL >= 4 && SDB_PRINTF_DEBUG_ENABLE == 1
 #define SdbPrintfDebug(...) printf(__VA_ARGS__);
 #else
 #define SdbPrintfDebug(...)
@@ -251,16 +251,24 @@ void SdbArrayShift(void *Mem, u64 From, u64 To, u64 Count, u64 ElementSize);
 //              STRINGS               //
 ////////////////////////////////////////
 
-typedef struct sdb_string
-{
-    u64         Len; /* Does not include the null terminator*/
-    const char *S;   /* Will always be null-terminated for simplicity */
-} sdb_string;
-
 void  SdbMemcpy(void *To, void *From, u64 Len);
 u64   SdbStrnlen(const char *String, u64 Max);
 u64   SdbStrlen(const char *String);
 char *SdbStrdup(char *String, sdb_arena *Arena);
+
+typedef struct sdb_string
+{
+    u64 Len; /* Does not include the null terminator*/
+    u64 Cap;
+    u64 ArenaPos;
+
+    sdb_arena *Arena;
+    char      *Str; /* Will always be null-terminated for simplicity */
+} sdb_string_builder;
+
+void  SdbStrBuilderInit(sdb_string_builder *Builder, sdb_arena *Arena);
+void  SdbStrBuilderAppend(sdb_string_builder *Builder, char *String);
+char *SdbStrBuilderGetString(sdb_string_builder *Builder);
 
 ////////////////////////////////////////
 //                RNG                 //
@@ -669,6 +677,48 @@ SdbStrdup(char *String, sdb_arena *Arena)
     return NewString;
 }
 
+void
+SdbStrBuilderInit(sdb_string_builder *Builder, sdb_arena *Arena)
+{
+    Builder->Len      = 0;
+    Builder->Cap      = 1;
+    Builder->Arena    = Arena;
+    Builder->Str      = SdbPushArray(Arena, char, 1);
+    Builder->ArenaPos = SdbArenaGetPos(Arena);
+}
+
+void
+SdbStrBuilderAppend(sdb_string_builder *Builder, char *String)
+{
+    u64 StrLen = SdbStrlen(String);
+    if(Builder->Len + StrLen > Builder->Cap) {
+        u64 ArenaPos = SdbArenaGetPos(Builder->Arena);
+        u64 NewCap   = Builder->Cap * 1.5 + StrLen;
+
+        if(ArenaPos == Builder->ArenaPos) {
+            // Nothing has been allocated on the arena after the string, so we simply push the arena
+            // pos up by how much we need
+            u64 ArenaSeek = ArenaPos + NewCap - Builder->Cap;
+            SdbArenaSeek(Builder->Arena, ArenaPos + ArenaSeek);
+            Builder->ArenaPos = ArenaPos + ArenaSeek;
+        } else {
+            char *NewLocation = SdbPushArray(Builder->Arena, char, NewCap);
+            SdbMemcpy(NewLocation, Builder->Str, Builder->Len);
+            Builder->Str = NewLocation;
+        }
+        Builder->Cap = NewCap;
+    }
+
+    SdbMemcpy(Builder->Str + Builder->Len, String, StrLen);
+    Builder->Len += StrLen;
+    Builder->Str[Builder->Len] = '\0';
+}
+
+char *
+SdbStrBuilderGetString(sdb_string_builder *Builder)
+{
+    return Builder->Str;
+}
 ////////////////////////////////////////
 //                RNG                 //
 ////////////////////////////////////////
