@@ -6,7 +6,7 @@
 #include <src/Sdb.h>
 
 #include <src/CommProtocols/CommProtocols.h>
-#include <src/Common/CircularBuffer.h>
+#include <src/Common/SensorDataPipe.h>
 
 // TODO(ingar): This doesn't seem right. Is there only ever one token? Also, this is not threadsafe
 // at all.
@@ -14,22 +14,19 @@ extern volatile MQTTClient_deliveryToken DeliveredToken;
 
 typedef struct
 {
-    char            *Address;
-    char            *ClientId;
-    char            *Topic;
-    int              Qos;
-    long             Timeout;
-    circular_buffer *Cb;
-} mqtt_args;
+    char *Address;
+    char *ClientName;
+    char *Topic;
+    int   Qos;
+    long  Timeout;
 
-sdb_errno InitSubscriber(mqtt_args *Sub, const char *Address, const char *ClientId,
-                         const char *Topic, int Qos, circular_buffer *Cb);
-void      ConnLost(void *Context, char *Cause);
-int       MsgArrived(void *Context, char *TopicName, int TopicLen, MQTTClient_message *Message);
-void     *MQTTSubscriberThread(void *Arg);
+    sensor_data_pipe
+        *SdPipe; // NOTE(ingar): Needed because MQTT callback functions need access to the pipe
 
-sdb_errno MQTTInitialize(comm_protocol_api *MQTT, void *Args);
-void     *MQTTStartComm(void *MQTT);
-sdb_errno MQTTCleanup(comm_protocol_api *MQTT);
+} mqtt_ctx;
+
+sdb_errno MqttInit(comm_protocol_api *MQTT, void *OptArgs);
+sdb_errno MqttRun(comm_protocol_api *MQTT);
+sdb_errno MqttFinalize(comm_protocol_api *MQTT);
 
 #endif // MQTT_H

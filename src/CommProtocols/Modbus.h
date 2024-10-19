@@ -1,23 +1,20 @@
-#ifndef MODBUSMODULE_H
-#define MODBUSMODULE_H
+#ifndef MODBUS_H
+#define MODBUS_H
 
 #include <src/Sdb.h>
 
 #include <src/CommProtocols/CommProtocols.h>
-#include <src/Common/CircularBuffer.h>
+#include <src/Common/SensorDataPipe.h>
 
 typedef struct
 {
-    int              PORT;
-    char             Ip[10];
-    circular_buffer *Cb;
+    int  PORT;
+    char Ip[10];
 
-} modbus_args;
+} modbus_ctx;
 
-sdb_errno ModbusInitialize(comm_protocol_api *Modbus, void *Args);
+sdb_errno ModbusInit(comm_protocol_api *Modbus, void *OptArgs);
+sdb_errno ModbusRun(comm_protocol_api *Modbus);
+sdb_errno ModbusFinalize(comm_protocol_api *Modbus);
 
-void *ModbusStartComm(void *Modbus);
-
-sdb_errno ModbusCleanup(comm_protocol_api *Modbus);
-
-#endif /* MODBUSMODULE_H */
+#endif

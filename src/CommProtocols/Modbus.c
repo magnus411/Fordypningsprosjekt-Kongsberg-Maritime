@@ -1,3 +1,4 @@
+#include "src/CommProtocols/CommProtocols.h"
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,7 +7,6 @@
 #include <unistd.h>
 
 #include <src/Sdb.h>
-
 SDB_LOG_REGISTER(Modbus);
 
 #include <src/CommProtocols/Modbus.h>
@@ -24,7 +24,7 @@ SDB_LOG_REGISTER(Modbus);
  */
 
 static ssize_t
-RecivedModbusTCPFrame_(int Sockfd, u8 *Buffer, size_t BufferSize)
+RecivedModbusTCPFrame(int Sockfd, u8 *Buffer, size_t BufferSize)
 {
     ssize_t TotalBytesRead = 0;
 
@@ -42,7 +42,7 @@ RecivedModbusTCPFrame_(int Sockfd, u8 *Buffer, size_t BufferSize)
     ssize_t TotalFrameSize = MODBUS_TCP_HEADER_LEN + Length;
 
     if(TotalFrameSize > BufferSize) {
-        SdbLogDebug("Frame too large for buffer. Total frame size: %d\n", TotalFrameSize);
+        SdbLogDebug("Frame too large for buffer. Total frame size: %zd\n", TotalFrameSize);
         return -1;
     }
 
@@ -59,7 +59,7 @@ RecivedModbusTCPFrame_(int Sockfd, u8 *Buffer, size_t BufferSize)
 }
 
 static sdb_errno
-ParseModbusTCPFrame_(const u8 *Buffer, int NumBytes, queue_item *Item)
+ParseModbusTCPFrame(const u8 *Buffer, int NumBytes, queue_item *Item)
 {
     if(NumBytes < MODBUS_TCP_HEADER_LEN) {
         SdbLogError("Invalid Modbus frame\n");
@@ -79,12 +79,11 @@ ParseModbusTCPFrame_(const u8 *Buffer, int NumBytes, queue_item *Item)
     // u16 TransactionId = (Buffer[0] << 8) | Buffer[1]; // TODO(ingar): Why are these not used?
     // u16 ProtocolId    = (Buffer[2] << 8) | Buffer[3];
     // u16 Length        = (Buffer[4] << 8) | Buffer[5];
-    u8 UnitId       = Buffer[6];
-    u8 FunctionCode = Buffer[7];
-
-    u8 DataLength  = Buffer[8];
-    Item->UnitId   = UnitId;
-    Item->Protocol = FunctionCode;
+    u16 UnitId       = Buffer[6];
+    u16 FunctionCode = Buffer[7];
+    u16 DataLength   = Buffer[8];
+    Item->UnitId     = UnitId;
+    Item->Protocol   = FunctionCode;
 
     // Function code 0x03 is read multiple holding registers
     if(FunctionCode != 0x03) {
@@ -112,65 +111,49 @@ ParseModbusTCPFrame_(const u8 *Buffer, int NumBytes, queue_item *Item)
 }
 
 sdb_errno
-ModbusInitialize(comm_protocol_api *Modbus, void *Args)
+ModbusInit(comm_protocol_api *Modbus, void *OptArgs)
 {
+    modbus_ctx *Ctx = SdbPushStruct(&Modbus->Arena, modbus_ctx);
+    Ctx->PORT       = 3490;
+    strncpy(Ctx->Ip, "127.0.0.1", 10);
+    Modbus->Ctx = Ctx;
 
-    modbus_args *ModbusArgs = malloc(sizeof(modbus_args));
-    if(ModbusArgs == NULL) {
-        return -ENOMEM;
-    }
-
-    SdbMemcpy(ModbusArgs, Args, sizeof(modbus_args));
-
-    Modbus->Context = ModbusArgs;
-    atomic_store(&Modbus->IsInitialized, true);
     return 0;
 }
 
-void *
-ModbusStartComm(void *Modbus)
+sdb_errno
+ModbusRun(comm_protocol_api *Modbus)
 {
-
-    //! (Magnus): Should we create a thread here, or should it be done outside chen calling this?
-    modbus_args *ModbusArgs = (modbus_args *)Modbus;
-
-    circular_buffer *Cb     = ModbusArgs->Cb;
-    int              SockFd = CreateSocket(ModbusArgs->Ip, ModbusArgs->PORT);
+    modbus_ctx *Ctx    = Modbus->Ctx;
+    int         SockFd = CreateSocket(Ctx->Ip, Ctx->PORT);
     if(SockFd == -1) {
         SdbLogError("Failed to create socket\n");
-        return NULL;
+        return -1;
     }
 
     u8 Buf[MAX_MODBUS_TCP_FRAME];
     while(1) {
-        ssize_t NumBytes = RecivedModbusTCPFrame_(SockFd, Buf, sizeof(Buf));
+        ssize_t NumBytes = RecivedModbusTCPFrame(SockFd, Buf, sizeof(Buf));
         if(NumBytes > 0) {
             queue_item Item;
-            ParseModbusTCPFrame_(Buf, NumBytes, &Item);
-
-            CbInsert(Cb, &Item, sizeof(queue_item));
+            ParseModbusTCPFrame(Buf, NumBytes, &Item);
+            SdPipeInsert(&Modbus->SdPipe, 0, &Item, sizeof(queue_item));
         } else if(NumBytes == 0) {
             SdbLogDebug("Connection closed by server");
             close(SockFd);
-            return NULL;
+            return -1;
         } else {
             SdbLogError("Error during read operattion. Closing connection\n");
             close(SockFd);
-            return NULL;
+            return -1;
         }
     }
-    return NULL;
+
+    return 0;
 }
 
 sdb_errno
-ModbusCleanup(comm_protocol_api *Modbus)
+ModbusFinalize(comm_protocol_api *Modbus)
 {
-    if(Modbus == NULL || !atomic_load(&Modbus->IsInitialized)) {
-        return -EINVAL;
-    }
-
-    free(Modbus->Context);
-    Modbus->Context = NULL;
-    atomic_store(&Modbus->IsInitialized, false);
     return 0;
 }

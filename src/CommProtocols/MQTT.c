@@ -1,3 +1,5 @@
+#include "src/CommProtocols/CommProtocols.h"
+#include "src/Common/SensorDataPipe.h"
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,7 +11,6 @@
 
 SDB_LOG_REGISTER(MQTT);
 
-#include <src/CommProtocols/CommProtocols.h>
 #include <src/CommProtocols/MQTT.h>
 #include <src/CommProtocols/Modbus.h>
 #include <src/Common/CircularBuffer.h>
@@ -67,33 +68,19 @@ ParseModbusTCPFrame_(const u8 *Buffer, size_t NumBytes, queue_item *Item)
     return 0;
 }
 
-sdb_errno
-InitSubscriber(mqtt_args *Sub, const char *Address, const char *ClientId, const char *Topic,
-               int Qos, circular_buffer *Cb)
-{
-    Sub->Address  = strdup(Address);
-    Sub->ClientId = strdup(ClientId);
-    Sub->Topic    = strdup(Topic);
-    Sub->Qos      = Qos;
-    Sub->Timeout  = 10000L;
-    Sub->Cb       = Cb;
-
-    return (Sub->Address == NULL || Sub->ClientId == NULL || Sub->Topic == NULL) ? -ENOMEM : 0;
-}
-
-// NOTE(ingar): Callback function, do not change signature!
+// WARN: Callback function, do not change signature!
 void
-ConnLost(void *Context, char *Cause)
+ConnLost(void *Ctx, char *Cause)
 {
     SdbLogError("Connection lost. Cause: %s", Cause);
 }
 
-// NOTE(ingar): Callback function, do not change signature! Do not free message and topic name when
+// WARN: Callback function, do not change signature! Do not free message and topic name when
 // returning 0!
 int
-MsgArrived(void *Context, char *TopicName, int TopicLen, MQTTClient_message *Message)
+MsgArrived(void *Ctx_, char *TopicName, int TopicLen, MQTTClient_message *Message)
 {
-    mqtt_args *Sub = (mqtt_args *)Context;
+    mqtt_ctx *Ctx = Ctx_;
     SdbLogDebug("Message arrived. Topic: %s", TopicName);
 
     if(Message->payloadlen > MAX_MODBUS_TCP_FRAME) {
@@ -106,7 +93,7 @@ MsgArrived(void *Context, char *TopicName, int TopicLen, MQTTClient_message *Mes
     queue_item Item;
 
     if(ParseModbusTCPFrame_(Buffer, Message->payloadlen, &Item) == 0) {
-        ssize_t BytesWritten = CbInsert(Sub->Cb, Item.Data, Item.DataLength);
+        ssize_t BytesWritten = SdPipeInsert(Ctx->SdPipe, 0, Item.Data, Item.DataLength);
         if(BytesWritten > 0) {
             SdbLogDebug("Inserted Modbus data into buffer. Bytes written: %zd", BytesWritten);
         } else {
@@ -125,54 +112,55 @@ exit:
     return 1;
 }
 
-sdb_errno
-MQTTInitialize(comm_protocol_api *MQTT, void *Args)
+static sdb_errno
+InitSubscriber(mqtt_ctx *Ctx, const char *Address, const char *ClientId, const char *Topic, int Qos,
+               sensor_data_pipe *SdPipe, sdb_arena *Arena)
 {
-
-    mqtt_args *MqttArgs = (mqtt_args *)Args;
-
-    mqtt_args *Context = malloc(sizeof(mqtt_args));
-    if(Context == NULL) {
-        return -ENOMEM;
-    }
-
-    sdb_errno Result = InitSubscriber(Context, MqttArgs->Address, "ClientID", MqttArgs->Topic,
-                                      MqttArgs->Qos, MqttArgs->Cb);
-    if(Result != 0) {
-        free(Context);
-        return Result;
-    }
-
-    MQTT->Context = Context;
-    atomic_store(&MQTT->IsInitialized, true);
     return 0;
 }
 
-void *
-MQTTStartComm(void *MQTT)
+sdb_errno
+MqttInit(comm_protocol_api *Mqtt, void *OptArgs)
 {
+    // TODO(ingar): Get mqtt config from file
+    char ClientName[128] = { 0 };
+    snprintf(ClientName, SdbArrayLen(ClientName), "CommT%ld", (i64)OptArgs);
 
-    mqtt_args *Subscriber = (mqtt_args *)MQTT;
+    mqtt_ctx *MqttCtx   = SdbPushStruct(&Mqtt->Arena, mqtt_ctx);
+    MqttCtx->Address    = SdbStrdup("tcp://localhost:1883", &Mqtt->Arena);
+    MqttCtx->ClientName = SdbStrdup(ClientName, &Mqtt->Arena);
+    MqttCtx->Topic      = SdbStrdup("SensorData", &Mqtt->Arena);
+    MqttCtx->Qos        = 1;
+    MqttCtx->Timeout    = 10000L;
+    MqttCtx->SdPipe     = &Mqtt->SdPipe;
+
+    Mqtt->Ctx = MqttCtx;
+    return 0;
+}
+
+sdb_errno
+MqttRun(comm_protocol_api *Mqtt)
+{
+    mqtt_ctx *Ctx = Mqtt->Ctx;
 
     MQTTClient                Client;
     MQTTClient_connectOptions ConnOptions = MQTTClient_connectOptions_initializer;
     int                       Rc;
 
-    MQTTClient_create(&Client, Subscriber->Address, Subscriber->ClientId,
-                      MQTTCLIENT_PERSISTENCE_NONE, NULL);
+    MQTTClient_create(&Client, Ctx->Address, Ctx->ClientName, MQTTCLIENT_PERSISTENCE_NONE, NULL);
     ConnOptions.keepAliveInterval = 20;
     ConnOptions.cleansession      = 1;
 
-    MQTTClient_setCallbacks(Client, Subscriber, ConnLost, MsgArrived, NULL);
+    MQTTClient_setCallbacks(Client, Ctx, ConnLost, MsgArrived, NULL);
 
     if((Rc = MQTTClient_connect(Client, &ConnOptions)) != MQTTCLIENT_SUCCESS) {
         SdbLogError("Failed to connect to MQTT broker. Error: %d", Rc);
-        return NULL;
+        return -1;
     }
 
-    SdbLogDebug("Subscribing to topic %s for Client %s using QoS %d", Subscriber->Topic,
-                Subscriber->ClientId, Subscriber->Qos);
-    MQTTClient_subscribe(Client, Subscriber->Topic, Subscriber->Qos);
+    SdbLogDebug("Subscribing to topic %s for Client %s using QoS %d", Ctx->Topic, Ctx->ClientName,
+                Ctx->Qos);
+    MQTTClient_subscribe(Client, Ctx->Topic, Ctx->Qos);
 
     while(1) {
         // TODO(ingar): lmao. Add termination logic plz
@@ -181,22 +169,13 @@ MQTTStartComm(void *MQTT)
 
     MQTTClient_disconnect(Client, 10000);
     MQTTClient_destroy(&Client);
-    return NULL;
+
+    return 0;
 }
 
 sdb_errno
-MQTTCleanup(comm_protocol_api *MQTT)
+MqttFinalize(comm_protocol_api *Mqtt)
 {
-    if(MQTT == NULL || !atomic_load(&MQTT->IsInitialized)) {
-        return -EINVAL;
-    }
-
-    mqtt_args *MqttArgs = (mqtt_args *)MQTT->Context;
-    free(MqttArgs->Address);
-    free(MqttArgs->ClientId);
-    free(MqttArgs->Topic);
-    free(MqttArgs);
-    MQTT->Context = NULL;
-    atomic_store(&MQTT->IsInitialized, false);
+    SdbArenaClear(&Mqtt->Arena);
     return 0;
 }
