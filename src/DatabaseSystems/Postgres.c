@@ -13,12 +13,15 @@
 
 #include <src/Sdb.h>
 
-#include <src/DatabaseSystems/Postgres.h>
-#include <src/Modules/DatabaseModule.h>
-
 SDB_LOG_REGISTER(Postgres);
 
-void
+#include <src/Common/SdbErrno.h>
+#include <src/DatabaseSystems/DatabaseInitializer.h>
+#include <src/DatabaseSystems/Postgres.h>
+#include <src/Libs/cJSON/cJSON.h>
+#include <src/Modules/DatabaseModule.h>
+
+static void
 DiagnoseConnectionAndTable(PGconn *DbConn, const char *TableName)
 {
     SdbLogInfo("Connected to database: %s", PQdb(DbConn));
@@ -54,7 +57,7 @@ DiagnoseConnectionAndTable(PGconn *DbConn, const char *TableName)
     PQclear(ListTablesResult);
 }
 
-void
+static void
 PrintPGresult(const PGresult *Result)
 {
     if(Result == NULL) {
@@ -94,7 +97,7 @@ PrintPGresult(const PGresult *Result)
     }
 }
 
-char *
+static char *
 PqTableMetaDataQuery(const char *TableName, u64 TableNameLen)
 {
     u64   QueryLen = PQ_TABLE_METADATA_QUERY_FMT_LEN + TableNameLen;
@@ -104,7 +107,7 @@ PqTableMetaDataQuery(const char *TableName, u64 TableNameLen)
     return QueryBuf;
 }
 
-void
+static void
 PrintColumnMetadata(const pq_col_metadata *Metadata)
 {
     printf("\n");
@@ -124,7 +127,7 @@ PrintColumnMetadata(const pq_col_metadata *Metadata)
     printf("\n");
 }
 
-pq_col_metadata *
+static pq_col_metadata *
 GetTableMetadata(PGconn *DbConn, const char *TableName, u64 TableNameLen, int *ColCount)
 {
     /* Typical libpq convention that variables for sizes are passed in an filled out by the
@@ -176,7 +179,7 @@ GetTableMetadata(PGconn *DbConn, const char *TableName, u64 TableNameLen, int *C
     return MetadataArray;
 }
 
-void
+static void
 InsertSensorData(PGconn *DbConn, const char *TableName, u64 TableNameLen, const u8 *SensorData,
                  size_t DataSize)
 {
@@ -257,7 +260,7 @@ InsertSensorData(PGconn *DbConn, const char *TableName, u64 TableNameLen, const 
             u64         VarCharLen  = ColMetadata[i].TypeModifier - 4;
             ParamLengths[i]         = SdbStrnlen(StringStart, VarCharLen);
             ParamFormats[i]         = 0; // NOTE(ingar): Sets to use text format instead of binary
-            SdbLogDebug("Attempting to inser %lu chars into varchar", ParamLengths[i]);
+            SdbLogDebug("Attempting to inser %d chars into varchar", ParamLengths[i]);
         }
 
         ParamOffset += ColMetadata[i].TypeLength;
@@ -291,20 +294,76 @@ InsertSensorData(PGconn *DbConn, const char *TableName, u64 TableNameLen, const 
     free(ParamFormats);
 }
 
-char *
-GetSqlQueryFromFile(const char *FileName, sdb_arena *Arena)
+sdb_errno
+CreateTablesFromSchemaConf(PGconn *Conn, cJSON *SchemaConf, sdb_arena *Arena)
 {
-    sdb_file_data *File = SdbLoadFileIntoMemory(FileName, Arena);
-    return (char *)File->Data;
+    if(SchemaConf == NULL || !cJSON_IsObject(SchemaConf)) {
+        SdbLogError("Input was not a valid, parsed JSON object.");
+        return -1;
+    }
+
+    cJSON *TableNameItem = cJSON_GetObjectItem(SchemaConf, "name");
+    if(TableNameItem == NULL || !cJSON_IsString(TableNameItem)) {
+        SdbLogError("JSON does not contain a \"name\" field");
+        return -1;
+    }
+
+    u64 ArenaF5 = SdbArenaGetPos(Arena);
+
+    sdb_string_builder Builder;
+    SdbStrBuilderInit(&Builder, Arena);
+
+    char *Name = TableNameItem->valuestring;
+    SdbStrBuilderAppend(&Builder, "CREATE TABLE IF NOT EXISTS ");
+    SdbStrBuilderAppend(&Builder, Name);
+    SdbStrBuilderAppend(&Builder, "(\nid SERIAL PRIMARY KEY,\nprotocol TEXT,\n");
+
+    cJSON *DataItem = cJSON_GetObjectItem(SchemaConf, "data");
+    if(DataItem == NULL || !cJSON_IsObject(DataItem)) {
+        SdbLogError("JSON does not contain a \"data\" object");
+        SdbArenaSeek(Arena, ArenaF5);
+        return -1;
+    }
+
+    cJSON *CurrentElement = NULL;
+    cJSON_ArrayForEach(CurrentElement, DataItem)
+    {
+        if(cJSON_IsString(CurrentElement)) {
+            SdbStrBuilderAppend(&Builder, CurrentElement->string);
+            SdbStrBuilderAppend(&Builder, " ");
+            SdbStrBuilderAppend(&Builder, CurrentElement->valuestring);
+            SdbStrBuilderAppend(&Builder, ",\n");
+        }
+    }
+
+    Builder.Len -= 2;
+    SdbStrBuilderAppend(&Builder, ");");
+    char *TableCreationQuery = SdbStrBuilderGetString(&Builder);
+    SdbPrintfDebug("\nTable creation query:\n%s\n", TableCreationQuery);
+
+    PGresult *CreateRes = PQexec(Conn, TableCreationQuery);
+    if(PQresultStatus(CreateRes) != PGRES_COMMAND_OK) {
+        SdbLogError("Table creation failed: %s", PQerrorMessage(Conn));
+        PQclear(CreateRes);
+        SdbArenaSeek(Arena, ArenaF5);
+        return -1;
+    } else {
+        SdbLogInfo("Table '%s' created successfully (or it already existed).",
+                   TableNameItem->valuestring);
+    }
+
+    PQclear(CreateRes);
+    SdbArenaSeek(Arena, ArenaF5);
+
+    return 0;
 }
 
 sdb_errno
-PgInit(database_api *Pg)
+PgInit(database_api *Pg, void *OptArgs)
 {
-    u64 ArenaF5 = SdbArenaGetPos(&Pg->Arena);
-
-    // TODO(ingar): Consider making this a JSON file
+    u64            ArenaF5  = SdbArenaGetPos(&Pg->Arena);
     sdb_file_data *ConfFile = SdbLoadFileIntoMemory(POSTGRES_CONF_FS_PATH, &Pg->Arena);
+    // TODO(ingar): Make pg config a json file
     if(ConfFile == NULL) {
         SdbLogError("Failed to open config file");
         return -1;
@@ -315,20 +374,25 @@ PgInit(database_api *Pg)
 
     PGconn *Conn = PQconnectdb(ConnInfo);
     if(PQstatus(Conn) != CONNECTION_OK) {
-        SdbLogError("Connection to database failed. PQ error:\n%s\n", PQerrorMessage(Conn));
+        SdbLogError("Connection to database failed. PQ error:\n%s", PQerrorMessage(Conn));
         PQfinish(Conn);
         SdbArenaSeek(&Pg->Arena, ArenaF5);
         return -1;
     } else {
         SdbLogInfo("Connected!");
     }
-
     SdbArenaSeek(&Pg->Arena, ArenaF5);
 
+    cJSON *SchemaConf = DbInitGetConfFromFile("configs/shaft_power.json", &Pg->Arena);
+    if(CreateTablesFromSchemaConf(Conn, SchemaConf, &Pg->Arena) != 0) {
+        return -1;
+    }
+    cJSON_Delete(SchemaConf);
+
     postgres_ctx *PgCtx    = SdbPushStruct(&Pg->Arena, postgres_ctx);
-    PgCtx->DbConn          = Conn;
     PgCtx->PgInsertBufSize = SdbKibiByte(4);
     PgCtx->PgInsertBuf     = SdbPushArray(&Pg->Arena, u8, PgCtx->PgInsertBufSize);
+    PgCtx->DbConn          = Conn;
     Pg->Ctx                = PgCtx;
 
     return 0;
@@ -337,14 +401,14 @@ PgInit(database_api *Pg)
 sdb_errno
 PgRun(database_api *Pg)
 {
-
     return 0;
 }
 
 sdb_errno
 PgFinalize(database_api *Pg)
 {
-    PQfinish(PG_CTX(Pg)->DbConn);
+    postgres_ctx *Ctx = Pg->Ctx;
+    PQfinish(Ctx->DbConn);
 
     return 0;
 }

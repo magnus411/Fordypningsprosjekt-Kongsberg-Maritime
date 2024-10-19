@@ -1,8 +1,3 @@
-#include <arpa/inet.h>
-#include <iconv.h>
-#include <libpq-fe.h>
-#include <stdio.h>
-
 #include <src/Sdb.h>
 SDB_LOG_REGISTER(DbModule);
 
@@ -16,53 +11,48 @@ SDB_LOG_REGISTER(DbModule);
 void *
 DbModuleRun(void *DbmCtx_)
 {
-    db_module_ctx *DbmCtx = DbmCtx_;
-    DbmCtx->Errno         = 0;
+    db_module_ctx *DbmCtx  = DbmCtx_;
+    sdb_errno      Ret     = 0;
+    void          *OptArgs = NULL;
+    database_api   ThreadDb;
 
-    database_api ThreadDb;
-    if(DbsInitApi(DbmCtx->DbsToRun, &DbmCtx->SdPipe, &DbmCtx->Arena, SdbMebiByte(8), &ThreadDb)
+    if((Ret = DbsInitApi(DbmCtx->DbsType, &DbmCtx->SdPipe, &DbmCtx->Arena, DbmCtx->DbsArenaSize,
+                         DbmCtx->ThreadId, &ThreadDb, OptArgs))
        == -SDBE_DBS_UNAVAIL) {
-        SdbLogError("Thread %ld: Attempting to run %s, but its API is unavailable",
-                    DbmCtx->ThreadId, DbsIdToName(DbmCtx->DbsToRun));
-        DbmCtx->Errno = -SDBE_DBS_UNAVAIL;
-        return NULL;
+        SdbLogWarning("Thread %ld: Attempting to run %s, but its API is unavailable",
+                      DbmCtx->ThreadId, DbsTypeToName(DbmCtx->DbsType));
+        goto exit;
     }
 
-    i64       Attempts = 0;
-    sdb_errno Ret      = 0;
-    while(((Ret = ThreadDb.Init(&ThreadDb)) != 0) && (Attempts++ < DB_INIT_ATTEMPT_THRESHOLD)) {
+    i64 Attempts = 0;
+    while(((Ret = ThreadDb.Init(&ThreadDb, OptArgs)) != 0)
+          && (Attempts++ < DB_INIT_ATTEMPT_THRESHOLD)) {
         SdbLogError("Thread %ld: Error on database init attempt %ld, ret: %d", DbmCtx->ThreadId,
                     Attempts, Ret);
     }
 
     if(Attempts >= DB_INIT_ATTEMPT_THRESHOLD) {
         SdbLogError("Thread %ld: Database init attempt threshold exceeded", DbmCtx->ThreadId);
-        DbmCtx->Errno = Ret;
-        return NULL;
+        goto exit;
     } else {
         SdbLogInfo("Thread %ld: Database successfully initialized", DbmCtx->ThreadId);
     }
 
-    while((Ret = ThreadDb.Run(&ThreadDb)) != 0) {
-        // TODO(ingar): Error/warning/whatever handling
-    }
-
-    if(Ret == 0) {
+    if((Ret = ThreadDb.Run(&ThreadDb)) == 0) {
         SdbLogInfo("Thread %ld: Database has stopped and returned success", DbmCtx->ThreadId);
     } else {
         SdbLogError("Thread %ld: Database has stopped and returned an error: %d", DbmCtx->ThreadId,
                     Ret);
-        DbmCtx->Errno = Ret;
+        goto exit;
     }
 
-    Ret = ThreadDb.Finalize(&ThreadDb);
-    if(Ret == 0) {
+    if((Ret = ThreadDb.Finalize(&ThreadDb)) == 0) {
         SdbLogInfo("Thread %ld: Database successfully finalized", DbmCtx->ThreadId);
-        DbmCtx->Errno = 0;
     } else {
         SdbLogError("Thread %ld: Database finilization failed", DbmCtx->ThreadId);
-        DbmCtx->Errno = Ret;
     }
 
+exit:
+    DbmCtx->Errno = Ret;
     return NULL;
 }

@@ -6,25 +6,21 @@
 #include <src/Sdb.h>
 
 #include <src/DatabaseSystems/DatabaseSystems.h>
+#include <src/Libs/cJSON/cJSON.h>
 
 typedef struct
 {
-    i64       ThreadId;
-    sdb_errno Errno;
+    i64            ThreadId;
+    sdb_errno      Errno;
+    Db_System_Type DbsType;
 
-    Db_System_Id     DbsToRun;
-    void            *DbsInitArgs;
     sensor_data_pipe SdPipe;
-    sdb_arena        Arena;
+
+    sdb_arena Arena;
+    u64       ArenaSize;
+    u64       DbsArenaSize;
 
 } db_module_ctx;
-
-typedef struct
-{
-    i64            DbCount;
-    db_module_ctx *Databases;
-
-} live_databases;
 
 /**
  * @brief Database module's main function, which should be spawned in a thread.

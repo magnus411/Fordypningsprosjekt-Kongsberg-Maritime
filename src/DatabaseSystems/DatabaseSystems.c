@@ -14,7 +14,7 @@ static bool PgApiIsAvailable_ = false;
 #endif // DATABASE_SYSTEM_POSTGRES
 
 bool
-DbsDatabaseIsAvailable(Db_System_Id DbsId)
+DbsDatabaseIsAvailable(Db_System_Type DbsId)
 {
     switch(DbsId) {
         case Dbs_Postgres:
@@ -25,31 +25,33 @@ DbsDatabaseIsAvailable(Db_System_Id DbsId)
 }
 
 sdb_errno
-DbsInitApi(Db_System_Id DbsId, sensor_data_pipe *SdPipe, sdb_arena *Arena, u64 ArenaSize,
-           database_api *Dbs)
+DbsInitApi(Db_System_Type Type, sensor_data_pipe *SdPipe, sdb_arena *Arena, u64 ArenaSize,
+           i64 DbmTId, database_api *DbsApi, void *OptArgs)
 {
-    switch(DbsId) {
+    if(!DbsDatabaseIsAvailable(Type)) {
+        SdbLogWarning("%s is unavailable", DbsTypeToName(Type));
+        return -SDBE_DBS_UNAVAIL;
+    }
+
+    SdbMemset(DbsApi, 0, sizeof(*DbsApi));
+    SdbMemcpy(&DbsApi->SdPipe, SdPipe, sizeof(*SdPipe));
+    SdbArenaBootstrap(Arena, &DbsApi->Arena, ArenaSize);
+
+    switch(Type) {
         case Dbs_Postgres:
             {
-                if(!DbsDatabaseIsAvailable(DbsId)) {
-                    SdbLogWarning("PostgreSQL is unavailable");
-                    return -SDBE_DBS_UNAVAIL;
-                }
-                Dbs->Init     = PgInit;
-                Dbs->Run      = PgRun;
-                Dbs->Finalize = PgFinalize;
+                DbsApi->Init     = PgInit;
+                DbsApi->Run      = PgRun;
+                DbsApi->Finalize = PgFinalize;
             }
             break;
         default:
             {
-                SdbLogError("Database id doesn't exist");
+                SdbAssert(0, "Database type doesn't exist");
                 return -EINVAL;
             }
             break;
     }
-
-    SdbMemcpy(&Dbs->SdPipe, SdPipe, sizeof(sensor_data_pipe));
-    SdbArenaBootstrap(Arena, &Dbs->Arena, ArenaSize);
 
     return 0;
 }
