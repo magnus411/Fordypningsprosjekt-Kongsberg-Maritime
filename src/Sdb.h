@@ -168,17 +168,18 @@ void SdbMemZeroSecure(void *Mem, u64 Size);
 #define SdbMemZeroStruct(struct)       SdbMemZero(struct, sizeof(*struct))
 #define SdbMemZeroStructSecure(struct) SdbMemZeroSecure(struct, sizeof(*struct))
 
+// TODO(ingar): Make stack support, maybe by having an array which you can set the size of that
+// contains positions
 typedef struct sdb_arena
 {
     u64 Cur;
     u64 Cap;
-    // u64 Save; /* DOES NOT WORK!!! Makes it easier to use the arena as a stack */
     u8 *Mem; /* If it's last, the arena's memory can be contiguous with the struct itself */
 } sdb_arena;
 
 typedef struct sdb_slice
 {
-    u64 Len; /* Not size_t since I want the member size to be constant */
+    u64 Len;
     u64 ESize;
     u8 *Mem;
 } sdb_slice;
@@ -222,7 +223,7 @@ void SdbArrayShift(void *Mem, u64 From, u64 To, u64 Count, u64 ElementSize);
 // #define SdbPushStructZero(arena, type)               SdbPushArrayZero(arena, type, 1)
 
 #define SDB_DEFINE_POOL_ALLOCATOR(type_name, func_name)                                            \
-    typedef struct type_name##_Pool                                                                \
+    typedef struct type_name##_pool                                                                \
     {                                                                                              \
         sdb_arena *Arena;                                                                          \
         type_name *FirstFree;                                                                      \
@@ -384,7 +385,7 @@ SdbRadiansFromDegrees(double Degrees)
 /* Based on the logging frontend I wrote for oec */
 
 i64
-Sdb__WriteLog__(sdb__log_module__ *Module, const char *LogLevel, va_list VaArgs)
+Sdb__WriteLog__(sdb__log_module__ *Module, const char *LogLevel, const char *Fmt, ...)
 {
     pthread_mutex_lock(&Module->Lock);
 
@@ -426,13 +427,15 @@ Sdb__WriteLog__(sdb__log_module__ *Module, const char *LogLevel, va_list VaArgs)
     CharsWritten += FormatRet;
     BufferRemaining -= FormatRet;
 
-    const char *FormatString = va_arg(VaArgs, const char *);
-    FormatRet = vsnprintf(Module->Buffer + CharsWritten, BufferRemaining, FormatString, VaArgs);
+    va_list VaArgs;
+    va_start(VaArgs, Fmt);
+    FormatRet = vsnprintf(Module->Buffer + CharsWritten, BufferRemaining, Fmt, VaArgs);
+    va_end(VaArgs);
 
     if(FormatRet < 0) {
         return -errno;
     } else if((u64)FormatRet >= BufferRemaining) {
-        (void)memset(Module->Buffer + CharsWritten, 0, BufferRemaining);
+        (void)SdbMemset(Module->Buffer + CharsWritten, 0, BufferRemaining);
         FormatRet = snprintf(Module->Buffer + CharsWritten, BufferRemaining, "%s",
                              "Message dropped; too big");
         if(FormatRet < 0) {
@@ -460,16 +463,6 @@ Sdb__WriteLog__(sdb__log_module__ *Module, const char *LogLevel, va_list VaArgs)
     pthread_mutex_unlock(&Module->Lock);
 
     return 0;
-}
-
-sdb_errno
-Sdb__WriteLogIntermediate__(sdb__log_module__ *Module, const char *LogLevel, ...)
-{
-    va_list VaArgs;
-    va_start(VaArgs, LogLevel);
-    sdb_errno Ret = Sdb__WriteLog__(Module, LogLevel, VaArgs);
-    va_end(VaArgs);
-    return Ret;
 }
 
 ////////////////////////////////////////
@@ -848,8 +841,7 @@ void *
 Sdb__MallocTrace__(size_t Size, int Line, const char *Func, sdb__log_module__ *Module)
 {
     void *Pointer = malloc(Size);
-    Sdb__WriteLogIntermediate__(Module, "DBG", "MALLOC (%s,%d): %p (%zd B)", Func, Line, Pointer,
-                                Size);
+    Sdb__WriteLog__(Module, "DBG", "MALLOC (%s,%d): %p (%zd B)", Func, Line, Pointer, Size);
     return Pointer;
 }
 
@@ -858,8 +850,8 @@ Sdb__CallocTrace__(u64 ElementCount, u64 ElementSize, int Line, const char *Func
                    sdb__log_module__ *Module)
 {
     void *Pointer = calloc(ElementCount, ElementSize);
-    Sdb__WriteLogIntermediate__(Module, "DBG", "CALLOC (%s,%d): %p (%lu * %luB = %zd B)", Func,
-                                Line, ElementCount, ElementSize, Pointer);
+    Sdb__WriteLog__(Module, "DBG", "CALLOC (%s,%d): %p (%lu * %luB = %zd B)", Func, Line, Pointer,
+                    ElementCount, ElementSize, (size_t)(ElementCount * ElementSize));
     return Pointer;
 }
 
@@ -872,15 +864,15 @@ Sdb__ReallocTrace__(void *Pointer, size_t Size, int Line, const char *Func,
     if(Pointer != NULL) {
         Realloc = realloc(Pointer, Size);
     }
-    Sdb__WriteLogIntermediate__(Module, "DBG", "REALLOC (%s,%d): %p -> %p (%zd B)", Func, Line,
-                                Original, Realloc, Size);
+    Sdb__WriteLog__(Module, "DBG", "REALLOC (%s,%d): %p -> %p (%zd B)", Func, Line, Original,
+                    Realloc, Size);
     return Realloc;
 }
 
 void
 Sdb__FreeTrace__(void *Pointer, int Line, const char *Func, sdb__log_module__ *Module)
 {
-    Sdb__WriteLogIntermediate__(Module, "DBG", "FREE (%s,%d): %p", Func, Line, Pointer);
+    Sdb__WriteLog__(Module, "DBG", "FREE (%s,%d): %p", Func, Line, Pointer);
     if(Pointer != NULL) {
         free(Pointer);
     }
