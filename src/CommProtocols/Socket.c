@@ -5,7 +5,7 @@
 
 #include <src/Sdb.h>
 
-SDB_LOG_REGISTER(Modbus);
+SDB_LOG_REGISTER(Socket);
 
 #include <src/CommProtocols/Socket.h>
 
@@ -16,11 +16,11 @@ CreateSocket(const char *IpAddress, int Port)
     struct sockaddr_in ServerAddr;
 
     if((SockFd = socket(AF_INET, SOCK_STREAM, 0)) == -1) {
-        SdbLogError("Error creating socket: %s ", errno);
+        SdbLogError("Error creating socket: %s", strerror(errno));
         return -1;
     }
 
-    memset(&ServerAddr, 0, sizeof(ServerAddr));
+    SdbMemset(&ServerAddr, 0, sizeof(ServerAddr));
     ServerAddr.sin_family = AF_INET;
     ServerAddr.sin_port   = htons(Port);
 
@@ -31,8 +31,8 @@ CreateSocket(const char *IpAddress, int Port)
     }
 
     if(connect(SockFd, (struct sockaddr *)&ServerAddr, sizeof(ServerAddr)) == -1) {
-        SdbLogError("Failed to connect to server (%s:%d): %s (errno: %d)", IpAddress,
-                    ntohs(ServerAddr.sin_port), strerror(errno), errno);
+        SdbLogError("Failed to connect to server %s:%d, errno: %s", IpAddress,
+                    ntohs(ServerAddr.sin_port), strerror(errno));
         close(SockFd);
         return -1;
     }
