@@ -9,6 +9,7 @@ typedef enum
     SDBE_ERR     = 1,
 
     SDBE_DBS_UNAVAIL = 2,
+    SDBE_CP_UNAVAIL  = 3,
 
 } sdb_errno;
 
