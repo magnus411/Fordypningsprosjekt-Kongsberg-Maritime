@@ -252,7 +252,8 @@ void SdbArrayShift(void *Mem, u64 From, u64 To, u64 Count, u64 ElementSize);
 //              STRINGS               //
 ////////////////////////////////////////
 
-void  SdbMemcpy(void *To, void *From, u64 Len);
+void *SdbMemcpy(void *__restrict To, const void *__restrict From, size_t Len);
+void *SdbMemset(void *Data, int SetTo, size_t Len);
 u64   SdbStrnlen(const char *String, u64 Max);
 u64   SdbStrlen(const char *String);
 char *SdbStrdup(char *String, sdb_arena *Arena);
@@ -335,7 +336,6 @@ SDB_END_EXTERN_C
 
 // WARN: Only one file in a program should define SDB_H_IMPLEMENTATION, otherwise you will get
 // redefintion errors
-
 // #define SDB_H_IMPLEMENTATION
 #ifdef SDB_H_IMPLEMENTATION
 
@@ -628,13 +628,27 @@ SdbArrayShift(void *Mem, u64 From, u64 To, u64 Count, u64 ElementSize)
 //              STRINGS               //
 ////////////////////////////////////////
 
-void
-SdbMemcpy(void *To, void *From, u64 Len)
+void *
+SdbMemcpy(void *__restrict To, const void *__restrict From, size_t Len)
 {
     // NOTE(ingar): The compiler should replace this with memcpy if it's available
-    for(u64 i = 0; i < Len; ++i) {
+    for(size_t i = 0; i < Len; ++i) {
         ((u8 *)To)[i] = ((u8 *)From)[i];
     }
+
+    return To;
+}
+
+void *
+SdbMemset(void *Data, int SetTo, size_t Len)
+{
+    // NOTE(ingar): The compiler should replace this with memset if it's available. Don't ask me why
+    // you cast it to a u8* and not an int*, but that must be done for it to be replaced
+    for(size_t i = 0; i < Len; ++i) {
+        ((u8 *)Data)[i] = SetTo;
+    }
+
+    return Data;
 }
 
 u64
