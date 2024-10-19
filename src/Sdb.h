@@ -150,10 +150,11 @@ i64 Sdb__WriteLog__(sdb__log_module__ *Module, const char *LogLevel, const char 
 #define SdbLogWarning(...) SDB__LOG__(WRN, ##__VA_ARGS__)
 #define SdbLogError(...)   SDB__LOG__(ERR, ##__VA_ARGS__)
 
-#define SdbAssert(condition)                                                                       \
+#define SdbAssert(condition, fmt, ...)                                                             \
     do {                                                                                           \
         if(!(condition)) {                                                                         \
-            SdbLogError("Assertion failed: " SDB_STRINGIFY(condition));                            \
+            Sdb__WriteLog__(Sdb__LogInstance__, "DBG", "ASSERT (%s,%d): " fmt, __func__, __LINE__, \
+                            ##__VA_ARGS__);                                                        \
             assert(condition);                                                                     \
         }                                                                                          \
     } while(0)
