@@ -116,40 +116,39 @@ typedef struct sdb__log_module__
     pthread_mutex_t Lock;
 } sdb__log_module__;
 
-i64       Sdb__WriteLog__(sdb__log_module__ *Module, const char *LogLevel, va_list VaArgs);
-sdb_errno Sdb__WriteLogIntermediate__(sdb__log_module__ *Module, const char *LogLevel, ...);
+i64 Sdb__WriteLog__(sdb__log_module__ *Module, const char *LogLevel, const char *Fmt, ...)
+    __attribute__((format(printf, 3, 4)));
 
 #define SDB__LOG_LEVEL_CHECK__(level) (SDB_LOG_LEVEL >= SDB_LOG_LEVEL_##level)
 
 #define SDB_LOG_REGISTER(module_name)                                                              \
-    sdb_global char SDB_CONCAT3(Sdb__LogModule, module_name, Buffer__)[SDB_LOG_BUF_SIZE];          \
-    sdb_global sdb__log_module__ SDB_CONCAT3(Sdb__LogModule, module_name, __)                      \
-        __attribute__((used))                                                                      \
-        = { .Name       = SDB_STRINGIFY(module_name),                                              \
-            .BufferSize = SDB_LOG_BUF_SIZE,                                                        \
-            .Buffer     = SDB_CONCAT3(Sdb__LogModule, module_name, Buffer__),                      \
-            .Lock       = PTHREAD_MUTEX_INITIALIZER };                                                   \
-    sdb_global sdb__log_module__ *Sdb__LogInstance__ __attribute__((used))                         \
+    static char              SDB_CONCAT3(Sdb__LogModule, module_name, Buffer__)[SDB_LOG_BUF_SIZE]; \
+    static sdb__log_module__ SDB_CONCAT3(Sdb__LogModule, module_name, __) __attribute__((used))    \
+    = { .Name       = SDB_STRINGIFY(module_name),                                                  \
+        .BufferSize = SDB_LOG_BUF_SIZE,                                                            \
+        .Buffer     = SDB_CONCAT3(Sdb__LogModule, module_name, Buffer__),                          \
+        .Lock       = PTHREAD_MUTEX_INITIALIZER };                                                       \
+    static sdb__log_module__ *Sdb__LogInstance__ __attribute__((used))                             \
     = &SDB_CONCAT3(Sdb__LogModule, module_name, __)
 
-#define SDB_LOG_DECLARE_EXTERN(name)                                                               \
-    sdb__log_module__             SDB_CONCAT3(Sdb__LogModule, name, __);                           \
-    sdb_global sdb__log_module__ *Sdb__LogInstance__ __attribute__((used))                         \
+#define SDB_LOG_DECLARE(name)                                                                      \
+    sdb__log_module__         SDB_CONCAT3(Sdb__LogModule, name, __);                               \
+    static sdb__log_module__ *Sdb__LogInstance__ __attribute__((used))                             \
     = &SDB_CONCAT3(Sdb__LogModule, name, __)
 
-#define SDB__LOG__(log_level, ...)                                                                 \
+#define SDB__LOG__(log_level, fmt, ...)                                                            \
     do {                                                                                           \
         if(SDB__LOG_LEVEL_CHECK__(log_level)) {                                                    \
-            sdb_errno LogRet = Sdb__WriteLogIntermediate__(Sdb__LogInstance__,                     \
-                                                           SDB_STRINGIFY(log_level), __VA_ARGS__); \
+            sdb_errno LogRet = Sdb__WriteLog__(Sdb__LogInstance__, SDB_STRINGIFY(log_level), fmt,  \
+                                               ##__VA_ARGS__);                                     \
             assert(LogRet >= 0);                                                                   \
         }                                                                                          \
     } while(0)
 
-#define SdbLogDebug(...)   SDB__LOG__(DBG, __VA_ARGS__)
-#define SdbLogInfo(...)    SDB__LOG__(INF, __VA_ARGS__)
-#define SdbLogWarning(...) SDB__LOG__(WRN, __VA_ARGS__)
-#define SdbLogError(...)   SDB__LOG__(ERR, __VA_ARGS__)
+#define SdbLogDebug(...)   SDB__LOG__(DBG, ##__VA_ARGS__)
+#define SdbLogInfo(...)    SDB__LOG__(INF, ##__VA_ARGS__)
+#define SdbLogWarning(...) SDB__LOG__(WRN, ##__VA_ARGS__)
+#define SdbLogError(...)   SDB__LOG__(ERR, ##__VA_ARGS__)
 
 #define SdbAssert(condition)                                                                       \
     do {                                                                                           \
