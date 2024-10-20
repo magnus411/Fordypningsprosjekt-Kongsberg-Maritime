@@ -91,7 +91,7 @@ ParseModbusTCPFrame(const u8 *Buffer, int NumBytes, queue_item *Item)
         return -1;
     }
 
-    SdbLogDebug("Byte Count: %u\n", DataLength);
+    SdbLogDebug("Byte Count: %u", DataLength);
 
     // Ensure byte count is even (registers are 2 bytes each)
     if(DataLength % 2 != 0) {
@@ -127,23 +127,24 @@ ModbusRun(comm_protocol_api *Modbus)
     modbus_ctx *Ctx    = Modbus->Ctx;
     int         SockFd = CreateSocket(Ctx->Ip, Ctx->PORT);
     if(SockFd == -1) {
-        SdbLogError("Failed to create socket\n");
+        SdbLogError("Failed to create socket");
         return -1;
     }
 
-    u8 Buf[MAX_MODBUS_TCP_FRAME];
-    while(1) {
+    u8  Buf[MAX_MODBUS_TCP_FRAME];
+    u64 Counter = 0;
+    while(Counter++ < 1e5) {
         ssize_t NumBytes = RecivedModbusTCPFrame(SockFd, Buf, sizeof(Buf));
         if(NumBytes > 0) {
             queue_item Item;
             ParseModbusTCPFrame(Buf, NumBytes, &Item);
-            SdPipeInsert(&Modbus->SdPipe, 0, &Item, sizeof(queue_item));
+            SdPipeInsert(&Modbus->SdPipe, Counter % 4, &Item, sizeof(queue_item));
         } else if(NumBytes == 0) {
             SdbLogDebug("Connection closed by server");
             close(SockFd);
             return -1;
         } else {
-            SdbLogError("Error during read operattion. Closing connection\n");
+            SdbLogError("Error during read operattion. Closing connection");
             close(SockFd);
             return -1;
         }

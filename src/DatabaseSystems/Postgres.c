@@ -61,7 +61,7 @@ static void
 PrintPGresult(const PGresult *Result)
 {
     if(Result == NULL) {
-        SdbLogError("PGresult is NULL\n");
+        SdbLogError("PGresult is NULL");
         return;
     }
 
@@ -70,7 +70,7 @@ PrintPGresult(const PGresult *Result)
     SdbPrintfDebug("Result Status: %s\n", PQresStatus(Status));
 
     if(Status == PGRES_FATAL_ERROR || Status == PGRES_NONFATAL_ERROR) {
-        SdbLogError("Error Message: %s\n", PQresultErrorMessage(Result));
+        SdbLogError("Error Message: %s", PQresultErrorMessage(Result));
     }
 
     int NumRows = PQntuples(Result);
@@ -233,7 +233,7 @@ InsertSensorData(PGconn *DbConn, const char *TableName, u64 TableNameLen, const 
 
     for(int i = 0; i < NTableCols; i++) {
         if((ParamOffset + ColMetadata[i].TypeLength) > DataSize) {
-            SdbLogError("Buffer overflow at column %s\n", ColMetadata[i].ColumnName);
+            SdbLogError("Buffer overflow at column %s", ColMetadata[i].ColumnName);
             break;
         }
 
@@ -274,7 +274,7 @@ InsertSensorData(PGconn *DbConn, const char *TableName, u64 TableNameLen, const 
     if(PQresultStatus(PqPrepareResult) != PGRES_COMMAND_OK) {
         SdbLogError("Insert failed: %s", PQerrorMessage(DbConn));
     } else {
-        SdbLogDebug("Data inserted successfully\n");
+        SdbLogDebug("Data inserted successfully");
     }
 
     // Clean up
@@ -339,7 +339,7 @@ CreateTablesFromSchemaConf(PGconn *Conn, cJSON *SchemaConf, sdb_arena *Arena)
     Builder.Len -= 2;
     SdbStrBuilderAppend(&Builder, ");");
     char *TableCreationQuery = SdbStrBuilderGetString(&Builder);
-    SdbPrintfDebug("\nTable creation query:\n%s\n", TableCreationQuery);
+    SdbPrintfDebug("Table creation query:\n%s\n", TableCreationQuery);
 
     PGresult *CreateRes = PQexec(Conn, TableCreationQuery);
     if(PQresultStatus(CreateRes) != PGRES_COMMAND_OK) {
@@ -385,6 +385,7 @@ PgInit(database_api *Pg, void *OptArgs)
 
     cJSON *SchemaConf = DbInitGetConfFromFile("configs/shaft_power.json", &Pg->Arena);
     if(CreateTablesFromSchemaConf(Conn, SchemaConf, &Pg->Arena) != 0) {
+        cJSON_Delete(SchemaConf);
         return -1;
     }
     cJSON_Delete(SchemaConf);
