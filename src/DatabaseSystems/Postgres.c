@@ -390,11 +390,11 @@ PgInit(database_api *Pg, void *OptArgs)
     }
     cJSON_Delete(SchemaConf);
 
-    postgres_ctx *PgCtx    = SdbPushStruct(&Pg->Arena, postgres_ctx);
-    PgCtx->PgInsertBufSize = SdbKibiByte(4);
-    PgCtx->PgInsertBuf     = SdbPushArray(&Pg->Arena, u8, PgCtx->PgInsertBufSize);
-    PgCtx->DbConn          = Conn;
-    Pg->Ctx                = PgCtx;
+    postgres_ctx *PgCtx  = SdbPushStruct(&Pg->Arena, postgres_ctx);
+    PgCtx->InsertBufSize = SdbKibiByte(4);
+    PgCtx->InsertBuf     = SdbPushArray(&Pg->Arena, u8, PgCtx->InsertBufSize);
+    PgCtx->DbConn        = Conn;
+    Pg->Ctx              = PgCtx;
 
     return 0;
 }
@@ -408,8 +408,7 @@ PgRun(database_api *Pg)
 sdb_errno
 PgFinalize(database_api *Pg)
 {
-    postgres_ctx *Ctx = Pg->Ctx;
-    PQfinish(Ctx->DbConn);
+    PQfinish(PG_CTX(Pg)->DbConn);
 
     return 0;
 }

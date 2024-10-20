@@ -77,8 +77,8 @@ typedef struct
     char  **TableNames;
     u64    *TableNameLengths;
 
-    size_t PgInsertBufSize;
-    u8    *PgInsertBuf;
+    size_t InsertBufSize;
+    u8    *InsertBuf;
 
 } postgres_ctx;
 
