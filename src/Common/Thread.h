@@ -7,7 +7,7 @@
 
 #include <src/Sdb.h>
 
-#include <src/Common/SdbErrno.h>
+#include <src/Common/Errno.h>
 #include <src/Common/Time.h>
 
 typedef sem_t             sdb_sem;

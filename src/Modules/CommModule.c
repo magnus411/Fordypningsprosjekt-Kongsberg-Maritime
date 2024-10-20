@@ -3,7 +3,7 @@
 SDB_LOG_REGISTER(CommModule);
 
 #include <src/CommProtocols/CommProtocols.h>
-#include <src/Common/SdbErrno.h>
+#include <src/Common/Errno.h>
 #include <src/Modules/CommModule.h>
 
 #define CP_INIT_ATTEMPT_THRESHOLD (5)

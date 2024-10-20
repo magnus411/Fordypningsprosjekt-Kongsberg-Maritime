@@ -23,7 +23,7 @@
 #include <stdbool.h>
 #endif // C/C++
 
-#include <src/Common/SdbErrno.h>
+#include <src/Common/Errno.h>
 
 ////////////////////////////////////////
 //              DEFINES               //

@@ -7,7 +7,7 @@ SDB_LOG_REGISTER(CommProtocols);
 #include <src/CommProtocols/CommProtocols.h>
 #include <src/CommProtocols/MQTT.h>
 #include <src/CommProtocols/Modbus.h>
-#include <src/Common/SdbErrno.h>
+#include <src/Common/Errno.h>
 #include <src/Common/SensorDataPipe.h>
 
 #if COMM_PROTOCOL_MODBUS == 1

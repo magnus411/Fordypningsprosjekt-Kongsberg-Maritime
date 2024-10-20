@@ -3,7 +3,7 @@
 
 #include <src/Sdb.h>
 
-#include <src/Common/SdbErrno.h>
+#include <src/Common/Errno.h>
 #include <src/Common/SensorDataPipe.h>
 #include <src/Libs/cJSON/cJSON.h>
 

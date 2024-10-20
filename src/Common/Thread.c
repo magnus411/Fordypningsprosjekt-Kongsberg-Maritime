@@ -6,8 +6,8 @@
 #include <src/Sdb.h>
 SDB_LOG_REGISTER(Thread);
 
-#include <src/Common/SdbErrno.h>
-#include <src/Common/SdbThread.h>
+#include <src/Common/Errno.h>
+#include <src/Common/Thread.h>
 #include <src/Common/Time.h>
 
 // NOTE(ingar): This is totally not just directly copied from oec. Not at all
