@@ -14,7 +14,7 @@ MQTTSubscriber(const char *Address, const char *ClientId, const char *Topic)
 {
     CbInit(&Cb, SdbMebiByte(16), NULL);
 
-    mqtt_args MqttSubscriber;
+    mqtt_ctx MqttSubscriber;
     InitSubscriber(&MqttSubscriber, "tcp://localhost:1883", "ModbusSub", "MODBUS", 1, &Cb);
 
     pthread_t MqttTid;
