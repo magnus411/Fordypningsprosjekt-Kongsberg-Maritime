@@ -10,16 +10,13 @@
 SDB_LOG_REGISTER(Main);
 
 #include <src/Common/SensorDataPipe.h>
+#include <src/Common/Thread.h>
 #include <src/DatabaseSystems/DatabaseInitializer.h>
 #include <src/DatabaseSystems/DatabaseSystems.h>
 #include <src/Modules/CommModule.h>
 #include <src/Modules/DatabaseModule.h>
 
 #define SD_PIPE_BUF_COUNT 4
-
-// TODO(ingar): Is it fine to keep this globally?
-static i64 NextDbmTId_  = 1;
-static i64 NextCommTId_ = 1;
 
 int
 main(int ArgCount, char **ArgV)
@@ -34,6 +31,7 @@ main(int ArgCount, char **ArgV)
         SdbArenaInit(&SdbArena, SdbArenaMem, SdbArenaSize);
     }
 
+
     size_t BufSizes[SD_PIPE_BUF_COUNT]
         = { SdbKibiByte(32), SdbKibiByte(32), SdbKibiByte(32), SdbKibiByte(32) };
     sensor_data_pipe *SdPipe      = SdbPushStruct(&SdbArena, sensor_data_pipe);
@@ -43,30 +41,42 @@ main(int ArgCount, char **ArgV)
         exit(EXIT_FAILURE);
     }
 
-    db_module_ctx *DbModuleCtx = SdbPushStruct(&SdbArena, db_module_ctx);
-    DbModuleCtx->ThreadId      = NextDbmTId_++;
-    DbModuleCtx->DbsType       = Dbs_Postgres;
-    DbModuleCtx->ArenaSize     = SdbMebiByte(9);
-    DbModuleCtx->DbsArenaSize  = SdbMebiByte(8);
-    SdbArenaBootstrap(&SdbArena, &DbModuleCtx->Arena, DbModuleCtx->ArenaSize);
-    SdbMemcpy(&DbModuleCtx->SdPipe, SdPipe, sizeof(*SdPipe));
 
-    comm_module_ctx *CommModuleCtx = SdbPushStruct(&SdbArena, comm_module_ctx);
-    CommModuleCtx->ThreadId        = NextCommTId_++;
-    CommModuleCtx->CpType          = Comm_Protocol_Modbus_TCP;
-    CommModuleCtx->ArenaSize       = SdbMebiByte(9);
-    CommModuleCtx->CpArenaSize     = SdbMebiByte(8);
-    SdbArenaBootstrap(&SdbArena, &CommModuleCtx->Arena, CommModuleCtx->ArenaSize);
-    SdbMemcpy(&CommModuleCtx->SdPipe, SdPipe, sizeof(*SdPipe));
+    const u32   ThreadCount = 2;
+    sdb_barrier ModulesBarrier;
+    SdbBarrierInit(&ModulesBarrier, ThreadCount);
+    // NOTE(ingar): This is used to ensure that all modules have been initialized before starting to
+    // read from the pipe
 
-    pthread_t DbmThread;
-    pthread_t CommThread;
-    pthread_create(&DbmThread, NULL, DbModuleRun, DbModuleCtx);
-    pthread_create(&CommThread, NULL, CommModuleRun, CommModuleCtx);
-    pthread_join(CommThread, NULL);
-    pthread_join(DbmThread, NULL);
 
-    if(DbModuleCtx->Errno == 0 && CommModuleCtx->Errno == 0) {
+    db_module_ctx *DbmCtx  = SdbPushStruct(&SdbArena, db_module_ctx);
+    DbmCtx->ModulesBarrier = &ModulesBarrier;
+    DbmCtx->DbsType        = Dbs_Postgres;
+    DbmCtx->ArenaSize      = SdbMebiByte(9);
+    DbmCtx->DbsArenaSize   = SdbMebiByte(8);
+
+    SdbArenaBootstrap(&SdbArena, &DbmCtx->Arena, DbmCtx->ArenaSize);
+    SdbMemcpy(&DbmCtx->SdPipe, SdPipe, sizeof(*SdPipe));
+
+
+    comm_module_ctx *CommCtx = SdbPushStruct(&SdbArena, comm_module_ctx);
+    CommCtx->ModulesBarrier  = &ModulesBarrier;
+    CommCtx->CpType          = Comm_Protocol_Modbus_TCP;
+    CommCtx->ArenaSize       = SdbMebiByte(9);
+    CommCtx->CpArenaSize     = SdbMebiByte(8);
+
+    SdbArenaBootstrap(&SdbArena, &CommCtx->Arena, CommCtx->ArenaSize);
+    SdbMemcpy(&CommCtx->SdPipe, SdPipe, sizeof(*SdPipe));
+
+
+    sdb_thread DbmThread, CommThread;
+    SdbThreadCreate(&DbmThread, DbModuleRun, DbmCtx);
+    SdbThreadCreate(&CommThread, CommModuleRun, CommCtx);
+
+    sdb_errno DbmRet  = SdbThreadJoin(&DbmThread);
+    sdb_errno CommRet = SdbThreadJoin(&CommThread);
+
+    if(DbmRet == 0 && CommRet == 0) {
         exit(EXIT_SUCCESS);
     } else {
         exit(EXIT_FAILURE);

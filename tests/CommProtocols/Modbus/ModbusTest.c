@@ -1,7 +1,4 @@
 #include <arpa/inet.h>
-#include <getopt.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <time.h>
@@ -13,14 +10,14 @@ SDB_LOG_REGISTER(TestModbus);
 
 #include <src/CommProtocols/Modbus.h>
 #include <src/Common/CircularBuffer.h>
+#include <src/Common/Thread.h>
+#include <src/Common/Time.h>
 
 #define MODBUS_TCP_HEADER_LEN 7
 #define MAX_MODBUS_PDU_SIZE   253
 #define BACKLOG               5
 
 #define READ_HOLDING_REGISTERS 0x03
-
-static circular_buffer Cb = { 0 };
 
 static void
 GeneratePowerShaftData(uint8_t *DataBuffer)
@@ -79,7 +76,7 @@ SendModbusData(int NewFd, u16 UnitId)
 }
 
 sdb_errno
-RunModbusServer(int Argc, char **Argv)
+RunModbusTestServer(sdb_thread *Thread)
 {
     SdbLogInfo("Running Modbus Test Server over Unix Sockets ...");
 
@@ -92,36 +89,17 @@ RunModbusServer(int Argc, char **Argv)
 
     int Port   = 3490;
     u16 UnitId = 1;
-    int Speed  = 1;
-
-    int Opt;
-    while((Opt = getopt(Argc, Argv, "p:u:s:")) != -1) {
-        switch(Opt) {
-            case 'p':
-                Port = atoi(optarg);
-                break;
-            case 'u':
-                UnitId = (u16)atoi(optarg);
-                break;
-            case 's':
-                Speed = atoi(optarg);
-                break;
-            default:
-                SdbLogError("Usage: %s [-p port] [-u unitId] [-s speed]", Argv[0]);
-                return -EINVAL;
-        }
-    }
 
     SockFd = socket(AF_INET, SOCK_STREAM, 0);
     if(SockFd == -1) {
         SdbLogError("Failed to create socket: %s (errno: %d)", strerror(errno), errno);
-        return -1;
+        return SockFd;
     }
 
     ServerAddr.sin_family      = AF_INET;
     ServerAddr.sin_port        = htons(Port);
     ServerAddr.sin_addr.s_addr = INADDR_ANY;
-    memset(&(ServerAddr.sin_zero), '\0', 8);
+    SdbMemset(&(ServerAddr.sin_zero), '\0', 8);
 
     if(bind(SockFd, (struct sockaddr *)&ServerAddr, sizeof(struct sockaddr)) == -1) {
         SdbLogError("Failed to bind socket (address: %s, port: %d): %s (errno: %d)",
@@ -137,58 +115,34 @@ RunModbusServer(int Argc, char **Argv)
         return -1;
     }
 
-    SdbLogDebug("Server: waiting for connections on port %d...\n", Port);
+    SdbLogDebug("Server: waiting for connections on port %d...", Port);
+    SdbBarrierWait(Thread->Args);
 
-    while(1) {
-        SinSize = sizeof(ClientAddr);
-        NewFd   = accept(SockFd, (struct sockaddr *)&ClientAddr, &SinSize);
-        if(NewFd == -1) {
-            SdbLogError("Error accepting connection: %s (errno: %d)", strerror(errno), errno);
-            continue;
-        }
+    SinSize = sizeof(ClientAddr);
+    NewFd   = accept(SockFd, (struct sockaddr *)&ClientAddr, &SinSize);
+    if(NewFd == -1) {
+        SdbLogError("Error accepting connection: %s (errno: %d)", strerror(errno), errno);
+        return -1;
+    }
 
-        inet_ntop(ClientAddr.sin_family, &(ClientAddr.sin_addr), ClientIp, sizeof(ClientIp));
-        SdbLogInfo("Server: accepted connection from %s:%d", ClientIp, ntohs(ClientAddr.sin_port));
+    inet_ntop(ClientAddr.sin_family, &(ClientAddr.sin_addr), ClientIp, sizeof(ClientIp));
+    SdbLogInfo("Server: accepted connection from %s:%d", ClientIp, ntohs(ClientAddr.sin_port));
 
-        while(1) {
-            if(SendModbusData(NewFd, UnitId) == -1) {
-                SdbLogError("Failed to send Modbus data to client %s:%d, closing connection",
-                            ClientIp, ntohs(ClientAddr.sin_port));
-
-                close(NewFd);
-                break;
-            }
-            SdbLogDebug("Successfully sent Modbus data to client %s:%d", ClientIp,
+    i64 Counter = 0;
+    while(Counter++ < 1e5) {
+        if(SendModbusData(NewFd, UnitId) == -1) {
+            SdbLogError("Failed to send Modbus data to client %s:%d, closing connection", ClientIp,
                         ntohs(ClientAddr.sin_port));
 
-            sleep(Speed);
+            close(NewFd);
+            break;
         }
+        SdbLogDebug("Successfully sent Modbus data to client %s:%d", ClientIp,
+                    ntohs(ClientAddr.sin_port));
+
+        // SdbSleep(SDB_TIME_MS(1));
     }
 
     close(SockFd);
-    return 0;
-}
-
-sdb_errno
-RunModbusModuleClient(void)
-{
-    SdbLogInfo("Running Modbus Unix Module ...");
-
-    // TODO(ingar): Add thread for server
-
-    CbInit(&Cb, SdbMebiByte(16), NULL);
-
-    modbus_args MbArgs;
-    MbArgs.PORT = 3490;
-    MbArgs.Cb   = &Cb;
-    strncpy(MbArgs.Ip, "127.0.0.1", 10);
-
-    pthread_t ModbusTid;
-    pthread_create(&ModbusTid, NULL, ModbusStartComm, &MbArgs);
-
-    pthread_join(ModbusTid, NULL);
-
-    CbFree(&Cb);
-
     return 0;
 }

@@ -5,11 +5,12 @@
 
 #include <src/CommProtocols/CommProtocols.h>
 #include <src/Common/SensorDataPipe.h>
+#include <src/Common/Thread.h>
 
 typedef struct
 {
-    i64                ThreadId;
-    sdb_errno          Errno;
+    sdb_barrier *ModulesBarrier;
+
     Comm_Protocol_Type CpType;
 
     sensor_data_pipe SdPipe;
@@ -20,6 +21,6 @@ typedef struct
 
 } comm_module_ctx;
 
-void *CommModuleRun(void *CommModuleCtx);
+sdb_errno CommModuleRun(sdb_thread *CommThread);
 
 #endif

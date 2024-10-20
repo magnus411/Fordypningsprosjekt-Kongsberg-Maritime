@@ -818,11 +818,9 @@ SdbWriteBufferToFile(void *Buffer, u64 ElementSize, u64 ElementCount, const char
 }
 
 ////////////////////////////////////////
-//             TOKENIZER              //
+//            "TOKENIZER"             //
 ////////////////////////////////////////
 
-// TODO(ingar): This is not a general purpose tokenizer,
-// but it is an example of an implementation
 sdb_token
 SdbGetNextToken(char **Cursor)
 {

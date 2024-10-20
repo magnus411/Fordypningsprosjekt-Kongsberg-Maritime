@@ -5,13 +5,14 @@
 
 #include <src/Sdb.h>
 
+#include <src/Common/Thread.h>
 #include <src/DatabaseSystems/DatabaseSystems.h>
 #include <src/Libs/cJSON/cJSON.h>
 
 typedef struct
 {
-    i64            ThreadId;
-    sdb_errno      Errno;
+    sdb_barrier *ModulesBarrier;
+
     Db_System_Type DbsType;
 
     sensor_data_pipe SdPipe;
@@ -22,12 +23,6 @@ typedef struct
 
 } db_module_ctx;
 
-/**
- * @brief Database module's main function, which should be spawned in a thread.
- *
- * @param DbModulectx Pointer to a db_module_ctx
- * @retval Always NULL, check @p DbModuleCtx for errno
- */
-void *DbModuleRun(void *DbModuleCtx);
+sdb_errno DbModuleRun(sdb_thread *DbmThread);
 
 #endif

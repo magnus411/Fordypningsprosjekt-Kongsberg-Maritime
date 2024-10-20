@@ -15,6 +15,7 @@
 
 SDB_LOG_REGISTER(Postgres);
 
+#include <src/Common/CircularBuffer.h>
 #include <src/Common/Errno.h>
 #include <src/DatabaseSystems/DatabaseInitializer.h>
 #include <src/DatabaseSystems/Postgres.h>
@@ -402,6 +403,18 @@ PgInit(database_api *Pg, void *OptArgs)
 sdb_errno
 PgRun(database_api *Pg)
 {
+    i64 Counter = 0;
+    while(Counter++ < 1e5) {
+        ssize_t Ret
+            = SdPipeRead(&Pg->SdPipe, Counter % 4, PG_CTX(Pg)->InsertBuf, sizeof(queue_item));
+        if(Ret > 0 && (Counter % 100 == 0)) {
+            SdbLogInfo("Succesfully read %zd from pipe for the %ldthst time!", Ret, Counter);
+        }
+        if(Ret < 0) {
+            SdbLogError("Failed to read from pipe");
+            // return -1;
+        }
+    }
     return 0;
 }
 
