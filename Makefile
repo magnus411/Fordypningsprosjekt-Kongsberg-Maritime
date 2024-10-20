@@ -9,10 +9,10 @@ SRC_MAIN = src/Main.c
 TEST_SRC = $(filter-out tests/Main.c, $(shell find tests -name "*.c"))
 TEST_MAIN = tests/Main.c
 
-SDB_LOG_LEVEL ?= -DSDB_LOG_LEVEL=4
+SDB_LOG_LEVEL ?= -DSDB_LOG_LEVEL=3
 SDB_DEBUG = -DSDB_MEM_TRACE=1 -DSDB_PRINTF_DEBUG_ENABLE=1
 DB_SYSTEMS = -DDATABASE_SYSTEM_POSTGRES=1
-COMM_PROTOCOLS = -DCOMM_PROTOCOL_MODBUS=1
+COMM_PROTOCOLS = -DCOMM_PROTOCOL_MODBUS=1 -DCOMM_PROTOCOL_MQTT=1
 
 DEBUG_FLAGS = -g -O0 -Wall -Wno-unused-function -Wno-cpp -DDEBUG -fsanitize=address
 RELWDB_FLAGS = -O2 -g -DNDEBUG -Wno-unused-function -Wno-cpp
@@ -53,8 +53,8 @@ compile_commands.json:
 
 build_main:
 	@mkdir -p build
-	@printf "\033[0;32m\nBuilding Sensor Data Handler\n\033[0m"
-	$(CC) $(CFLAGS) $(INCLUDES) $(SRC) $(SRC_MAIN) -o build/SensorDataHandler $(LIBS)
+	@printf "\033[0;32m\nBuilding Sensor Database\n\033[0m"
+	$(CC) $(CFLAGS) $(INCLUDES) $(SRC) $(SRC_MAIN) -o build/SensorDB $(LIBS)
 	@printf "\033[0;32mFinished building Sensor DB\n\033[0m"
 
 build_tests:
