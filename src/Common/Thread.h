@@ -53,11 +53,12 @@ typedef struct sdb_thread
 
 } sdb_thread;
 
-sdb_errno SdbThreadCreate(sdb_thread *Thread, sdb_thread_task Task, void *Args);
-sdb_errno SdbThreadCheckSignal(sdb_thread *Thread, sdb_timediff MaxTimeout);
-sdb_errno SdbThreadJoin(sdb_thread *Thread);
-sdb_errno SdbThreadPause(sdb_thread *Thread, sdb_timediff MaxTimeout);
-sdb_errno SdbThreadContinue(sdb_thread *Thread, sdb_timediff MaxTimeout);
-sdb_errno SdbThreadKill(sdb_thread *Thread, sdb_timediff MaxTimeout);
+sdb_errno   SdbThreadCreate(sdb_thread *Thread, sdb_thread_task Task, void *Args);
+sdb_errno   SdbThreadCheckSignal(sdb_thread *Thread, sdb_timediff MaxTimeout);
+sdb_errno   SdbThreadJoin(sdb_thread *Thread);
+sdb_errno   SdbThreadPause(sdb_thread *Thread, sdb_timediff MaxTimeout);
+sdb_errno   SdbThreadContinue(sdb_thread *Thread, sdb_timediff MaxTimeout);
+sdb_errno   SdbThreadKill(sdb_thread *Thread, sdb_timediff MaxTimeout);
+sdb_thread *SdbThreadGetCurrent(void);
 
 #endif

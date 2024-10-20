@@ -12,6 +12,8 @@ SDB_LOG_REGISTER(Thread);
 
 // NOTE(ingar): This is totally not just directly copied from oec. Not at all
 
+static __thread sdb_thread *CurrentThread;
+
 static sdb_errno
 CreateTimeout(struct timespec *Timespec, sdb_timediff Timeout)
 {
@@ -260,7 +262,7 @@ TaskWrapper(void *Args)
 {
     sdb_thread *Thread = Args;
 
-    // Maybe add current thread like in oec
+    CurrentThread = Thread;
 
     Thread->TaskResult = Thread->Task(Thread);
     while(!Thread->Joinable) {
@@ -287,7 +289,7 @@ SdbThreadCreate(sdb_thread *Thread, sdb_thread_task Task, void *Args)
         return Ret;
     }
 
-    Ret = -pthread_create(&Thread->pid, NULL, TaskWrapper, Thread->Args);
+    Ret = -pthread_create(&Thread->pid, NULL, TaskWrapper, Thread);
     return Ret;
 }
 
@@ -340,4 +342,10 @@ SdbThreadKill(sdb_thread *Thread, sdb_timediff MaxTimeout)
 {
     sdb_errno Ret = ThreadSignal(Thread, THREAD_KILL_, MaxTimeout);
     return Ret;
+}
+
+sdb_thread *
+SdbThreadGetCurrent(void)
+{
+    return CurrentThread;
 }
