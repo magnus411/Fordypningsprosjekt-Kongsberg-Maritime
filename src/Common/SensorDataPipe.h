@@ -16,5 +16,6 @@ typedef struct
 
 sdb_errno SdPipeInit(sensor_data_pipe *SdPipe, u64 BufCount, size_t BufSizes[], sdb_arena *Arena);
 ssize_t   SdPipeInsert(sensor_data_pipe *SdPipe, u64 Buf, void *Data, size_t Size);
+ssize_t   SdPipeRead(sensor_data_pipe *SdPipe, u64 Buf, void *To, size_t Size);
 
 #endif

@@ -33,3 +33,11 @@ SdPipeInsert(sensor_data_pipe *SdPipe, u64 Buf, void *Data, size_t Size)
     ssize_t Ret = CbInsert(&SdPipe->Buffers[Buf], Data, Size);
     return Ret;
 }
+
+ssize_t
+SdPipeRead(sensor_data_pipe *SdPipe, u64 Buf, void *To, size_t Size)
+{
+    SdbAssert(Buf < SdPipe->BufCount, "Sensor data pipe does not have buffer #%lu", Buf);
+    ssize_t Ret = CbRead(&SdPipe->Buffers[Buf], To, Size);
+    return Ret;
+}
