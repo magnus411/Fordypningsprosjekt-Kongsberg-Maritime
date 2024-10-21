@@ -115,6 +115,7 @@ CbRead(circular_buffer *Cb, void *Dest, size_t Size)
 void
 CbFree(circular_buffer *Cb)
 {
+    // WARN: This will not work if an arena was used to allocate the memory!
     free(Cb->Data);
     pthread_mutex_destroy(&Cb->WriteLock);
     pthread_mutex_destroy(&Cb->ReadLock);

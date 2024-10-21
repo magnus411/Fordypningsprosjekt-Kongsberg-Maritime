@@ -19,7 +19,7 @@ typedef enum
 typedef struct database_api database_api;
 struct database_api
 {
-    sdb_errno (*Init)(database_api *Db, void *OptArgs);
+    sdb_errno (*Init)(database_api *Db);
     sdb_errno (*Run)(database_api *Db);
     sdb_errno (*Finalize)(database_api *Db);
 
@@ -28,10 +28,16 @@ struct database_api
     sensor_data_pipe SdPipe;
     sdb_arena        Arena;
     void            *Ctx;
+    void            *OptArgs;
 };
 
+typedef sdb_errno (*dbs_init_api)(Db_System_Type DbsType, sensor_data_pipe *SdPipe,
+                                  sdb_arena *Arena, u64 ArenaSize, i64 DbmTId, database_api *Dbs);
+
+bool DbsDatabaseIsAvailable(Db_System_Type DbsId);
+
 sdb_errno DbsInitApi(Db_System_Type DbsType, sensor_data_pipe *SdPipe, sdb_arena *Arena,
-                     u64 ArenaSize, i64 DbmTId, database_api *Dbs, void *OptArgs);
+                     u64 ArenaSize, i64 DbmTId, database_api *Dbs);
 
 static inline const char *
 DbsTypeToName(Db_System_Type Type)

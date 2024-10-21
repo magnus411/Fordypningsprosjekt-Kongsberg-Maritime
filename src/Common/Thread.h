@@ -33,7 +33,9 @@ sdb_errno SdbCondBroadcast(sdb_cond *Cond);
 
 sdb_errno SdbBarrierInit(sdb_barrier *Barrier, u32 ThreadCount);
 sdb_errno SdbBarrierDeinit(sdb_barrier *Barrier);
-sdb_errno SdbBarrierWait(sdb_barrier *Barrier /*timeout*/);
+sdb_errno SdbBarrierWait(sdb_barrier *Barrier);
+
+// TODO(ingar): rw_lock
 
 struct sdb_thread;
 typedef sdb_errno (*sdb_thread_task)(struct sdb_thread *Thread);

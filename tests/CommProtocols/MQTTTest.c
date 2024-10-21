@@ -6,8 +6,10 @@
 #include <unistd.h>
 
 #include <src/Sdb.h>
+SDB_LOG_REGISTER(MQTTTest);
 
-SDB_LOG_REGISTER(MQTT);
+#include <src/CommProtocols/MQTT.h>
+#include <src/Common/CircularBuffer.h>
 
 #define ADDRESS  "tcp://localhost:1883"
 #define CLIENTID "ModbusPub"
@@ -135,3 +137,83 @@ MQTTPublisher(int ArgCount, char **ArgV)
 
     return Rc;
 }
+
+sdb_errno
+MqttInitTest(comm_protocol_api *Mqtt)
+{
+    // TODO(ingar): Get mqtt config from file
+    char ClientName[128] = { 0 };
+    snprintf(ClientName, SdbArrayLen(ClientName), "CommT%ld", (i64)Mqtt->OptArgs);
+
+    mqtt_ctx *MqttCtx   = SdbPushStruct(&Mqtt->Arena, mqtt_ctx);
+    MqttCtx->Address    = SdbStrdup("tcp://localhost:1883", &Mqtt->Arena);
+    MqttCtx->ClientName = SdbStrdup(ClientName, &Mqtt->Arena);
+    MqttCtx->Topic      = SdbStrdup("SensorData", &Mqtt->Arena);
+    MqttCtx->Qos        = 1;
+    MqttCtx->Timeout    = 10000L;
+    MqttCtx->SdPipe     = &Mqtt->SdPipe;
+
+    Mqtt->Ctx = MqttCtx;
+    return 0;
+}
+
+sdb_errno
+MqttRunTest(comm_protocol_api *Mqtt)
+{
+    mqtt_ctx *Ctx = Mqtt->Ctx;
+
+    MQTTClient                Client;
+    MQTTClient_connectOptions ConnOptions = MQTTClient_connectOptions_initializer;
+    int                       Rc;
+
+    MQTTClient_create(&Client, Ctx->Address, Ctx->ClientName, MQTTCLIENT_PERSISTENCE_NONE, NULL);
+    ConnOptions.keepAliveInterval = 20;
+    ConnOptions.cleansession      = 1;
+
+    MQTTClient_setCallbacks(Client, Ctx, ConnLost, MsgArrived, NULL);
+
+    if((Rc = MQTTClient_connect(Client, &ConnOptions)) != MQTTCLIENT_SUCCESS) {
+        SdbLogError("Failed to connect to MQTT broker. Error: %d", Rc);
+        return -1;
+    }
+
+    SdbLogDebug("Subscribing to topic %s for Client %s using QoS %d", Ctx->Topic, Ctx->ClientName,
+                Ctx->Qos);
+    MQTTClient_subscribe(Client, Ctx->Topic, Ctx->Qos);
+
+    while(1) {
+        // TODO(ingar): lmao. Add termination logic plz
+        // Keep running until manually stopped or thread termination logic is added
+    }
+
+    MQTTClient_disconnect(Client, 10000);
+    MQTTClient_destroy(&Client);
+
+    return 0;
+}
+
+sdb_errno
+MqttFinalizeTest(comm_protocol_api *Mqtt)
+{
+    SdbArenaClear(&Mqtt->Arena);
+    return 0;
+}
+/*
+static circular_buffer Cb = { 0 };
+sdb_errno
+MQTTSubscriber(const char *Address, const char *ClientId, const char *Topic)
+{
+    CbInit(&Cb, SdbMebiByte(16), NULL);
+
+    mqtt_ctx MqttSubscriber;
+    InitSubscriber(&MqttSubscriber, "tcp://localhost:1883", "ModbusSub", "MODBUS", 1, &Cb);
+
+    pthread_t MqttTid;
+    pthread_create(&MqttTid, NULL, MQTTStartComm, &MqttSubscriber);
+    pthread_join(MqttTid, NULL);
+
+    CbFree(&Cb);
+
+    return 0;
+}
+*/

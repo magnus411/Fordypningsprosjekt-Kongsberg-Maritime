@@ -22,7 +22,7 @@ SDB_LOG_REGISTER(Postgres);
 #include <src/Libs/cJSON/cJSON.h>
 #include <src/Modules/DatabaseModule.h>
 
-static void
+void
 DiagnoseConnectionAndTable(PGconn *DbConn, const char *TableName)
 {
     SdbLogInfo("Connected to database: %s", PQdb(DbConn));
@@ -58,7 +58,7 @@ DiagnoseConnectionAndTable(PGconn *DbConn, const char *TableName)
     PQclear(ListTablesResult);
 }
 
-static void
+void
 PrintPGresult(const PGresult *Result)
 {
     // NOTE(ingar): Since it's a printing function, using printf instead of logging functions is
@@ -93,7 +93,7 @@ PrintPGresult(const PGresult *Result)
     }
 }
 
-static char *
+char *
 PqTableMetaDataQuery(const char *TableName, u64 TableNameLen)
 {
     u64   QueryLen = PQ_TABLE_METADATA_QUERY_FMT_LEN + TableNameLen;
@@ -103,7 +103,7 @@ PqTableMetaDataQuery(const char *TableName, u64 TableNameLen)
     return QueryBuf;
 }
 
-static void
+void
 PrintColumnMetadata(const pq_col_metadata *Metadata)
 {
     printf("\n");
@@ -123,7 +123,7 @@ PrintColumnMetadata(const pq_col_metadata *Metadata)
     printf("\n");
 }
 
-static pq_col_metadata *
+pq_col_metadata *
 GetTableMetadata(PGconn *DbConn, const char *TableName, u64 TableNameLen, int *ColCount)
 {
     /* Typical libpq convention that variables for sizes are passed in an filled out by the
@@ -175,7 +175,7 @@ GetTableMetadata(PGconn *DbConn, const char *TableName, u64 TableNameLen, int *C
     return MetadataArray;
 }
 
-static void
+void
 InsertSensorData(PGconn *DbConn, const char *TableName, u64 TableNameLen, const u8 *SensorData,
                  size_t DataSize)
 {
@@ -355,7 +355,7 @@ CreateTablesFromSchemaConf(PGconn *Conn, cJSON *SchemaConf, sdb_arena *Arena)
 }
 
 sdb_errno
-PgInit(database_api *Pg, void *OptArgs)
+PgInit(database_api *Pg)
 {
     u64            ArenaF5  = SdbArenaGetPos(&Pg->Arena);
     sdb_file_data *ConfFile = SdbLoadFileIntoMemory(POSTGRES_CONF_FS_PATH, &Pg->Arena);
@@ -395,29 +395,15 @@ PgInit(database_api *Pg, void *OptArgs)
     return 0;
 }
 
-// TODO(ingar): Remove when tests are properly up and running
-#include <tests/TestConstants.h>
-
 sdb_errno
 PgRun(database_api *Pg)
 {
-    int              col;
-    pq_col_metadata *Metadata = GetTableMetadata(PG_CTX(Pg)->DbConn, "shaft_power", 11, &col);
-    for(int i = 0; i < col; ++i) {
-        PrintColumnMetadata(&Metadata[i]);
-    }
-    free(Metadata);
-
-    i64 Counter = 0;
-    while(Counter++ < MODBUS_PACKET_COUNT) {
-        ssize_t Ret
-            = SdPipeRead(&Pg->SdPipe, Counter % 4, PG_CTX(Pg)->InsertBuf, sizeof(queue_item));
-        if(Ret > 0 && (Counter % (i64)(MODBUS_PACKET_COUNT / 10) == 0)) {
-            SdbLogInfo("Succesfully read %zd from pipe for the %ldthst time!", Ret, Counter);
-        }
-        if(Ret < 0) {
+    while(true) {
+        ssize_t Ret = SdPipeRead(&Pg->SdPipe, 0, PG_CTX(Pg)->InsertBuf, sizeof(queue_item));
+        if(Ret > 0) {
+            SdbLogDebug("Succesfully read %zd from pipe!", Ret);
+        } else {
             SdbLogError("Failed to read from pipe");
-            // return -1;
         }
     }
     return 0;
@@ -427,6 +413,6 @@ sdb_errno
 PgFinalize(database_api *Pg)
 {
     PQfinish(PG_CTX(Pg)->DbConn);
-
+    SdbArenaClear(&Pg->Arena);
     return 0;
 }

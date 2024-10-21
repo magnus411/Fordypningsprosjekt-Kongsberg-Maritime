@@ -1,3 +1,4 @@
+#include "src/Common/Errno.h"
 #include <pthread.h>
 #include <stdio.h>
 #include <string.h>
@@ -9,8 +10,8 @@ SDB_LOG_REGISTER(Modbus);
 
 #include <src/CommProtocols/CommProtocols.h>
 #include <src/CommProtocols/Modbus.h>
-#include <src/CommProtocols/Socket.h>
 #include <src/Common/CircularBuffer.h>
+#include <src/Common/Socket.h>
 
 #define MODBUS_TCP_HEADER_LEN 7
 #define MAX_MODBUS_TCP_FRAME  260
@@ -22,7 +23,7 @@ SDB_LOG_REGISTER(Modbus);
  * @link https://modbus.org/docs/Modbus_Application_Protocol_V1_1b.pdf
  */
 
-static ssize_t
+ssize_t
 RecivedModbusTCPFrame(int Sockfd, u8 *Buffer, size_t BufferSize)
 {
     ssize_t TotalBytesRead = 0;
@@ -57,7 +58,7 @@ RecivedModbusTCPFrame(int Sockfd, u8 *Buffer, size_t BufferSize)
     return TotalBytesRead;
 }
 
-static sdb_errno
+sdb_errno
 ParseModbusTCPFrame(const u8 *Buffer, int NumBytes, queue_item *Item)
 {
     if(NumBytes < MODBUS_TCP_HEADER_LEN) {
@@ -104,44 +105,40 @@ ParseModbusTCPFrame(const u8 *Buffer, int NumBytes, queue_item *Item)
 }
 
 sdb_errno
-ModbusInit(comm_protocol_api *Modbus, void *OptArgs)
+ModbusInit(comm_protocol_api *Modbus)
 {
     modbus_ctx *Ctx = SdbPushStruct(&Modbus->Arena, modbus_ctx);
     Ctx->PORT       = MODBUS_PORT;
-    strncpy(Ctx->Ip, (char *)OptArgs, 10);
+    strncpy(Ctx->Ip, (char *)Modbus->OptArgs, 10);
+    Ctx->SockFd = CreateSocket(Ctx->Ip, Ctx->PORT);
+
+    if(Ctx->SockFd == -1) {
+        SdbLogError("Failed to create socket");
+        return -1;
+    }
+
     Modbus->Ctx = Ctx;
 
     return 0;
 }
 
-// TODO(ingar): Remove when tests are properly up and running
-#include <tests/TestConstants.h>
 sdb_errno
 ModbusRun(comm_protocol_api *Modbus)
 {
-    modbus_ctx *Ctx    = Modbus->Ctx;
-    int         SockFd = CreateSocket(Ctx->Ip, Ctx->PORT); // TODO(ingar): Move to init
-    if(SockFd == -1) {
-        SdbLogError("Failed to create socket");
-        return -1;
-    }
-
-    u8  Buf[MAX_MODBUS_TCP_FRAME];
-    u64 Counter = 0;
-    while(Counter++ < MODBUS_PACKET_COUNT) {
-        ssize_t NumBytes = RecivedModbusTCPFrame(SockFd, Buf, sizeof(Buf));
+    modbus_ctx *Ctx = Modbus->Ctx;
+    u8          Buf[MAX_MODBUS_TCP_FRAME];
+    while(true) {
+        ssize_t NumBytes = RecivedModbusTCPFrame(Ctx->SockFd, Buf, sizeof(Buf));
         if(NumBytes > 0) {
             queue_item Item;
             ParseModbusTCPFrame(Buf, NumBytes, &Item);
-            SdPipeInsert(&Modbus->SdPipe, Counter % 4, &Item, sizeof(queue_item));
+            SdPipeInsert(&Modbus->SdPipe, 0, &Item, sizeof(queue_item));
         } else if(NumBytes == 0) {
             SdbLogDebug("Connection closed by server");
-            close(SockFd); // TODO(ingar): Move to finalize
-            return -1;
+            return SDBE_CONN_CLOSED_SUCS;
         } else {
             SdbLogError("Error during read operattion. Closing connection");
-            close(SockFd);
-            return -1;
+            return -SDBE_CONN_CLOSED_ERR;
         }
     }
 
@@ -151,5 +148,7 @@ ModbusRun(comm_protocol_api *Modbus)
 sdb_errno
 ModbusFinalize(comm_protocol_api *Modbus)
 {
+    close(MB_CTX(Modbus)->SockFd);
+    SdbArenaClear(&Modbus->Arena);
     return 0;
 }

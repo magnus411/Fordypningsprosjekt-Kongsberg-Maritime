@@ -18,56 +18,6 @@ SDB_LOG_REGISTER(MQTT);
 #define MAX_MODBUS_TCP_FRAME  260
 #define MODBUS_TCP_HEADER_LEN 7
 
-/**
- * @resources: https://eclipse.dev/paho/files/mqttdoc/MQTTClient/html/index.html
- */
-static sdb_errno
-ParseModbusTCPFrame_(const u8 *Buffer, size_t NumBytes, queue_item *Item)
-{
-    if(NumBytes < MODBUS_TCP_HEADER_LEN) {
-        SdbLogError("Invalid Modbus frame");
-        return -EINVAL;
-    }
-
-    // Modbus TCP frame structure:
-    // | Transaction ID | Protocol ID | Length | Unit ID | Function Code | DataLength | Data  |
-    // | 2 bytes        | 2 bytes     | 2 bytes| 1 byte  | 1 byte        | 1 byte     | n bytes |
-    // u16 TransactionId = (Buffer[0] << 8) | Buffer[1];
-    // u16 ProtocolId    = (Buffer[2] << 8) | Buffer[3];
-    // u16 Length        = (Buffer[4] << 8) | Buffer[5];
-    u8 UnitId       = Buffer[6];
-    u8 FunctionCode = Buffer[7];
-    u8 DataLength   = Buffer[8];
-
-    Item->UnitId   = UnitId;
-    Item->Protocol = FunctionCode;
-
-    // Handle function code 0x03: read multiple holding registers
-    if(FunctionCode != 0x03) {
-        SdbLogWarning("Unsupported function code: %u", FunctionCode);
-        return -1;
-    }
-
-    SdbLogDebug("Byte Count: %u", DataLength);
-
-    // Ensure the byte count is even and does not exceed the maximum allowed length
-    if(DataLength % 2 != 0) {
-        SdbLogWarning("Odd byte count detected. Skipping this frame.");
-        return -1;
-    }
-
-    if(DataLength > MAX_MODBUS_TCP_FRAME - MODBUS_TCP_HEADER_LEN) {
-        SdbLogWarning("Byte count exceeds maximum allowed frame size. Skipping this frame.");
-        return -1;
-    }
-
-    // Copy only the Modbus data into the queue item
-    memcpy(Item->Data, &Buffer[9], DataLength);
-    Item->DataLength = DataLength;
-
-    return 0;
-}
-
 // WARN: Callback function, do not change signature!
 void
 ConnLost(void *Ctx, char *Cause)
@@ -92,7 +42,7 @@ MsgArrived(void *Ctx_, char *TopicName, int TopicLen, MQTTClient_message *Messag
     u8        *Buffer = (u8 *)Message->payload;
     queue_item Item;
 
-    if(ParseModbusTCPFrame_(Buffer, Message->payloadlen, &Item) == 0) {
+    if(ParseModbusTCPFrame(Buffer, Message->payloadlen, &Item) == 0) {
         ssize_t BytesWritten = SdPipeInsert(Ctx->SdPipe, 0, Item.Data, Item.DataLength);
         if(BytesWritten > 0) {
             SdbLogDebug("Inserted Modbus data into buffer. Bytes written: %zd", BytesWritten);
@@ -112,7 +62,7 @@ exit:
     return 1;
 }
 
-static sdb_errno
+sdb_errno
 InitSubscriber(mqtt_ctx *Ctx, const char *Address, const char *ClientId, const char *Topic, int Qos,
                sensor_data_pipe *SdPipe, sdb_arena *Arena)
 {
@@ -120,11 +70,11 @@ InitSubscriber(mqtt_ctx *Ctx, const char *Address, const char *ClientId, const c
 }
 
 sdb_errno
-MqttInit(comm_protocol_api *Mqtt, void *OptArgs)
+MqttInit(comm_protocol_api *Mqtt)
 {
     // TODO(ingar): Get mqtt config from file
     char ClientName[128] = { 0 };
-    snprintf(ClientName, SdbArrayLen(ClientName), "CommT%ld", (i64)OptArgs);
+    snprintf(ClientName, SdbArrayLen(ClientName), "CommT%ld", (i64)Mqtt->OptArgs);
 
     mqtt_ctx *MqttCtx   = SdbPushStruct(&Mqtt->Arena, mqtt_ctx);
     MqttCtx->Address    = SdbStrdup("tcp://localhost:1883", &Mqtt->Arena);

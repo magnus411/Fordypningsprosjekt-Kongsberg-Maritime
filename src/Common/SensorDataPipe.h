@@ -3,6 +3,8 @@
 
 #include <stdio.h>
 
+#include <src/Sdb.h>
+
 #include <src/Common/CircularBuffer.h>
 
 // TODO(ingar): Some way of tagging buffers for priorities or similar

@@ -10,12 +10,15 @@ SDB_LOG_REGISTER(TestModbus);
 
 #include <src/CommProtocols/Modbus.h>
 #include <src/Common/CircularBuffer.h>
+#include <src/Common/Socket.h>
 #include <src/Common/Thread.h>
 #include <src/Common/Time.h>
 #include <src/DatabaseSystems/Postgres.h>
+#include <tests/TestConstants.h>
 
 #define MODBUS_TCP_HEADER_LEN 7
 #define MAX_MODBUS_PDU_SIZE   253
+#define MAX_MODBUS_TCP_FRAME  260
 #define BACKLOG               5
 
 #define READ_HOLDING_REGISTERS 0x03
@@ -87,7 +90,7 @@ RunModbusTestServer(sdb_thread *Thread)
     socklen_t          SinSize;
     char               ClientIp[INET6_ADDRSTRLEN];
 
-    int Port   = 502;
+    int Port   = MODBUS_PORT;
     u16 UnitId = 1;
 
     SockFd = socket(AF_INET, SOCK_STREAM, 0);
@@ -129,7 +132,7 @@ RunModbusTestServer(sdb_thread *Thread)
     SdbLogInfo("Server: accepted connection from %s:%d", ClientIp, ntohs(ClientAddr.sin_port));
 
     i64 Counter = 0;
-    while(Counter++ < 1e5) {
+    while(Counter++ < MODBUS_PACKET_COUNT) {
         if(SendModbusData(NewFd, UnitId) == -1) {
             SdbLogError("Failed to send Modbus data to client %s:%d, closing connection", ClientIp,
                         ntohs(ClientAddr.sin_port));
@@ -140,9 +143,61 @@ RunModbusTestServer(sdb_thread *Thread)
         SdbLogDebug("Successfully sent Modbus data to client %s:%d", ClientIp,
                     ntohs(ClientAddr.sin_port));
 
-        SdbSleep(SDB_TIME_MS(100));
+        SdbSleep(SDB_TIME_MS(1));
     }
 
     close(SockFd);
+    return 0;
+}
+
+
+sdb_errno
+ModbusInitTest(comm_protocol_api *Modbus)
+{
+    modbus_ctx *Ctx = SdbPushStruct(&Modbus->Arena, modbus_ctx);
+    Ctx->PORT       = MODBUS_PORT;
+    strncpy(Ctx->Ip, (char *)Modbus->OptArgs, 10);
+    Modbus->Ctx = Ctx;
+
+    return 0;
+}
+
+// TODO(ingar): Remove when tests are properly up and running
+#include <tests/TestConstants.h>
+sdb_errno
+ModbusRunTest(comm_protocol_api *Modbus)
+{
+    modbus_ctx *Ctx    = Modbus->Ctx;
+    int         SockFd = CreateSocket(Ctx->Ip, Ctx->PORT); // TODO(ingar): Move to init
+    if(SockFd == -1) {
+        SdbLogError("Failed to create socket");
+        return -1;
+    }
+
+    u8  Buf[MAX_MODBUS_TCP_FRAME];
+    u64 Counter = 0;
+    while(Counter++ < MODBUS_PACKET_COUNT) {
+        ssize_t NumBytes = RecivedModbusTCPFrame(SockFd, Buf, sizeof(Buf));
+        if(NumBytes > 0) {
+            queue_item Item;
+            ParseModbusTCPFrame(Buf, NumBytes, &Item);
+            SdPipeInsert(&Modbus->SdPipe, Counter % 4, &Item, sizeof(queue_item));
+        } else if(NumBytes == 0) {
+            SdbLogDebug("Connection closed by server");
+            close(SockFd); // TODO(ingar): Move to finalize
+            return -1;
+        } else {
+            SdbLogError("Error during read operattion. Closing connection");
+            close(SockFd);
+            return -1;
+        }
+    }
+
+    return 0;
+}
+
+sdb_errno
+ModbusFinalizeTest(comm_protocol_api *Modbus)
+{
     return 0;
 }

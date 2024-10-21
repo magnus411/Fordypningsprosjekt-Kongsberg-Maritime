@@ -4,10 +4,9 @@
 #include <unistd.h>
 
 #include <src/Sdb.h>
-
 SDB_LOG_REGISTER(Socket);
 
-#include <src/CommProtocols/Socket.h>
+#include <src/Common/Socket.h>
 
 int
 CreateSocket(const char *IpAddress, int Port)

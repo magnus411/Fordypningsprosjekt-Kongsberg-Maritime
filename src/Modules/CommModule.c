@@ -14,12 +14,10 @@ CommModuleRun(sdb_thread *Thread)
 {
     comm_module_ctx  *CommCtx = Thread->Args;
     sdb_errno         Ret     = 0;
-    void             *OptArgs = NULL;
     comm_protocol_api ThreadCp;
 
-
-    if((Ret = CpInitApi(CommCtx->CpType, &CommCtx->SdPipe, &CommCtx->Arena, CommCtx->CpArenaSize,
-                        Thread->pid, &ThreadCp, OptArgs))
+    if((Ret = CommCtx->InitApi(CommCtx->CpType, &CommCtx->SdPipe, &CommCtx->Arena,
+                               CommCtx->CpArenaSize, Thread->pid, &ThreadCp))
        == -SDBE_CP_UNAVAIL) {
         SdbLogWarning("Thread %ld: Attempting to use %s, but its API is unavailable", Thread->pid,
                       CpTypeToName(CommCtx->CpType));
@@ -28,8 +26,7 @@ CommModuleRun(sdb_thread *Thread)
 
 
     i64 Attempts = 0;
-    while(((Ret = ThreadCp.Init(&ThreadCp, OptArgs)) != 0)
-          && Attempts++ < CP_INIT_ATTEMPT_THRESHOLD) {
+    while(((Ret = ThreadCp.Init(&ThreadCp)) != 0) && Attempts++ < CP_INIT_ATTEMPT_THRESHOLD) {
         SdbLogError("Thread %ld: Error on comm protocol init attempt %ld, ret: %d", Thread->pid,
                     Attempts, Ret);
     }
@@ -44,12 +41,11 @@ CommModuleRun(sdb_thread *Thread)
     }
 
 
-    if((Ret = ThreadCp.Run(&ThreadCp)) == 0) {
+    if((Ret = ThreadCp.Run(&ThreadCp)) >= 0) {
         SdbLogInfo("Thread %ld: Comm protocol has stopped and returned success", Thread->pid);
     } else {
         SdbLogError("Thread %ld: Comm protocol has stopped and returned an error: %d", Thread->pid,
                     Ret);
-        goto exit;
     }
 
 

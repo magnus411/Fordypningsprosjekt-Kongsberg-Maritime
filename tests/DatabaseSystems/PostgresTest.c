@@ -1,8 +1,3 @@
-/*
- *   TEST IS DEPRECATED
- */
-
-#if 0
 #include <libpq-fe.h>
 
 #include <src/Sdb.h>
@@ -13,65 +8,6 @@ SDB_LOG_REGISTER(PostgresTest);
 #include <src/DatabaseSystems/Postgres.h>
 #include <src/Libs/cJSON/cJSON.h>
 #include <tests/DatabaseSystems/PostgresTest.h>
-
-typedef struct __attribute__((packed))
-{
-    i64    Id;
-    i64    Timestamp;    // TIMESTAMPTZ
-    int    Rpm;          // INTEGER
-    double Torque;       // DOUBLE PRECISION
-    double Temperature;  // DOUBLE PRECISION
-    double Vibration_x;  // DOUBLE PRECISION
-    double Vibration_y;  // DOUBLE PRECISION
-    double Vibration_z;  // DOUBLE PRECISION
-    double Strain;       // DOUBLE PRECISION
-    double PowerOutput;  // DOUBLE PRECISION
-    double Efficiency;   // DOUBLE PRECISION
-    double ShaftAngle;   // DOUBLE PRECISION
-    char   SensorId[51]; // VARCHAR(50)
-} power_shaft_sensor_data;
-
-typedef struct
-{
-    int   Id;
-    char *Name;
-    int   SampleRate;
-    char *Variables;
-} sensor_schema;
-
-void
-GetSensorSchemasFromDb(PGconn *Connection, sdb_arena *Arena)
-{
-
-    sensor_schema *Schemas     = NULL;
-    int            SchemaCount = 0;
-
-    const char *Query      = "SELECT id, name, sample_rate, variables FROM sensor_schemas";
-    PGresult   *ExecResult = PQexec(Connection, Query);
-
-    if(PQresultStatus(ExecResult) != PGRES_TUPLES_OK) {
-        SdbLogError("Failed to execute query:\n%s", PQerrorMessage(Connection));
-        PQclear(ExecResult);
-        return;
-    }
-
-    SchemaCount = PQntuples(ExecResult);
-    Schemas     = SdbPushArray(Arena, sensor_schema, SchemaCount);
-
-    for(int i = 0; i < SchemaCount; ++i) {
-        Schemas[i].Id         = atoi(PQgetvalue(ExecResult, i, 0));
-        Schemas[i].Name       = SdbStrdup(PQgetvalue(ExecResult, i, 1), Arena);
-        Schemas[i].SampleRate = atoi(PQgetvalue(ExecResult, i, 2));
-        Schemas[i].Variables  = SdbStrdup(PQgetvalue(ExecResult, i, 3), Arena);
-    }
-
-    for(int i = 0; i < SchemaCount; i++) {
-        SdbLogDebug("Template ID: %d, Name: %s, Sample Rate: %d, Variables: %s\n", Schemas[i].Id,
-                    Schemas[i].Name, Schemas[i].SampleRate, Schemas[i].Variables);
-    }
-
-    PQclear(ExecResult);
-}
 
 void
 TestBinaryInsert(PGconn *DbConnection, const char *TableName, u64 TableNameLen)
@@ -127,80 +63,65 @@ TestBinaryInsert(PGconn *DbConnection, const char *TableName, u64 TableNameLen)
     }
 }
 
-int
-TestDbInit(void)
+sdb_errno
+PgInitTest(database_api *Pg)
 {
-    // Connect to the database
-    PGconn *Conn
-        = PQconnectdb("host=localhost port=5432 dbname=postgres user=postgres password=password");
+    u64            ArenaF5  = SdbArenaGetPos(&Pg->Arena);
+    sdb_file_data *ConfFile = SdbLoadFileIntoMemory(POSTGRES_CONF_FS_PATH, &Pg->Arena);
+    // TODO(ingar): Make pg config a json file
+    if(ConfFile == NULL) {
+        SdbLogError("Failed to open config file");
+        return -1;
+    }
 
+    const char *ConnInfo = (const char *)ConfFile->Data;
+    SdbLogInfo("Attempting to connect to Postgres database using: %s", ConnInfo);
+
+    PGconn *Conn = PQconnectdb(ConnInfo);
     if(PQstatus(Conn) != CONNECTION_OK) {
-        fprintf(stderr, "Connection to database failed: %s", PQerrorMessage(Conn));
+        SdbLogError("Connection to database failed. PQ error:\n%s", PQerrorMessage(Conn));
         PQfinish(Conn);
-        return 1;
+        SdbArenaSeek(&Pg->Arena, ArenaF5);
+        return -1;
+    } else {
+        SdbLogInfo("Connected!");
     }
+    SdbArenaSeek(&Pg->Arena, ArenaF5);
 
-    cJSON **SchemaObjects = DbInitGetSchemasFromDb(Conn);
-
-    for(int i = 0; SchemaObjects[i] != NULL; ++i) {
-        cJSON *Schema      = SchemaObjects[i];
-        char  *CreateQuery = DbInitCreateTableCreationQuery(Conn, Schema);
-        printf("Query: %s\n", CreateQuery);
-
-        PGresult *CreateRes = PQexec(Conn, CreateQuery);
-        if(PQresultStatus(CreateRes) != PGRES_COMMAND_OK) {
-            fprintf(stderr, "Table creation failed: %s\n", PQerrorMessage(Conn));
-        } else {
-            printf("Table '%s' created successfully.\n", SchemaObjects[i]->valuestring);
-        }
-        PQclear(CreateRes);
-        free(CreateQuery);
-        cJSON_Delete(Schema);
-
-        free(SchemaObjects[i]);
+    cJSON *SchemaConf = DbInitGetConfFromFile("configs/shaft_power.json", &Pg->Arena);
+    if(CreateTablesFromSchemaConf(Conn, SchemaConf, &Pg->Arena) != 0) {
+        cJSON_Delete(SchemaConf);
+        return -1;
     }
-    free(SchemaObjects);
+    cJSON_Delete(SchemaConf);
 
-    const char *filename = "shaft_power.json";
+    postgres_ctx *PgCtx  = SdbPushStruct(&Pg->Arena, postgres_ctx);
+    PgCtx->InsertBufSize = SdbKibiByte(4);
+    PgCtx->InsertBuf     = SdbPushArray(&Pg->Arena, u8, PgCtx->InsertBufSize);
+    PgCtx->DbConn        = Conn;
+    Pg->Ctx              = PgCtx;
 
-    cJSON *SchemaFromFile = DbInitGetSchemaFromFile(filename);
-    char  *CreateQuery2   = DbInitCreateTableCreationQuery(Conn, SchemaFromFile);
-    printf("Query: %s\n", CreateQuery2);
-
-    PQfinish(Conn);
     return 0;
 }
 
-void
-RunPostgresTest(const char *ConfigFilePath)
+sdb_errno
+PgRunTest(database_api *Pg)
 {
-    SdbLogInfo("Running Postgres Test...");
-
-    sdb_arena MainArena;
-    u64       ArenaMemorySize = SdbMebiByte(8);
-    u8       *ArenaMemory     = malloc(ArenaMemorySize);
-    SdbArenaInit(&MainArena, ArenaMemory, ArenaMemorySize);
-
-    sdb_file_data *ConfigFile = SdbLoadFileIntoMemory(ConfigFilePath, &MainArena);
-    if(NULL == ConfigFile) {
-        SdbLogError("Failed to open config file!");
-        return;
+    while(true) {
+        ssize_t Ret = SdPipeRead(&Pg->SdPipe, 0, PG_CTX(Pg)->InsertBuf, sizeof(queue_item));
+        if(Ret > 0) {
+            SdbLogDebug("Succesfully read %zd from pipe!", Ret);
+        } else {
+            SdbLogError("Failed to read from pipe");
+        }
     }
-
-    const char *ConnectionInfo = (const char *)ConfigFile->Data;
-    SdbLogInfo("Attempting to connect to database using:\n%s", ConnectionInfo);
-
-    PGconn *Connection = PQconnectdb(ConnectionInfo);
-    if(PQstatus(Connection) != CONNECTION_OK) {
-        SdbLogError("Connection to database failed: %s", PQerrorMessage(Connection));
-        PQfinish(Connection);
-        return;
-    }
-
-    SdbLogInfo("Connected!");
-    DiagnoseConnectionAndTable(Connection, "power_shaft_sensor");
-
-    PQfinish(Connection);
-    SdbLogInfo("Connection closed. Goodbye!");
+    return 0;
 }
-#endif
+
+sdb_errno
+PgFinalizeTest(database_api *Pg)
+{
+    PQfinish(PG_CTX(Pg)->DbConn);
+    SdbArenaClear(&Pg->Arena);
+    return 0;
+}

@@ -29,6 +29,7 @@ typedef struct
     size_t Count;
     bool   Full;
 
+    // TODO(ingar): Replace with sdb variants
     pthread_mutex_t WriteLock;
     pthread_mutex_t ReadLock;
     pthread_cond_t  NotEmpty;

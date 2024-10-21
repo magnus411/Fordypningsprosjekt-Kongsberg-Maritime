@@ -71,7 +71,17 @@ typedef struct
     char *FullDataType;
 } pq_col_metadata;
 
-sdb_errno PgInit(database_api *Pg, void *OptArgs);
+void             DiagnoseConnectionAndTable(PGconn *DbConn, const char *TableName);
+void             PrintPGresult(const PGresult *Result);
+char            *PqTableMetaDataQuery(const char *TableName, u64 TableNameLen);
+void             PrintColumnMetadata(const pq_col_metadata *Metadata);
+pq_col_metadata *GetTableMetadata(PGconn *DbConn, const char *TableName, u64 TableNameLen,
+                                  int *ColCount);
+void InsertSensorData(PGconn *DbConn, const char *TableName, u64 TableNameLen, const u8 *SensorData,
+                      size_t DataSize);
+sdb_errno CreateTablesFromSchemaConf(PGconn *Conn, cJSON *SchemaConf, sdb_arena *Arena);
+
+sdb_errno PgInit(database_api *Pg);
 sdb_errno PgRun(database_api *Pg);
 sdb_errno PgFinalize(database_api *Pg);
 

@@ -14,6 +14,7 @@ typedef struct
     sdb_barrier *ModulesBarrier;
 
     Db_System_Type DbsType;
+    dbs_init_api   InitApi;
 
     sensor_data_pipe SdPipe;
 

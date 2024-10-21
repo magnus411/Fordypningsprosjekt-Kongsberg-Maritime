@@ -12,6 +12,7 @@ typedef struct
     sdb_barrier *ModulesBarrier;
 
     Comm_Protocol_Type CpType;
+    cp_init_api        InitApi;
 
     sensor_data_pipe SdPipe;
 

@@ -25,7 +25,12 @@ typedef struct
 
 } mqtt_ctx;
 
-sdb_errno MqttInit(comm_protocol_api *MQTT, void *OptArgs);
+void      ConnLost(void *Ctx, char *Cause);
+int       MsgArrived(void *Ctx_, char *TopicName, int TopicLen, MQTTClient_message *Message);
+sdb_errno InitSubscriber(mqtt_ctx *Ctx, const char *Address, const char *ClientId,
+                         const char *Topic, int Qos, sensor_data_pipe *SdPipe, sdb_arena *Arena);
+
+sdb_errno MqttInit(comm_protocol_api *MQTT);
 sdb_errno MqttRun(comm_protocol_api *MQTT);
 sdb_errno MqttFinalize(comm_protocol_api *MQTT);
 

@@ -9,6 +9,7 @@
 
 SDB_LOG_REGISTER(Main);
 
+#include <src/CommProtocols/CommProtocols.h>
 #include <src/Common/SensorDataPipe.h>
 #include <src/Common/Thread.h>
 #include <src/DatabaseSystems/DatabaseInitializer.h>
@@ -28,7 +29,7 @@ main(int ArgCount, char **ArgV)
         SdbLogError("Failed to allocate memory for arena");
         exit(EXIT_FAILURE);
     } else {
-        SdbArenaCreate(&SdbArena, SdbArenaMem, SdbArenaSize);
+        SdbArenaInit(&SdbArena, SdbArenaMem, SdbArenaSize);
     }
 
 
@@ -52,6 +53,7 @@ main(int ArgCount, char **ArgV)
     db_module_ctx *DbmCtx  = SdbPushStruct(&SdbArena, db_module_ctx);
     DbmCtx->ModulesBarrier = &ModulesBarrier;
     DbmCtx->DbsType        = Dbs_Postgres;
+    DbmCtx->InitApi        = DbsInitApi;
     DbmCtx->ArenaSize      = SdbMebiByte(9);
     DbmCtx->DbsArenaSize   = SdbMebiByte(8);
 
@@ -62,6 +64,7 @@ main(int ArgCount, char **ArgV)
     comm_module_ctx *CommCtx = SdbPushStruct(&SdbArena, comm_module_ctx);
     CommCtx->ModulesBarrier  = &ModulesBarrier;
     CommCtx->CpType          = Comm_Protocol_Modbus_TCP;
+    CommCtx->InitApi         = CpInitApi;
     CommCtx->ArenaSize       = SdbMebiByte(9);
     CommCtx->CpArenaSize     = SdbMebiByte(8);
 

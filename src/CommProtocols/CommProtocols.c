@@ -38,7 +38,7 @@ CpProtocolIsAvailable(Comm_Protocol_Type Type)
 
 sdb_errno
 CpInitApi(Comm_Protocol_Type Type, sensor_data_pipe *SdPipe, sdb_arena *Arena, u64 ArenaSize,
-          i64 CommTId, comm_protocol_api *CpApi, void *OptArgs)
+          i64 CommTId, comm_protocol_api *CpApi)
 {
     if(!CpProtocolIsAvailable(Type)) {
         SdbLogWarning("%s is unavailable", CpTypeToName(Type));
@@ -55,8 +55,7 @@ CpInitApi(Comm_Protocol_Type Type, sensor_data_pipe *SdPipe, sdb_arena *Arena, u
                 CpApi->Init     = ModbusInit;
                 CpApi->Run      = ModbusRun;
                 CpApi->Finalize = ModbusFinalize;
-                OptArgs         = SdbPushArray(&CpApi->Arena, char, 10);
-                strncpy(OptArgs, "127.0.0.1", 10);
+                CpApi->OptArgs  = SdbStrdup("127.0.0.1", Arena);
             }
             break;
         case Comm_Protocol_MQTT:
@@ -64,7 +63,7 @@ CpInitApi(Comm_Protocol_Type Type, sensor_data_pipe *SdPipe, sdb_arena *Arena, u
                 CpApi->Init     = MqttInit;
                 CpApi->Run      = MqttRun;
                 CpApi->Finalize = MqttFinalize;
-                OptArgs         = (void *)CommTId;
+                CpApi->OptArgs  = (void *)CommTId;
             }
             break;
         default:
