@@ -5,6 +5,8 @@
 
 #include <src/Sdb.h>
 
+SDB_BEGIN_EXTERN_C
+
 #include <src/Common/Thread.h>
 #include <src/DatabaseSystems/DatabaseSystems.h>
 #include <src/Libs/cJSON/cJSON.h>
@@ -25,5 +27,7 @@ typedef struct
 } db_module_ctx;
 
 sdb_errno DbModuleRun(sdb_thread *DbmThread);
+
+SDB_END_EXTERN_C
 
 #endif

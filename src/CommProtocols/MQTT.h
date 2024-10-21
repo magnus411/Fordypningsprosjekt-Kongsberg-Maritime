@@ -5,6 +5,8 @@
 
 #include <src/Sdb.h>
 
+SDB_BEGIN_EXTERN_C
+
 #include <src/CommProtocols/CommProtocols.h>
 #include <src/Common/SensorDataPipe.h>
 
@@ -33,5 +35,7 @@ sdb_errno InitSubscriber(mqtt_ctx *Ctx, const char *Address, const char *ClientI
 sdb_errno MqttInit(comm_protocol_api *MQTT);
 sdb_errno MqttRun(comm_protocol_api *MQTT);
 sdb_errno MqttFinalize(comm_protocol_api *MQTT);
+
+SDB_END_EXTERN_C
 
 #endif // MQTT_H

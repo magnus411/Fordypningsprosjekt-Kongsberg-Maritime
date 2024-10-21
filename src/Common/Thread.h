@@ -7,6 +7,8 @@
 
 #include <src/Sdb.h>
 
+SDB_BEGIN_EXTERN_C
+
 #include <src/Common/Errno.h>
 #include <src/Common/Time.h>
 
@@ -62,5 +64,7 @@ sdb_errno   SdbThreadPause(sdb_thread *Thread, sdb_timediff MaxTimeout);
 sdb_errno   SdbThreadContinue(sdb_thread *Thread, sdb_timediff MaxTimeout);
 sdb_errno   SdbThreadKill(sdb_thread *Thread, sdb_timediff MaxTimeout);
 sdb_thread *SdbThreadGetCurrent(void);
+
+SDB_END_EXTERN_C
 
 #endif

@@ -3,6 +3,8 @@
 
 #include <src/Sdb.h>
 
+SDB_BEGIN_EXTERN_C
+
 #include <src/CommProtocols/CommProtocols.h>
 #include <src/Common/SensorDataPipe.h>
 #include <src/Common/Thread.h>
@@ -23,5 +25,7 @@ typedef struct
 } comm_module_ctx;
 
 sdb_errno CommModuleRun(sdb_thread *CommThread);
+
+SDB_END_EXTERN_C
 
 #endif

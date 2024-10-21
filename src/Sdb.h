@@ -30,10 +30,16 @@
 ////////////////////////////////////////
 
 // NOTE(ingar): Prevents the formatter from indenting everything inside the "C" block
+#if defined(__cplusplus)
 #define SDB_BEGIN_EXTERN_C                                                                         \
     extern "C"                                                                                     \
     {
 #define SDB_END_EXTERN_C }
+#else
+#define SDB_BEGIN_EXTERN_C
+#define SDB_END_EXTERN_C
+#endif
+
 
 #if defined(__cplusplus)
 SDB_BEGIN_EXTERN_C

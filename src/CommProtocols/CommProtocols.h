@@ -3,6 +3,8 @@
 
 #include <src/Sdb.h>
 
+SDB_BEGIN_EXTERN_C
+
 #include <src/Common/SensorDataPipe.h>
 
 typedef enum
@@ -45,5 +47,7 @@ CpTypeToName(Comm_Protocol_Type Type)
             return "Protocol does not exist";
     }
 }
+
+SDB_END_EXTERN_C
 
 #endif // COMM_PROTOCOLS_H

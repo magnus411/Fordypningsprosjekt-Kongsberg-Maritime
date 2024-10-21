@@ -6,6 +6,8 @@
 
 #include <src/Sdb.h>
 
+SDB_BEGIN_EXTERN_C
+
 #define SDB_TIME_BASE_NS_ (1)
 
 typedef struct
@@ -38,5 +40,7 @@ sdb_errno SdbTimespecAbsolute(struct timespec *Timespec, sdb_timediff Delta);
 void      SdbTimespecRelative(struct timespec *Timespec, sdb_timediff Delta);
 bool      SdbTimeoutExpired(struct timespec *Timeout, struct timespec *Now);
 sdb_errno SdbSleep(sdb_timediff Delta);
+
+SDB_END_EXTERN_C
 
 #endif

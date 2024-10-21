@@ -3,6 +3,8 @@
 
 #include <src/Sdb.h>
 
+SDB_BEGIN_EXTERN_C
+
 #include <src/Common/Errno.h>
 #include <src/Common/SensorDataPipe.h>
 #include <src/Libs/cJSON/cJSON.h>
@@ -49,4 +51,6 @@ DbsTypeToName(Db_System_Type Type)
             return "Dbs does not exist";
     }
 }
+SDB_END_EXTERN_C
+
 #endif

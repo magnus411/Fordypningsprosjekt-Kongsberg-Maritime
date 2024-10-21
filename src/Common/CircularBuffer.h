@@ -7,6 +7,8 @@
 
 #include <src/Sdb.h>
 
+SDB_BEGIN_EXTERN_C
+
 #define MAX_DATA_LENGTH 260
 
 // TODO(ingar): Calculate data length from schema and use that instead of a default size like here
@@ -42,5 +44,7 @@ bool      CbIsEmpty(circular_buffer *Cb);
 ssize_t   CbInsert(circular_buffer *Cb, void *Data, size_t Size);
 ssize_t   CbRead(circular_buffer *Cb, void *Dest, size_t Size);
 void      CbFree(circular_buffer *Cb);
+
+SDB_END_EXTERN_C
 
 #endif // CIRCULARBUFFER_H

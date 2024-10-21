@@ -3,6 +3,8 @@
 
 #include <src/Sdb.h>
 
+SDB_BEGIN_EXTERN_C
+
 #include <src/CommProtocols/CommProtocols.h>
 #include <src/Common/SensorDataPipe.h>
 
@@ -25,5 +27,7 @@ sdb_errno ParseModbusTCPFrame(const u8 *Buffer, int NumBytes, queue_item *Item);
 sdb_errno ModbusInit(comm_protocol_api *Modbus);
 sdb_errno ModbusRun(comm_protocol_api *Modbus);
 sdb_errno ModbusFinalize(comm_protocol_api *Modbus);
+
+SDB_END_EXTERN_C
 
 #endif

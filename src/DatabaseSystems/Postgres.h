@@ -5,6 +5,8 @@
 
 #include <src/Sdb.h>
 
+SDB_BEGIN_EXTERN_C
+
 #include <src/Common/CircularBuffer.h>
 #include <src/Common/SensorDataPipe.h>
 #include <src/Libs/cJSON/cJSON.h>
@@ -97,5 +99,7 @@ typedef struct
 } postgres_ctx;
 
 #define PG_CTX(pg) ((postgres_ctx *)pg->Ctx)
+
+SDB_END_EXTERN_C
 
 #endif
