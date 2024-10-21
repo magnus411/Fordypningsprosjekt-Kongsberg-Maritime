@@ -27,6 +27,10 @@ enum pq_oid
     NUMERIC     = 1700,
 };
 
+typedef i64    pg_int8;
+typedef i32    pg_int4;
+typedef double pg_float8;
+
 #define PQ_BOOL_NAME        "boolean";
 #define PQ_INT8_NAME        "bigint";
 #define PQ_INT4_NAME        "integer";
@@ -73,9 +77,9 @@ sdb_errno PgFinalize(database_api *Pg);
 
 typedef struct
 {
-    PGconn *DbConn;
-    char  **TableNames;
-    u64    *TableNameLengths;
+    PGconn     *DbConn;
+    sdb_string *TableNames;
+    sdb_string *PreparedStatements;
 
     size_t InsertBufSize;
     u8    *InsertBuf;

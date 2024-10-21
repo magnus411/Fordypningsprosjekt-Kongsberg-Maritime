@@ -61,7 +61,7 @@ static sdb_errno
 ParseModbusTCPFrame(const u8 *Buffer, int NumBytes, queue_item *Item)
 {
     if(NumBytes < MODBUS_TCP_HEADER_LEN) {
-        SdbLogError("Invalid Modbus frame\n");
+        SdbLogError("Invalid Modbus frame, was %d bytes", NumBytes);
         return -EINVAL;
     }
 
@@ -86,24 +86,18 @@ ParseModbusTCPFrame(const u8 *Buffer, int NumBytes, queue_item *Item)
 
     // Function code 0x03 is read multiple holding registers
     if(FunctionCode != 0x03) {
-        SdbLogDebug("Unsupported function code\n");
+        SdbLogError("Unsupported function code");
         return -1;
     }
 
-    SdbLogDebug("Byte Count: %u", DataLength);
-
-    // Ensure byte count is even (registers are 2 bytes each)
-    if(DataLength % 2 != 0) {
-        SdbLogWarning("Warning: Odd byte count detected. Skipping this frame.\n");
-        return -1;
-    }
+    SdbLogDebug("Modbus data length: %u", DataLength);
 
     if(DataLength > MAX_DATA_LENGTH) {
         SdbLogWarning("Byte count exceeds maximum data length. Skipping this frame.\n");
         return -1;
     }
 
-    memcpy(Item->Data, &Buffer[9], DataLength);
+    SdbMemcpy(Item->Data, &Buffer[9], DataLength);
     Item->DataLength = DataLength;
 
     return 0;
@@ -120,11 +114,13 @@ ModbusInit(comm_protocol_api *Modbus, void *OptArgs)
     return 0;
 }
 
+// TODO(ingar): Remove when tests are properly up and running
+#include <tests/TestConstants.h>
 sdb_errno
 ModbusRun(comm_protocol_api *Modbus)
 {
     modbus_ctx *Ctx    = Modbus->Ctx;
-    int         SockFd = CreateSocket(Ctx->Ip, Ctx->PORT);
+    int         SockFd = CreateSocket(Ctx->Ip, Ctx->PORT); // TODO(ingar): Move to init
     if(SockFd == -1) {
         SdbLogError("Failed to create socket");
         return -1;
@@ -132,7 +128,7 @@ ModbusRun(comm_protocol_api *Modbus)
 
     u8  Buf[MAX_MODBUS_TCP_FRAME];
     u64 Counter = 0;
-    while(Counter++ < 1e5) {
+    while(Counter++ < MODBUS_PACKET_COUNT) {
         ssize_t NumBytes = RecivedModbusTCPFrame(SockFd, Buf, sizeof(Buf));
         if(NumBytes > 0) {
             queue_item Item;
@@ -140,7 +136,7 @@ ModbusRun(comm_protocol_api *Modbus)
             SdPipeInsert(&Modbus->SdPipe, Counter % 4, &Item, sizeof(queue_item));
         } else if(NumBytes == 0) {
             SdbLogDebug("Connection closed by server");
-            close(SockFd);
+            close(SockFd); // TODO(ingar): Move to finalize
             return -1;
         } else {
             SdbLogError("Error during read operattion. Closing connection");

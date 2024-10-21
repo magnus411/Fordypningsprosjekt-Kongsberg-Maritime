@@ -12,6 +12,7 @@ SDB_LOG_REGISTER(TestModbus);
 #include <src/Common/CircularBuffer.h>
 #include <src/Common/Thread.h>
 #include <src/Common/Time.h>
+#include <src/DatabaseSystems/Postgres.h>
 
 #define MODBUS_TCP_HEADER_LEN 7
 #define MAX_MODBUS_PDU_SIZE   253
@@ -19,21 +20,20 @@ SDB_LOG_REGISTER(TestModbus);
 
 #define READ_HOLDING_REGISTERS 0x03
 
-static void
-GeneratePowerShaftData(uint8_t *DataBuffer)
+typedef struct __attribute__((packed))
 {
-    // Simulated power shaft data (32-bit values split into two 16-bit registers)
-    u32 Power  = rand() % 1000 + 100; //  Power in kW (random between 100 and 1000)
-    u32 Torque = rand() % 500 + 50;   // Torque in Nm (random between 50 and 550)
-    u32 Rpm    = rand() % 5000 + 500; // RPM (random between 500 and 5500)
+    pg_int4   Rpm;
+    pg_float8 Torque;
+    pg_float8 Power;
 
-    // Store data in 16-bit register format (big-endian)
-    DataBuffer[0] = (Power >> 8) & 0xFF;  // Power high byte
-    DataBuffer[1] = Power & 0xFF;         // Power low byte
-    DataBuffer[2] = (Torque >> 8) & 0xFF; // Torque high byte
-    DataBuffer[3] = Torque & 0xFF;        // Torque low byte
-    DataBuffer[4] = (Rpm >> 8) & 0xFF;    // RPM high byte
-    DataBuffer[5] = Rpm & 0xFF;           // RPM low byte
+} power_shaft_data;
+
+static void
+GeneratePowerShaftData(power_shaft_data *Data)
+{
+    Data->Power  = rand() % 1000 + 100; //  Power in kW (random between 100 and 1000)
+    Data->Torque = rand() % 500 + 50;   // Torque in Nm (random between 50 and 550)
+    Data->Rpm    = rand() % 5000 + 500; // RPM (random between 500 and 5500)
 }
 
 static void
@@ -61,14 +61,14 @@ SendModbusData(int NewFd, u16 UnitId)
     u16 ProtocolId    = 0;
     u8  FunctionCode  = READ_HOLDING_REGISTERS;
 
-    u8 Data[6];
+    power_shaft_data Data = { 0 };
 
     u16 DataLength = sizeof(Data);
     u16 Length     = DataLength + 3;
 
-    GeneratePowerShaftData(Data);
+    GeneratePowerShaftData(&Data);
     GenerateModbusTcpFrame(ModbusFrame, TransactionId, ProtocolId, Length, UnitId, FunctionCode,
-                           Data, DataLength);
+                           (u8 *)&Data, DataLength);
 
     ssize_t SendResult = send(NewFd, ModbusFrame, MODBUS_TCP_HEADER_LEN + Length, 0);
 
@@ -87,7 +87,7 @@ RunModbusTestServer(sdb_thread *Thread)
     socklen_t          SinSize;
     char               ClientIp[INET6_ADDRSTRLEN];
 
-    int Port   = 3490;
+    int Port   = 502;
     u16 UnitId = 1;
 
     SockFd = socket(AF_INET, SOCK_STREAM, 0);
@@ -140,7 +140,7 @@ RunModbusTestServer(sdb_thread *Thread)
         SdbLogDebug("Successfully sent Modbus data to client %s:%d", ClientIp,
                     ntohs(ClientAddr.sin_port));
 
-        // SdbSleep(SDB_TIME_MS(1));
+        SdbSleep(SDB_TIME_MS(100));
     }
 
     close(SockFd);

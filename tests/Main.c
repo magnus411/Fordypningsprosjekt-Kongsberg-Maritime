@@ -28,7 +28,7 @@ main(int ArgCount, char **ArgV)
         SdbLogError("Failed to allocate memory for arena");
         exit(EXIT_FAILURE);
     } else {
-        SdbArenaInit(&SdbArena, SdbArenaMem, SdbArenaSize);
+        SdbArenaCreate(&SdbArena, SdbArenaMem, SdbArenaSize);
     }
 
 

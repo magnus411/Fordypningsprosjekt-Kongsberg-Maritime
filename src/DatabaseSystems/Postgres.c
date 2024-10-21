@@ -61,11 +61,6 @@ DiagnoseConnectionAndTable(PGconn *DbConn, const char *TableName)
 static void
 PrintPGresult(const PGresult *Result)
 {
-    if(Result == NULL) {
-        SdbLogError("PGresult is NULL");
-        return;
-    }
-
     // NOTE(ingar): Since it's a printing function, using printf instead of logging functions is
     ExecStatusType Status = PQresultStatus(Result);
     SdbPrintfDebug("Result Status: %s\n", PQresStatus(Status));
@@ -298,7 +293,7 @@ InsertSensorData(PGconn *DbConn, const char *TableName, u64 TableNameLen, const 
 sdb_errno
 CreateTablesFromSchemaConf(PGconn *Conn, cJSON *SchemaConf, sdb_arena *Arena)
 {
-    if(SchemaConf == NULL || !cJSON_IsObject(SchemaConf)) {
+    if(!cJSON_IsObject(SchemaConf)) {
         SdbLogError("Input was not a valid, parsed JSON object.");
         return -1;
     }
@@ -400,14 +395,24 @@ PgInit(database_api *Pg, void *OptArgs)
     return 0;
 }
 
+// TODO(ingar): Remove when tests are properly up and running
+#include <tests/TestConstants.h>
+
 sdb_errno
 PgRun(database_api *Pg)
 {
+    int              col;
+    pq_col_metadata *Metadata = GetTableMetadata(PG_CTX(Pg)->DbConn, "shaft_power", 11, &col);
+    for(int i = 0; i < col; ++i) {
+        PrintColumnMetadata(&Metadata[i]);
+    }
+    free(Metadata);
+
     i64 Counter = 0;
-    while(Counter++ < 1e5) {
+    while(Counter++ < MODBUS_PACKET_COUNT) {
         ssize_t Ret
             = SdPipeRead(&Pg->SdPipe, Counter % 4, PG_CTX(Pg)->InsertBuf, sizeof(queue_item));
-        if(Ret > 0 && (Counter % 100 == 0)) {
+        if(Ret > 0 && (Counter % (i64)(MODBUS_PACKET_COUNT / 10) == 0)) {
             SdbLogInfo("Succesfully read %zd from pipe for the %ldthst time!", Ret, Counter);
         }
         if(Ret < 0) {
