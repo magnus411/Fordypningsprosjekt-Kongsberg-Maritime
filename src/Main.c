@@ -9,22 +9,88 @@
 
 SDB_LOG_REGISTER(Main);
 
-#include <src/CommProtocols/CommProtocols.h>
 #include <src/Common/SensorDataPipe.h>
-#include <src/Common/Thread.h>
-#include <src/DatabaseSystems/DatabaseInitializer.h>
 #include <src/DatabaseSystems/DatabaseSystems.h>
-#include <src/Modules/CommModule.h>
 #include <src/Modules/DatabaseModule.h>
+#include <src/Metrics.h>
+
+
+#include <unistd.h>
 
 #define SD_PIPE_BUF_COUNT 4
 
+// TODO(ingar): Is it fine to keep this globally?
+static i64 NextDbmTId_ = 1;
+
+circular_buffer CB;
+
+
+
+
+void *tempInsert(void*){
+ while(1) {
+        int data = 22;
+        CbInsert(&CB, &data, sizeof(int));
+        
+        usleep(100000);
+
+
+        
+    }
+}
+
+void *tempPop(void*){
+ while(1) {
+        int data;
+        CbRead(&CB, &data, sizeof(int));
+        
+        usleep(100000);
+
+
+        
+    }
+}
+
+
+int main(int argc, char const *argv[]) {
+    
+
+    sdb_arena SdbArena;
+    u64       SdbArenaSize = SdbMebiByte(32);
+    u8       *SdbArenaMem  = malloc(SdbArenaSize);
+
+    SdbArenaInit(&SdbArena, SdbArenaMem, SdbArenaSize);
+    CbInit(&CB, SdbKiloByte(0.5),&SdbArena);
+
+    metric_type type = METRIC_OCCUPANCY; 
+    InitMetricSystem(type); 
+
+
+
+    pthread_t temp1;
+    pthread_t temp2;
+
+    pthread_create(&temp1, NULL, tempInsert, NULL);
+    pthread_create(&temp2, NULL, tempOcc, NULL);
+
+
+    pthread_join(temp1, NULL);
+    pthread_join(temp2, NULL);
+
+
+
+    return 0;
+}
+
+
+/*
 int
 main(int ArgCount, char **ArgV)
 {
     sdb_arena SdbArena;
     u64       SdbArenaSize = SdbMebiByte(32);
     u8       *SdbArenaMem  = malloc(SdbArenaSize);
+
     if(NULL == SdbArenaMem) {
         SdbLogError("Failed to allocate memory for arena");
         exit(EXIT_FAILURE);
@@ -32,9 +98,9 @@ main(int ArgCount, char **ArgV)
         SdbArenaInit(&SdbArena, SdbArenaMem, SdbArenaSize);
     }
 
-
     size_t BufSizes[SD_PIPE_BUF_COUNT]
         = { SdbKibiByte(32), SdbKibiByte(32), SdbKibiByte(32), SdbKibiByte(32) };
+
     sensor_data_pipe *SdPipe      = SdbPushStruct(&SdbArena, sensor_data_pipe);
     sdb_errno         PipeInitRet = SdPipeInit(SdPipe, SD_PIPE_BUF_COUNT, BufSizes, &SdbArena);
     if(PipeInitRet != 0) {
@@ -43,45 +109,25 @@ main(int ArgCount, char **ArgV)
     }
 
 
-    const u32   ThreadCount = 2;
-    sdb_barrier ModulesBarrier;
-    SdbBarrierInit(&ModulesBarrier, ThreadCount);
-    // NOTE(ingar): This is used to ensure that all modules have been initialized before starting to
-    // read from the pipe
+    db_module_ctx *DbModuleCtx = SdbPushStruct(&SdbArena, db_module_ctx);
+    DbModuleCtx->DbsToRun      = Dbs_Postgres;
+    DbModuleCtx->ThreadId      = NextDbmTId_++;
 
+    SdbArenaBootstrap(&SdbArena, &DbModuleCtx->Arena, SdbMebiByte(9));
+    SdbMemcpy(&DbModuleCtx->SdPipe, SdPipe, sizeof(sensor_data_pipe));
 
-    db_module_ctx *DbmCtx  = SdbPushStruct(&SdbArena, db_module_ctx);
-    DbmCtx->ModulesBarrier = &ModulesBarrier;
-    DbmCtx->DbsType        = Dbs_Postgres;
-    DbmCtx->InitApi        = DbsInitApi;
-    DbmCtx->ArenaSize      = SdbMebiByte(9);
-    DbmCtx->DbsArenaSize   = SdbMebiByte(8);
+    pthread_t DbThread;
+    pthread_create(&DbThread, NULL, DbModuleRun, DbModuleCtx);
+    pthread_join(DbThread, NULL);
 
-    SdbArenaBootstrap(&SdbArena, &DbmCtx->Arena, DbmCtx->ArenaSize);
-    SdbMemcpy(&DbmCtx->SdPipe, SdPipe, sizeof(*SdPipe));
-
-
-    comm_module_ctx *CommCtx = SdbPushStruct(&SdbArena, comm_module_ctx);
-    CommCtx->ModulesBarrier  = &ModulesBarrier;
-    CommCtx->CpType          = Comm_Protocol_Modbus_TCP;
-    CommCtx->InitApi         = CpInitApi;
-    CommCtx->ArenaSize       = SdbMebiByte(9);
-    CommCtx->CpArenaSize     = SdbMebiByte(8);
-
-    SdbArenaBootstrap(&SdbArena, &CommCtx->Arena, CommCtx->ArenaSize);
-    SdbMemcpy(&CommCtx->SdPipe, SdPipe, sizeof(*SdPipe));
-
-
-    sdb_thread DbmThread, CommThread;
-    SdbThreadCreate(&DbmThread, DbModuleRun, DbmCtx);
-    SdbThreadCreate(&CommThread, CommModuleRun, CommCtx);
-
-    sdb_errno DbmRet  = SdbThreadJoin(&DbmThread);
-    sdb_errno CommRet = SdbThreadJoin(&CommThread);
-
-    if(DbmRet == 0 && CommRet == 0) {
-        exit(EXIT_SUCCESS);
-    } else {
+    if(DbModuleCtx->Errno != 0) {
+        SdbLogError("Database module thread %ld, running database %s, finished with error: %d",
+                    DbModuleCtx->ThreadId, DbsIdToName(DbModuleCtx->DbsToRun), DbModuleCtx->Errno);
         exit(EXIT_FAILURE);
+    } else {
+        SdbLogInfo("Database module thread %ld, running database %s, finished successfully",
+                   DbModuleCtx->ThreadId, DbsIdToName(DbModuleCtx->DbsToRun));
+        exit(EXIT_SUCCESS);
     }
 }
+*/
