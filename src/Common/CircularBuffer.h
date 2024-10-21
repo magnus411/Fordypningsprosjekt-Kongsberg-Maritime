@@ -9,12 +9,14 @@
 
 #define MAX_DATA_LENGTH 260
 
+// TODO(ingar): Calculate data length from schema and use that instead of a default size like here
 typedef struct
 {
     int    Protocol;
     int    UnitId;
     u8     Data[MAX_DATA_LENGTH];
     size_t DataLength;
+
 } queue_item;
 
 typedef struct
@@ -27,6 +29,7 @@ typedef struct
     size_t Count;
     bool   Full;
 
+    // TODO(ingar): Replace with sdb variants
     pthread_mutex_t WriteLock;
     pthread_mutex_t ReadLock;
     pthread_cond_t  NotEmpty;

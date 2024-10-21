@@ -90,14 +90,8 @@ CbRead(circular_buffer *Cb, void *Dest, size_t Size)
 {
     pthread_mutex_lock(&Cb->ReadLock);
 
-    while(CbIsEmpty(Cb)) {
+    while(Cb->Count < Size) {
         pthread_cond_wait(&Cb->NotEmpty, &Cb->ReadLock);
-    }
-
-    size_t AvailableBytes = Cb->Count;
-    if(Size > AvailableBytes) {
-        SdbLogError("Requested size is greater than available bytes in buffer.");
-        return -ENOMEM;
     }
 
     size_t FirstChunk = SdbMin(Size, Cb->DataSize - Cb->Tail);
@@ -121,6 +115,7 @@ CbRead(circular_buffer *Cb, void *Dest, size_t Size)
 void
 CbFree(circular_buffer *Cb)
 {
+    // WARN: This will not work if an arena was used to allocate the memory!
     free(Cb->Data);
     pthread_mutex_destroy(&Cb->WriteLock);
     pthread_mutex_destroy(&Cb->ReadLock);

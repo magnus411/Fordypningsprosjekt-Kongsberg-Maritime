@@ -1,118 +1,90 @@
-#include <getopt.h>
 #include <pthread.h>
-#include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 
 #define SDB_H_IMPLEMENTATION
 #include <src/Sdb.h>
 #undef SDB_H_IMPLEMENTATION
 
-#include <src/CommProtocols/MQTT.h>
-#include <src/Common/CircularBuffer.h>
+SDB_LOG_REGISTER(MainTests);
 
-#include <tests/CommProtocols/MQTT/MQTTPublisher.h>
-#include <tests/CommProtocols/MQTT/MQTTSubscriber.h>
-#include <tests/CommProtocols/Modbus/Modbus.h>
-#include <tests/DatabaseSystems/PostgresTest.h>
+#include <src/Common/SensorDataPipe.h>
+#include <src/Common/Thread.h>
+#include <src/DatabaseSystems/DatabaseSystems.h>
+#include <src/Modules/CommModule.h>
+#include <src/Modules/DatabaseModule.h>
 
-#define COLOR_RESET  "\033[0m"
-#define COLOR_GREEN  "\033[32m"
-#define COLOR_BLUE   "\033[34m"
-#define COLOR_YELLOW "\033[33m"
-#define COLOR_CYAN   "\033[36m"
-#define COLOR_RED    "\033[31m"
+#include <tests/CommProtocols/CommProtocolsTest.h>
+#include <tests/CommProtocols/ModbusTest.h>
+#include <tests/DatabaseSystems/DatabaseSystemsTest.h>
 
-void
-PrintUsage(void)
-{
-    printf(COLOR_CYAN "----------------------------------------------------------\n" COLOR_RESET);
-    printf(COLOR_GREEN "Usage: TestApp [OPTIONS]\n" COLOR_RESET);
-    printf(COLOR_CYAN "----------------------------------------------------------\n" COLOR_RESET);
-    printf(COLOR_BLUE "Options:\n" COLOR_RESET);
-    printf(COLOR_YELLOW "  -p, --postgres   " COLOR_RESET
-                        "Run the Postgres test (requires config file path)\n");
-    printf(COLOR_YELLOW "  -m, --modbus     " COLOR_RESET "Run the Modbus test\n");
-    printf(COLOR_YELLOW "                   Modbus options:\n" COLOR_RESET);
-    printf(COLOR_YELLOW "                     --client        " COLOR_RESET
-                        "Run the Modbus client test\n");
-    printf(COLOR_YELLOW "                     --server        " COLOR_RESET
-                        "Run the Modbus server test (optional: -p port, -u unitId, -s speed)\n");
-    printf(COLOR_YELLOW "  -s, --mqtt-sub   " COLOR_RESET "Run the MQTT Subscriber test\n");
-    printf(COLOR_YELLOW "  -t, --mqtt-pub   " COLOR_RESET
-                        "Run the MQTT Publisher test (requires rate in Hz)\n");
-    printf(COLOR_YELLOW "  -h, --help       " COLOR_RESET "Show this help message\n");
-    printf(COLOR_CYAN "----------------------------------------------------------\n" COLOR_RESET);
-}
+#define SD_PIPE_BUF_COUNT 4
 
 int
-main(int Argc, char **Argv)
+main(int ArgCount, char **ArgV)
 {
-    if(Argc < 2) {
-        PrintUsage();
-        return 1;
-    }
-
-    int         Opt;
-    int         OptionIndex    = 0;
-    const char *PostgresConfig = NULL;
-
-    static struct option LongOptions[] = {
-        {"postgres", required_argument, 0, 'p'},
-        {  "modbus",       no_argument, 0, 'm'},
-        {  "client",       no_argument, 0,   1},
-        {  "server",       no_argument, 0,   2},
-        {"mqtt-sub",       no_argument, 0, 's'},
-        {"mqtt-pub", required_argument, 0, 't'},
-        {    "help",       no_argument, 0, 'h'},
-        {         0,                 0, 0,   0}
-    };
-
-    int ModbusTest = 0;
-    while((Opt = getopt_long(Argc, Argv, "p:mst:h", LongOptions, &OptionIndex)) != -1) {
-        switch(Opt) {
-            case 'p':
-                PostgresConfig = optarg;
-                break;
-            case 'm':
-                ModbusTest = 1;
-                break;
-            case 1:
-                if(ModbusTest) {
-                    printf(COLOR_GREEN "Running Modbus Client Test...\n" COLOR_RESET);
-                    RunModbusModuleClient();
-                }
-                return 0;
-            case 2:
-                if(ModbusTest) {
-                    printf(COLOR_GREEN "Running Modbus Server Test...\n" COLOR_RESET);
-                    RunModbusServer(Argc, Argv);
-                }
-                return 0;
-            case 's':
-                printf(COLOR_GREEN "Running MQTT Subscriber Test...\n" COLOR_RESET);
-                MQTTSubscriber("tcp://localhost:1883", "ModbusSub", "MODBUS");
-                return 0;
-            case 't':
-                printf(COLOR_GREEN "Running MQTT Publisher Test...\n" COLOR_RESET);
-                MQTTPublisher(2, (char *[]){ Argv[0], optarg });
-                return 0;
-            case 'h':
-            default:
-                PrintUsage();
-                return 0;
-        }
-    }
-
-    if(PostgresConfig) {
-        // printf(COLOR_GREEN "Running Postgres Test...\n" COLOR_RESET);
-        printf("WRN: The current Postgres test implementation is deprecated\n");
-        // RunPostgresTest(PostgresConfig);
-    } else if(ModbusTest) {
-        PrintUsage();
+    sdb_arena SdbArena;
+    u64       SdbArenaSize = SdbMebiByte(32);
+    u8       *SdbArenaMem  = malloc(SdbArenaSize);
+    if(NULL == SdbArenaMem) {
+        SdbLogError("Failed to allocate memory for arena");
+        exit(EXIT_FAILURE);
     } else {
-        PrintUsage();
+        SdbArenaInit(&SdbArena, SdbArenaMem, SdbArenaSize);
     }
 
-    return 0;
+
+    size_t BufSizes[SD_PIPE_BUF_COUNT]
+        = { SdbKibiByte(32), SdbKibiByte(32), SdbKibiByte(32), SdbKibiByte(32) };
+    sensor_data_pipe *SdPipe      = SdbPushStruct(&SdbArena, sensor_data_pipe);
+    sdb_errno         PipeInitRet = SdPipeInit(SdPipe, SD_PIPE_BUF_COUNT, BufSizes, &SdbArena);
+    if(PipeInitRet != 0) {
+        SdbLogError("Failed to init sensor data pipe");
+        exit(EXIT_FAILURE);
+    }
+
+
+    const u32   ThreadCount = 3;
+    sdb_barrier ModulesBarrier;
+    SdbBarrierInit(&ModulesBarrier, ThreadCount);
+    // NOTE(ingar): This is used to ensure that all modules have been initialized before starting to
+    // read from the pipe
+
+
+    db_module_ctx *DbmCtx  = SdbPushStruct(&SdbArena, db_module_ctx);
+    DbmCtx->ModulesBarrier = &ModulesBarrier;
+    DbmCtx->DbsType        = Dbs_Postgres;
+    DbmCtx->InitApi        = DbsInitApiTest;
+    DbmCtx->ArenaSize      = SdbMebiByte(9);
+    DbmCtx->DbsArenaSize   = SdbMebiByte(8);
+
+    SdbArenaBootstrap(&SdbArena, &DbmCtx->Arena, DbmCtx->ArenaSize);
+    SdbMemcpy(&DbmCtx->SdPipe, SdPipe, sizeof(*SdPipe));
+
+
+    comm_module_ctx *CommCtx = SdbPushStruct(&SdbArena, comm_module_ctx);
+    CommCtx->ModulesBarrier  = &ModulesBarrier;
+    CommCtx->CpType          = Comm_Protocol_Modbus_TCP;
+    CommCtx->InitApi         = CpInitApiTest;
+    CommCtx->ArenaSize       = SdbMebiByte(9);
+    CommCtx->CpArenaSize     = SdbMebiByte(8);
+
+    SdbArenaBootstrap(&SdbArena, &CommCtx->Arena, CommCtx->ArenaSize);
+    SdbMemcpy(&CommCtx->SdPipe, SdPipe, sizeof(*SdPipe));
+
+
+    sdb_thread DbmThread, CommThread, ModbusServerThread;
+    SdbThreadCreate(&ModbusServerThread, RunModbusTestServer, &ModulesBarrier);
+    SdbThreadCreate(&DbmThread, DbModuleRun, DbmCtx);
+    SdbThreadCreate(&CommThread, CommModuleRun, CommCtx);
+
+    sdb_errno ModbusRet = SdbThreadJoin(&ModbusServerThread);
+    sdb_errno DbmRet    = SdbThreadJoin(&DbmThread);
+    sdb_errno CommRet   = SdbThreadJoin(&CommThread);
+
+
+    if(DbmRet == 0 && CommRet == 0 && ModbusRet == 0) {
+        exit(EXIT_SUCCESS);
+    } else {
+        exit(EXIT_FAILURE);
+    }
 }

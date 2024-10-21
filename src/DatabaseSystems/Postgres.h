@@ -7,6 +7,7 @@
 
 #include <src/Common/CircularBuffer.h>
 #include <src/Common/SensorDataPipe.h>
+#include <src/Libs/cJSON/cJSON.h>
 #include <src/Modules/DatabaseModule.h>
 
 #define POSTGRES_CONF_FS_PATH "./configs/postgres-conf"
@@ -25,6 +26,10 @@ enum pq_oid
     TIMESTAMPTZ = 1184,
     NUMERIC     = 1700,
 };
+
+typedef i64    pg_int8;
+typedef i32    pg_int4;
+typedef double pg_float8;
 
 #define PQ_BOOL_NAME        "boolean";
 #define PQ_INT8_NAME        "bigint";
@@ -66,21 +71,15 @@ typedef struct
     char *FullDataType;
 } pq_col_metadata;
 
-char *GetSqlQueryFromFile(const char *FileName, sdb_arena *Arena);
-
-void PrintPGresult(const PGresult *Result);
-
-void DiagnoseConnectionAndTable(PGconn *DbConn, const char *TableName);
-
+void             DiagnoseConnectionAndTable(PGconn *DbConn, const char *TableName);
+void             PrintPGresult(const PGresult *Result);
+char            *PqTableMetaDataQuery(const char *TableName, u64 TableNameLen);
+void             PrintColumnMetadata(const pq_col_metadata *Metadata);
 pq_col_metadata *GetTableMetadata(PGconn *DbConn, const char *TableName, u64 TableNameLen,
                                   int *ColCount);
-
-char *PqTableMetaDataQuery(const char *TableName, u64 TableNameLen);
-
-void PrintColumnMetadata(const pq_col_metadata *Metadata);
-
 void InsertSensorData(PGconn *DbConn, const char *TableName, u64 TableNameLen, const u8 *SensorData,
                       size_t DataSize);
+sdb_errno CreateTablesFromSchemaConf(PGconn *Conn, cJSON *SchemaConf, sdb_arena *Arena);
 
 sdb_errno PgInit(database_api *Pg);
 sdb_errno PgRun(database_api *Pg);
@@ -88,12 +87,12 @@ sdb_errno PgFinalize(database_api *Pg);
 
 typedef struct
 {
-    PGconn *DbConn;
-    char  **TableNames;
-    u64    *TableNameLengths;
+    PGconn     *DbConn;
+    sdb_string *TableNames;
+    sdb_string *PreparedStatements;
 
-    size_t PgInsertBufSize;
-    u8    *PgInsertBuf;
+    size_t InsertBufSize;
+    u8    *InsertBuf;
 
 } postgres_ctx;
 
