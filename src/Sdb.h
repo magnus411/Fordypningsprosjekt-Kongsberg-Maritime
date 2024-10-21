@@ -160,22 +160,13 @@ i64 Sdb__WriteLog__(sdb__log_module__ *Module, const char *LogLevel, const char 
     } while(0)
 
 ////////////////////////////////////////
-//             ALLOCATORS             //
+//               MEMORY               //
 ////////////////////////////////////////
 
 void SdbMemZero(void *Mem, u64 Size);
 void SdbMemZeroSecure(void *Mem, u64 Size);
 #define SdbMemZeroStruct(struct)       SdbMemZero(struct, sizeof(*struct))
 #define SdbMemZeroStructSecure(struct) SdbMemZeroSecure(struct, sizeof(*struct))
-
-// TODO(ingar): Make stack support, maybe by having an array which you can set the size of that
-// contains positions
-typedef struct sdb_arena
-{
-    u64 Cur;
-    u64 Cap;
-    u8 *Mem; /* If it's last, the arena's memory can be contiguous with the struct itself */
-} sdb_arena;
 
 typedef struct sdb_slice
 {
@@ -184,45 +175,47 @@ typedef struct sdb_slice
     u8 *Mem;
 } sdb_slice;
 
-void       SdbArenaInit(sdb_arena *Arena, u8 *Mem, u64 Size);
-sdb_arena *SdbArenaCreateContiguous(u8 *Mem, u64 Size);
-sdb_arena *SdbArenaBootstrap(sdb_arena *Arena, sdb_arena *NewArena, u64 Size);
-
-#if 0
-u64
-SdbArenaF5(sdb_arena *Arena)
+// TODO(ingar): Make stack support, maybe by having an array which you can set the size of that
+// contains positions
+typedef struct sdb_arena
 {
-    Arena->Save = Arena->Cur;
-    return Arena->Save;
-}
+    u64 Cur;
+    u64 Cap;
+    u8 *Mem;
+} sdb_arena;
 
-u64
-SdbArenaF9(sdb_arena *Arena)
+typedef struct
 {
-    Arena->Cur  = Arena->Save;
-    Arena->Save = 0;
+    sdb_arena *Arena;
+    u64        F5;
+} sdb_scratch_arena;
 
-    return Arena->Cur;
-}
-#endif
+void              SdbArenaInit(sdb_arena *Arena, u8 *Mem, u64 Size);
+sdb_arena        *SdbArenaBootstrap(sdb_arena *Arena, u64 Size);
+sdb_scratch_arena SdbScratchArena(sdb_arena **Conflicts, u64 ConflictCount);
+void              SdbScratchRelease(sdb_scratch_arena ScratchArena);
 
 void *SdbArenaPush(sdb_arena *Arena, u64 Size);
-// void *SdbArenaPushZero(sdb_arena *Arena, u64 Size);
-void SdbArenaPop(sdb_arena *Arena, u64 Size);
+void *SdbArenaPushZero(sdb_arena *Arena, u64 Size);
+void  SdbArenaPop(sdb_arena *Arena, u64 Size);
+
 u64  SdbArenaGetPos(sdb_arena *Arena);
 void SdbArenaSeek(sdb_arena *Arena, u64 Pos);
+
 void SdbArenaClear(sdb_arena *Arena);
 void SdbArenaClearZero(sdb_arena *Arena);
+
+#define SdbPushArray(arena, type, count)     (type *)SdbArenaPush(arena, sizeof(type) * (count))
+#define SdbPushArrayZero(arena, type, count) (type *)SdbArenaPushZero(arena, sizeof(type) * (count))
+
+#define SdbPushStruct(arena, type)     SdbPushArray(arena, type, 1)
+#define SdbPushStructZero(arena, type) SdbPushArrayZero(arena, type, 1)
+
 void SdbArrayShift(void *Mem, u64 From, u64 To, u64 Count, u64 ElementSize);
-
 #define SdbArrayDeleteAndShift(mem, i, count, esize) SdbArrayShift(mem, (i + 1), i, count, esize)
-#define SdbPushArray(arena, type, count)             (type *)SdbArenaPush(arena, sizeof(type) * (count))
-// #define SdbPushArrayZero(arena, type, count)         (type *)SdbArenaPushZero(arena, sizeof(type)
-// * (count))
-#define SdbPushStruct(arena, type) SdbPushArray(arena, type, 1)
-// #define SdbPushStructZero(arena, type)               SdbPushArrayZero(arena, type, 1)
 
-#define SDB_DEFINE_POOL_ALLOCATOR(type_name, func_name)                                            \
+
+#define SDB_POOL_ALLOCATOR_DEFINE(type_name, func_name)                                            \
     typedef struct type_name##_pool                                                                \
     {                                                                                              \
         sdb_arena *Arena;                                                                          \
@@ -252,25 +245,31 @@ void SdbArrayShift(void *Mem, u64 From, u64 To, u64 Count, u64 ElementSize);
 //              STRINGS               //
 ////////////////////////////////////////
 
-void *SdbMemcpy(void *__restrict To, const void *__restrict From, size_t Len);
-void *SdbMemset(void *Data, int SetTo, size_t Len);
-u64   SdbStrnlen(const char *String, u64 Max);
-u64   SdbStrlen(const char *String);
-char *SdbStrdup(char *String, sdb_arena *Arena);
-
-typedef struct sdb_string
+// NOTE(ingar): Can be passed in anywhere you would a C-string since the first element is the string
+// (I think)
+typedef struct
 {
-    u64 Len; /* Does not include the null terminator*/
-    u64 Cap;
-    u64 ArenaPos;
+    char  *String;
+    size_t Len;
+} sdb_string;
 
-    sdb_arena *Arena;
-    char      *Str; /* Will always be null-terminated for simplicity */
+void       *SdbMemcpy(void *__restrict To, const void *__restrict From, size_t Len);
+void       *SdbMemset(void *Data, int SetTo, size_t Len);
+u64         SdbStrnlen(const char *String, u64 Max);
+u64         SdbStrlen(const char *String);
+sdb_string *SdbStrdup(char *String, sdb_arena *Arena);
+
+
+typedef struct
+{
+    sdb_arena  *Arena;
+    sdb_string *String;
+
 } sdb_string_builder;
 
-void  SdbStrBuilderInit(sdb_string_builder *Builder, sdb_arena *Arena);
-void  SdbStrBuilderAppend(sdb_string_builder *Builder, char *String);
-char *SdbStrBuilderGetString(sdb_string_builder *Builder);
+void        SdbStrBuilderInit(sdb_string_builder *Builder, sdb_arena *Arena);
+void        SdbStrBuilderAppend(sdb_string_builder *Builder, char *String);
+sdb_string *SdbStrBuilderGetString(sdb_string_builder *Builder, sdb_arena *Arena);
 
 ////////////////////////////////////////
 //                RNG                 //
@@ -336,7 +335,7 @@ SDB_END_EXTERN_C
 
 // WARN: Only one file in a program should define SDB_H_IMPLEMENTATION, otherwise you will get
 // redefintion errors
-// #define SDB_H_IMPLEMENTATION
+#define SDB_H_IMPLEMENTATION
 #ifdef SDB_H_IMPLEMENTATION
 
 // NOTE(ingar): The reason this is done is so that functions inside Sdb.h don't use the trace
@@ -489,59 +488,22 @@ SdbArenaInit(sdb_arena *Arena, u8 *Mem, u64 Size)
 {
     Arena->Cur = 0;
     Arena->Cap = Size;
-    // Arena->Save = 0;
     Arena->Mem = Mem;
 }
 
 sdb_arena *
-SdbArenaCreateContiguous(u8 *Mem, u64 Size)
+SdbArenaBootstrap(sdb_arena *Arena, u64 Size)
 {
-    if(Size < (sizeof(sdb_arena) + 1)) {
-        return NULL;
-    }
+    sdb_arena *NewArena    = SdbPushStruct(Arena, sdb_arena);
+    u8        *NewArenaMem = SdbPushArray(Arena, u8, Size);
 
-    sdb_arena *Arena = (sdb_arena *)Mem;
-    Arena->Cap       = Size - sizeof(sdb_arena);
-    Arena->Cur       = 0;
-    // Arena->Save      = 0;
-    Arena->Mem = Mem + sizeof(sdb_arena);
-
-    return Arena;
-}
-
-sdb_arena *
-SdbArenaBootstrap(sdb_arena *Arena, sdb_arena *NewArena, u64 Size)
-{
-    if(NewArena == NULL) {
-        NewArena = SdbPushStruct(Arena, sdb_arena);
-    }
-
-    u8 *NewArenaMem = SdbPushArray(Arena, u8, Size);
     if(NULL != NewArena && NULL != NewArenaMem) {
         SdbArenaInit(NewArena, NewArenaMem, Size);
-        return NewArena;
-    } else {
-        return NULL;
     }
+
+    return NewArena;
 }
 
-#if 0
-u64
-SdbArenaF5(sdb_arena *Arena)
-{
-    Arena->Save = Arena->Cur;
-    return Arena->Save;
-}
-
-u64
-SdbArenaF9(sdb_arena *Arena)
-{
-    Arena->Cur  = Arena->Save;
-    Arena->Save = 0;
-
-    return Arena->Cur;
-}
-#endif
 
 // TODO(ingar): Create aligning pushes
 void *
@@ -550,23 +512,19 @@ SdbArenaPush(sdb_arena *Arena, u64 Size)
     if((Arena->Cur + Size) < Arena->Cap) {
         u8 *AllocedMem = Arena->Mem + Arena->Cur;
         Arena->Cur += Size;
-        SdbMemZero(AllocedMem, Size);
         return (void *)AllocedMem;
     }
 
     return NULL;
 }
 
-// TODO(ingar): Arena push clears to 0 by default, create a variant that doesn't clear to 0 by
-// default for perf reasons e.g. PushFast or something
 void *
 SdbArenaPushZero(sdb_arena *Arena, u64 Size)
 {
     if((Arena->Cur + Size) < Arena->Cap) {
         u8 *AllocedMem = Arena->Mem + Arena->Cur;
         Arena->Cur += Size;
-        SdbMemZero(AllocedMem, Size);
-
+        SdbMemZeroSecure(AllocedMem, Size);
         return (void *)AllocedMem;
     }
 
@@ -603,7 +561,7 @@ SdbArenaClear(sdb_arena *Arena)
 void
 SdbArenaClearZero(sdb_arena *Arena)
 {
-    SdbMemZero(Arena->Mem, Arena->Cap);
+    SdbMemZeroSecure(Arena->Mem, Arena->Cap);
     Arena->Cur = 0;
 }
 
@@ -673,13 +631,16 @@ SdbStrlen(const char *String)
     return Count;
 }
 
-char *
+sdb_string *
 SdbStrdup(char *String, sdb_arena *Arena)
 {
-    u64   StringLength = SdbStrlen(String);
-    char *NewString    = SdbPushArray(Arena, char, StringLength + 1);
-    SdbMemcpy(NewString, String, StringLength);
-    NewString[StringLength] = '\0';
+    u64         StringLength = SdbStrlen(String);
+    sdb_string *NewString    = SdbPushStruct(Arena, sdb_string);
+    NewString->String        = SdbPushArray(Arena, char, StringLength + 1);
+    NewString->Len           = StringLength;
+
+    SdbMemcpy(NewString->String, String, StringLength);
+    NewString->String[StringLength] = '\0';
 
     return NewString;
 }
@@ -687,45 +648,33 @@ SdbStrdup(char *String, sdb_arena *Arena)
 void
 SdbStrBuilderInit(sdb_string_builder *Builder, sdb_arena *Arena)
 {
-    Builder->Len      = 0;
-    Builder->Cap      = 1;
-    Builder->Arena    = Arena;
-    Builder->Str      = SdbPushArray(Arena, char, 1);
-    Builder->ArenaPos = SdbArenaGetPos(Arena);
+    Builder->Arena          = Arena;
+    Builder->String         = SdbPushStruct(Arena, sdb_string);
+    Builder->String->Len    = 0;
+    Builder->String->String = SdbPushArray(Arena, char, 1);
 }
 
 void
 SdbStrBuilderAppend(sdb_string_builder *Builder, char *String)
 {
-    u64 StrLen = SdbStrlen(String);
-    if(Builder->Len + StrLen > Builder->Cap) {
-        u64 ArenaPos = SdbArenaGetPos(Builder->Arena);
-        u64 NewCap   = Builder->Cap * 1.5 + StrLen;
-
-        if(ArenaPos == Builder->ArenaPos) {
-            // Nothing has been allocated on the arena after the string, so we simply push the arena
-            // pos up by how much we need
-            u64 ArenaSeek = ArenaPos + NewCap - Builder->Cap;
-            SdbArenaSeek(Builder->Arena, ArenaPos + ArenaSeek);
-            Builder->ArenaPos = ArenaPos + ArenaSeek;
-        } else {
-            char *NewLocation = SdbPushArray(Builder->Arena, char, NewCap);
-            SdbMemcpy(NewLocation, Builder->Str, Builder->Len);
-            Builder->Str = NewLocation;
-        }
-        Builder->Cap = NewCap;
+    u64   StrLen = SdbStrlen(String);
+    void *Ret    = SdbArenaPush(Builder->Arena, StrLen);
+    if(Ret != NULL) {
+        SdbMemcpy(Builder->String->String + Builder->String->Len, String, StrLen);
+        Builder->String->Len += StrLen;
+        Builder->String->String[Builder->String->Len] = '\0';
     }
-
-    SdbMemcpy(Builder->Str + Builder->Len, String, StrLen);
-    Builder->Len += StrLen;
-    Builder->Str[Builder->Len] = '\0';
 }
 
-char *
-SdbStrBuilderGetString(sdb_string_builder *Builder)
+sdb_string *
+SdbStrBuilderGetString(sdb_string_builder *Builder, sdb_arena *Arena)
 {
-    return Builder->Str;
+    sdb_string *String = SdbPushStruct(Arena, sdb_string);
+    String->String     = SdbPushArray(Arena, char, Builder->String->Len + 1);
+    SdbMemcpy(String, Builder->String->String, Builder->String->Len + 1);
+    return String;
 }
+
 ////////////////////////////////////////
 //                RNG                 //
 ////////////////////////////////////////
