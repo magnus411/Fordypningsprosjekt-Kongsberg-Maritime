@@ -9,7 +9,7 @@
 SDB_LOG_REGISTER(CircularBuffer);
 
 #include <src/Common/CircularBuffer.h>
-
+#include <src/Metrics.h>
 sdb_errno
 CbInit(circular_buffer *Cb, size_t Size, sdb_arena *Arena)
 {
@@ -78,6 +78,9 @@ CbInsert(circular_buffer *Cb, void *Data, size_t Size)
     Cb->Head = (Cb->Head + Size) % Cb->DataSize;
     Cb->Count += Size;
     Cb->Full = (Cb->Count == Cb->DataSize);
+
+    int percentageFilled = (Cb->Count * 100) / Cb->DataSize;
+    AddSample(percentageFilled);
 
     pthread_cond_signal(&Cb->NotEmpty);
     pthread_mutex_unlock(&Cb->WriteLock);
