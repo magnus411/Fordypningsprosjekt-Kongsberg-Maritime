@@ -6,6 +6,9 @@
 #include <src/CommProtocols/CommProtocols.h>
 #include <src/Common/SensorDataPipe.h>
 
+// NOTE(ingar): This is port used by modbus according to its wikipedia page
+#define MODBUS_PORT (502)
+
 typedef struct
 {
     int  PORT;

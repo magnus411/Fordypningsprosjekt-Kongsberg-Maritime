@@ -23,14 +23,15 @@ static bool MQTTAvailable_ = false;
 #endif
 
 bool
-CpProtocolIsAvailable(Comm_Protocol_Type ProtocolId)
+CpProtocolIsAvailable(Comm_Protocol_Type Type)
 {
-    switch(ProtocolId) {
+    switch(Type) {
         case Comm_Protocol_Modbus_TCP:
             return ModbusAvailable_;
         case Comm_Protocol_MQTT:
             return MQTTAvailable_;
         default:
+            SdbAssert(0, "Invalid protocol type");
             return false;
     }
 }
@@ -54,6 +55,8 @@ CpInitApi(Comm_Protocol_Type Type, sensor_data_pipe *SdPipe, sdb_arena *Arena, u
                 CpApi->Init     = ModbusInit;
                 CpApi->Run      = ModbusRun;
                 CpApi->Finalize = ModbusFinalize;
+                OptArgs         = SdbPushArray(&CpApi->Arena, char, 10);
+                strncpy(OptArgs, "127.0.0.1", 10);
             }
             break;
         case Comm_Protocol_MQTT:

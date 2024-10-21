@@ -1,7 +1,5 @@
-#include "src/CommProtocols/CommProtocols.h"
 #include <pthread.h>
 #include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -9,6 +7,7 @@
 #include <src/Sdb.h>
 SDB_LOG_REGISTER(Modbus);
 
+#include <src/CommProtocols/CommProtocols.h>
 #include <src/CommProtocols/Modbus.h>
 #include <src/CommProtocols/Socket.h>
 #include <src/Common/CircularBuffer.h>
@@ -114,8 +113,8 @@ sdb_errno
 ModbusInit(comm_protocol_api *Modbus, void *OptArgs)
 {
     modbus_ctx *Ctx = SdbPushStruct(&Modbus->Arena, modbus_ctx);
-    Ctx->PORT       = 3490;
-    strncpy(Ctx->Ip, "127.0.0.1", 10);
+    Ctx->PORT       = MODBUS_PORT;
+    strncpy(Ctx->Ip, (char *)OptArgs, 10);
     Modbus->Ctx = Ctx;
 
     return 0;
