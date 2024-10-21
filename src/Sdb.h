@@ -190,8 +190,12 @@ typedef struct
     u64        F5;
 } sdb_scratch_arena;
 
-void              SdbArenaInit(sdb_arena *Arena, u8 *Mem, u64 Size);
-sdb_arena        *SdbArenaBootstrap(sdb_arena *Arena, u64 Size);
+void *SdbMemcpy(void *__restrict To, const void *__restrict From, size_t Len);
+void *SdbMemset(void *__restrict Data, int SetTo, size_t Len);
+
+void       SdbArenaInit(sdb_arena *Arena, u8 *Mem, u64 Size);
+sdb_arena *SdbArenaBootstrap(sdb_arena *Arena, sdb_arena *NewArena_, u64 Size);
+
 sdb_scratch_arena SdbScratchArena(sdb_arena **Conflicts, u64 ConflictCount);
 void              SdbScratchRelease(sdb_scratch_arena ScratchArena);
 
@@ -245,31 +249,48 @@ void SdbArrayShift(void *Mem, u64 From, u64 To, u64 Count, u64 ElementSize);
 //              STRINGS               //
 ////////////////////////////////////////
 
-// NOTE(ingar): Can be passed in anywhere you would a C-string since the first element is the string
-// (I think)
+// NOTE(ingar): These are libc equivalents and are intended to be used with regular C-strings, not
+// sdb_strings
+u64   SdbStrnlen(const char *String, u64 Max);
+u64   SdbStrlen(const char *String);
+char *SdbStrdup(char *String, sdb_arena *Arena);
+
+
+// Based on ginger bills gbString implementation. A few assumptions being made:
+// The strings are not intended to be reallocated. If something has been pushed onto the arena, and
+// you use a function that increases the strings length or capacity, it will *NOT* work (atm).
+// Therefore, you should ideally use a scratch allocator to build a string and then copy it to
+// permanent storage once it's finished and will not be altered further
+typedef char *sdb_string;
 typedef struct
 {
-    char  *String;
-    size_t Len;
-} sdb_string;
+    sdb_arena *Arena;
+    u64        Len;
+    u64        Cap;
 
-void       *SdbMemcpy(void *__restrict To, const void *__restrict From, size_t Len);
-void       *SdbMemset(void *Data, int SetTo, size_t Len);
-u64         SdbStrnlen(const char *String, u64 Max);
-u64         SdbStrlen(const char *String);
-sdb_string *SdbStrdup(char *String, sdb_arena *Arena);
+} sdb_string_header;
+
+#define SDB_STRING_HEADER(str) ((sdb_string_header *)(str)-1)
+sdb_string Sdb__StringMake(sdb_arena *A, const void *InitString, u64 Len);
+
+u64        SdbStringLength(sdb_string String);
+sdb_string SdbStringMake(sdb_arena *A, const char *String);
+void       SdbStringFree(sdb_string String);
 
 
 typedef struct
 {
-    sdb_arena  *Arena;
-    sdb_string *String;
+    u64 Len; /* Does not include the null terminator*/
+    u64 Cap;
+    u64 ArenaPos;
 
+    sdb_arena *Arena;
+    char      *Str; /* Will always be null-terminated for simplicity */
 } sdb_string_builder;
 
-void        SdbStrBuilderInit(sdb_string_builder *Builder, sdb_arena *Arena);
-void        SdbStrBuilderAppend(sdb_string_builder *Builder, char *String);
-sdb_string *SdbStrBuilderGetString(sdb_string_builder *Builder, sdb_arena *Arena);
+void  SdbStrBuilderInit(sdb_string_builder *Builder, sdb_arena *Arena);
+void  SdbStrBuilderAppend(sdb_string_builder *Builder, char *String);
+char *SdbStrBuilderGetString(sdb_string_builder *Builder);
 
 ////////////////////////////////////////
 //                RNG                 //
@@ -335,7 +356,7 @@ SDB_END_EXTERN_C
 
 // WARN: Only one file in a program should define SDB_H_IMPLEMENTATION, otherwise you will get
 // redefintion errors
-#define SDB_H_IMPLEMENTATION
+// #define SDB_H_IMPLEMENTATION
 #ifdef SDB_H_IMPLEMENTATION
 
 // NOTE(ingar): The reason this is done is so that functions inside Sdb.h don't use the trace
@@ -465,15 +486,36 @@ Sdb__WriteLog__(sdb__log_module__ *Module, const char *LogLevel, const char *Fmt
 }
 
 ////////////////////////////////////////
-//             ALLOCATORS             //
+//               MEMORY               //
 ////////////////////////////////////////
 
-void
-SdbMemZero(void *Mem, u64 Size)
+void *
+SdbMemcpy(void *__restrict To, const void *__restrict From, size_t Len)
 {
-    for(u64 i = 0; i < Size; ++i) {
-        ((u8 *)Mem)[i] = 0;
+    // NOTE(ingar): The compiler should replace this with memcpy if it's available
+    for(size_t i = 0; i < Len; ++i) {
+        ((u8 *)To)[i] = ((u8 *)From)[i];
     }
+
+    return To;
+}
+
+void *
+SdbMemset(void *__restrict Data, int SetTo, size_t Len)
+{
+    // NOTE(ingar): The compiler should replace this with memset if it's available. Don't ask me why
+    // you cast it to a u8* and not an int*, but that must be done for it to be replaced
+    for(size_t i = 0; i < Len; ++i) {
+        ((u8 *)Data)[i] = SetTo;
+    }
+
+    return Data;
+}
+
+void
+SdbMemZero(void *__restrict Mem, u64 Size)
+{
+    (void)SdbMemset(Mem, 0, Size);
 }
 
 void /* From https://github.com/BLAKE2/BLAKE2/blob/master/ref/blake2-impl.h */
@@ -492,15 +534,21 @@ SdbArenaInit(sdb_arena *Arena, u8 *Mem, u64 Size)
 }
 
 sdb_arena *
-SdbArenaBootstrap(sdb_arena *Arena, u64 Size)
+SdbArenaBootstrap(sdb_arena *Arena, sdb_arena *NewArena_, u64 Size)
 {
-    sdb_arena *NewArena    = SdbPushStruct(Arena, sdb_arena);
-    u8        *NewArenaMem = SdbPushArray(Arena, u8, Size);
+    sdb_arena *NewArena;
+    if(NewArena_ == NULL) {
+        NewArena = SdbPushStruct(Arena, sdb_arena);
+    } else {
+        NewArena = NewArena_;
+    }
+    u8 *NewArenaMem = SdbPushArray(Arena, u8, Size);
 
-    if(NULL != NewArena && NULL != NewArenaMem) {
-        SdbArenaInit(NewArena, NewArenaMem, Size);
+    if(NULL == NewArena && NULL == NewArenaMem) {
+        return NULL;
     }
 
+    SdbArenaInit(NewArena, NewArenaMem, Size);
     return NewArena;
 }
 
@@ -509,7 +557,7 @@ SdbArenaBootstrap(sdb_arena *Arena, u64 Size)
 void *
 SdbArenaPush(sdb_arena *Arena, u64 Size)
 {
-    if((Arena->Cur + Size) < Arena->Cap) {
+    if((Arena->Cur + Size) <= Arena->Cap) {
         u8 *AllocedMem = Arena->Mem + Arena->Cur;
         Arena->Cur += Size;
         return (void *)AllocedMem;
@@ -521,7 +569,7 @@ SdbArenaPush(sdb_arena *Arena, u64 Size)
 void *
 SdbArenaPushZero(sdb_arena *Arena, u64 Size)
 {
-    if((Arena->Cur + Size) < Arena->Cap) {
+    if((Arena->Cur + Size) <= Arena->Cap) {
         u8 *AllocedMem = Arena->Mem + Arena->Cur;
         Arena->Cur += Size;
         SdbMemZeroSecure(AllocedMem, Size);
@@ -586,28 +634,6 @@ SdbArrayShift(void *Mem, u64 From, u64 To, u64 Count, u64 ElementSize)
 //              STRINGS               //
 ////////////////////////////////////////
 
-void *
-SdbMemcpy(void *__restrict To, const void *__restrict From, size_t Len)
-{
-    // NOTE(ingar): The compiler should replace this with memcpy if it's available
-    for(size_t i = 0; i < Len; ++i) {
-        ((u8 *)To)[i] = ((u8 *)From)[i];
-    }
-
-    return To;
-}
-
-void *
-SdbMemset(void *Data, int SetTo, size_t Len)
-{
-    // NOTE(ingar): The compiler should replace this with memset if it's available. Don't ask me why
-    // you cast it to a u8* and not an int*, but that must be done for it to be replaced
-    for(size_t i = 0; i < Len; ++i) {
-        ((u8 *)Data)[i] = SetTo;
-    }
-
-    return Data;
-}
 
 u64
 SdbStrnlen(const char *String, u64 Max)
@@ -631,49 +657,119 @@ SdbStrlen(const char *String)
     return Count;
 }
 
-sdb_string *
+char *
 SdbStrdup(char *String, sdb_arena *Arena)
 {
-    u64         StringLength = SdbStrlen(String);
-    sdb_string *NewString    = SdbPushStruct(Arena, sdb_string);
-    NewString->String        = SdbPushArray(Arena, char, StringLength + 1);
-    NewString->Len           = StringLength;
-
-    SdbMemcpy(NewString->String, String, StringLength);
-    NewString->String[StringLength] = '\0';
+    u64   StringLength = SdbStrlen(String);
+    char *NewString    = SdbPushArray(Arena, char, StringLength + 1);
+    SdbMemcpy(NewString, String, StringLength);
+    NewString[StringLength] = '\0';
 
     return NewString;
+}
+
+sdb_string
+Sdb__StringMake(sdb_arena *A, const void *InitString, u64 Len)
+{
+    size_t HeaderSize = sizeof(sdb_string_header);
+    void  *Ptr        = SdbArenaPush(A, HeaderSize + Len + 1);
+    if(Ptr == NULL) {
+        return NULL;
+    }
+    if(InitString == NULL) {
+        SdbMemset(Ptr, 0, HeaderSize + Len + 1);
+    }
+
+    sdb_string         String;
+    sdb_string_header *Header;
+
+    String = (char *)Ptr + HeaderSize;
+    Header = SDB_STRING_HEADER(String);
+
+    Header->Arena = A;
+    Header->Len   = Len;
+    Header->Cap   = Len;
+    if(Len > 0 && (InitString != NULL)) {
+        SdbMemcpy(String, InitString, Len);
+        String[Len] = '\0';
+    }
+
+    return String;
+}
+
+u64
+SdbStringLength(sdb_string String)
+{
+    return SDB_STRING_HEADER(String)->Len;
+}
+u64 SdbStringCapacity(sdb_string String);
+
+u64
+SdbStringCapacity(sdb_string String)
+{
+    return SDB_STRING_HEADER(String)->Cap;
+}
+
+
+sdb_string
+SdbStringMake(sdb_arena *A, const char *String)
+{
+    u64 Len = (String != NULL) ? SdbStrlen(String) : 0;
+    return Sdb__StringMake(A, String, Len);
+}
+
+void
+SdbStringFree(sdb_string String)
+{
+    if(String != NULL) {
+        size_t PopSize = sizeof(sdb_string_header) + SdbStrlen(String) + 1;
+        SdbArenaPop(SDB_STRING_HEADER(String)->Arena, PopSize);
+    }
 }
 
 void
 SdbStrBuilderInit(sdb_string_builder *Builder, sdb_arena *Arena)
 {
-    Builder->Arena          = Arena;
-    Builder->String         = SdbPushStruct(Arena, sdb_string);
-    Builder->String->Len    = 0;
-    Builder->String->String = SdbPushArray(Arena, char, 1);
+    Builder->Len      = 0;
+    Builder->Cap      = 1;
+    Builder->Arena    = Arena;
+    Builder->Str      = SdbPushArray(Arena, char, 1);
+    Builder->ArenaPos = SdbArenaGetPos(Arena);
 }
 
 void
 SdbStrBuilderAppend(sdb_string_builder *Builder, char *String)
 {
-    u64   StrLen = SdbStrlen(String);
-    void *Ret    = SdbArenaPush(Builder->Arena, StrLen);
-    if(Ret != NULL) {
-        SdbMemcpy(Builder->String->String + Builder->String->Len, String, StrLen);
-        Builder->String->Len += StrLen;
-        Builder->String->String[Builder->String->Len] = '\0';
+    u64 StrLen = SdbStrlen(String);
+    if(Builder->Len + StrLen > Builder->Cap) {
+        u64 ArenaPos = SdbArenaGetPos(Builder->Arena);
+        u64 NewCap   = Builder->Cap * 1.5 + StrLen;
+
+        if(ArenaPos == Builder->ArenaPos) {
+            // Nothing has been allocated on the arena after the string, so we simply push the arena
+            // pos up by how much we need
+            u64 ArenaSeek = ArenaPos + NewCap - Builder->Cap;
+            SdbArenaSeek(Builder->Arena, ArenaPos + ArenaSeek);
+            Builder->ArenaPos = ArenaPos + ArenaSeek;
+        } else {
+            char *NewLocation = SdbPushArray(Builder->Arena, char, NewCap);
+            SdbMemcpy(NewLocation, Builder->Str, Builder->Len);
+            Builder->Str = NewLocation;
+        }
+        Builder->Cap = NewCap;
     }
+
+    SdbMemcpy(Builder->Str + Builder->Len, String, StrLen);
+    Builder->Len += StrLen;
+    Builder->Str[Builder->Len] = '\0';
 }
 
-sdb_string *
-SdbStrBuilderGetString(sdb_string_builder *Builder, sdb_arena *Arena)
+char *
+SdbStrBuilderGetString(sdb_string_builder *Builder)
 {
-    sdb_string *String = SdbPushStruct(Arena, sdb_string);
-    String->String     = SdbPushArray(Arena, char, Builder->String->Len + 1);
-    SdbMemcpy(String, Builder->String->String, Builder->String->Len + 1);
-    return String;
+    return Builder->Str;
 }
+
 
 ////////////////////////////////////////
 //                RNG                 //
