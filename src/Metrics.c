@@ -6,102 +6,122 @@
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
+
 SDB_LOG_REGISTER(Metrics);
 
-static metric System;
 
+metric OccupancyMetric;
+metric InputThroughput;
+metric BufferWriteThroughput;
+metric BufferReadThroughput;
+metric OutputThroughput;
 
-static metric receiveTimeMetric;
-static metric insertTimeMetric;
-static metric framesProcessedMetric;
 
 void
-InitMetricSystem(metric_type Type)
+InitMetric(metric *Metric, metric_type Type, const char *FileName)
 {
+    memset(Metric->Samples, 0, sizeof(Metric->Samples));
+    Metric->Head   = 0;
+    Metric->Tail   = 0;
+    Metric->Count  = 0;
+    Metric->Type   = Type;
+    Metric->WIndex = 0;
 
-    memset(System.Samples, 0, sizeof(System.Samples));
-    System.Head  = 0;
-    System.Tail  = 0;
-    System.Count = 0;
-    System.Type  = Type;
 
+    Metric->File = fopen(FileName, "wb");
+    if(!Metric->File) {
+        SdbLogError("Failed to open metric file %s", FileName);
+    }
 
-    System.File = fopen("metrics.sdb", "w");
-
-    pthread_rwlock_init(&System.Rwlock, NULL);
-    SdbMutexInit(&System.FileLock);
-}
-// TODO! return sdb_errno
-
-sdb_errno
-WriteMetricToFile()
-{
-
-    SdbMutexLock(&System.FileLock, SDB_TIMEOUT_MAX);
-
-    size_t w = fwrite(System.Samples, sizeof(*System.Samples), MAX_SAMPLES, System.File);
-
-    SdbMutexUnlock(&System.FileLock);
+    pthread_rwlock_init(&Metric->Rwlock, NULL);
+    SdbMutexInit(&Metric->FileLock);
 }
 
-
 sdb_errno
-AddSample(int Data)
+AddSample(metric *Metric, int Data)
 {
-
     struct timespec Timestamp;
     clock_gettime(CLOCK_MONOTONIC, &Timestamp);
 
-    pthread_rwlock_wrlock(&System.Rwlock);
-    System.Samples[System.Tail].Data      = Data;
-    System.Samples[System.Tail].Timestamp = Timestamp;
+    pthread_rwlock_wrlock(&Metric->Rwlock);
+    Metric->Samples[Metric->Tail].Data      = Data;
+    Metric->Samples[Metric->Tail].Timestamp = Timestamp;
 
-    System.Tail = (System.Tail + 1) % MAX_SAMPLES;
-    if(System.Count < MAX_SAMPLES) {
-        System.Count++;
+    Metric->Tail = (Metric->Tail + 1) % MAX_SAMPLES;
+    if(Metric->Count < MAX_SAMPLES) {
+        Metric->Count++;
     } else {
-        System.Head = (System.Head + 1) % MAX_SAMPLES;
+        Metric->Head = (Metric->Head + 1) % MAX_SAMPLES;
     }
 
-    if((System.Count % 50) == 50) {
-        WriteMetricToFile();
+    if((Metric->Count % 100) == 0) {
+        WriteMetricToFile(Metric);
     }
 
-    pthread_rwlock_unlock(&System.Rwlock);
+    pthread_rwlock_unlock(&Metric->Rwlock);
     return 0;
 }
-
-// TODO! return sdb_errno
 
 sdb_errno
-DestroyMetricSystem(void)
+WriteMetricToFile(metric *Metric)
 {
+    // We already hold the write lock on Metric->Rwlock from AddSample
+    SdbMutexLock(&Metric->FileLock, SDB_TIMEOUT_MAX);
 
-    free(System.Samples);
+    size_t start = Metric->WIndex;
+    size_t end   = Metric->Tail;
 
-    System.Head  = 0;
-    System.Tail  = 0;
-    System.Count = 0;
+    if(start == end) {
+        SdbMutexUnlock(&Metric->FileLock);
+        return 0;
+    }
 
-    pthread_rwlock_destroy(&System.Rwlock);
+    if(end > start) {
+        // No wrap-around
+        size_t total_samples = end - start;
+        size_t written
+            = fwrite(&Metric->Samples[start], sizeof(sample), total_samples, Metric->File);
+        if(written != total_samples) {
+            SdbLogError("Failed to write all samples to file");
+        }
+    } else {
+        size_t samples_to_end = MAX_SAMPLES - start;
+        size_t written
+            = fwrite(&Metric->Samples[start], sizeof(sample), samples_to_end, Metric->File);
+        if(written != samples_to_end) {
+            SdbLogError("Failed to write all samples to file (first part)");
+        }
+
+        size_t written2 = fwrite(&Metric->Samples[0], sizeof(sample), end, Metric->File);
+        if(written2 != end) {
+            SdbLogError("Failed to write all samples to file (second part)");
+        }
+    }
+
+    Metric->WIndex = end;
+
+    fflush(Metric->File);
+
+    printf("Printed\n");
+
+    SdbMutexUnlock(&Metric->FileLock);
+
     return 0;
 }
 
 
-void *
-tempOcc(void *)
+sdb_errno
+DestroyMetric(metric *Metric)
 {
-    while(1) {
-
-
-        int             num       = System.Samples[System.Tail - 1].Data;
-        struct timespec timestamp = System.Samples[System.Tail - 1].Timestamp;
-
-        int count = System.Count;
-        printf("%d  Filled \n", num);
-        printf("%ld seconds,\n", timestamp.tv_sec);
-        printf("%d\n", count);
-
-        usleep(1000000);
+    if(Metric->File) {
+        fclose(Metric->File);
+        Metric->File = NULL;
     }
+
+    Metric->Head  = 0;
+    Metric->Tail  = 0;
+    Metric->Count = 0;
+
+    pthread_rwlock_destroy(&Metric->Rwlock);
+    return 0;
 }
