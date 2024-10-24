@@ -138,7 +138,7 @@ i64 Sdb__WriteLog__(sdb__log_module__ *Module, const char *LogLevel, const char 
     = &SDB_CONCAT3(Sdb__LogModule, module_name, __)
 
 #define SDB_LOG_DECLARE(name)                                                                      \
-    sdb__log_module__         SDB_CONCAT3(Sdb__LogModule, name, __);                               \
+    extern sdb__log_module__  SDB_CONCAT3(Sdb__LogModule, name, __);                               \
     static sdb__log_module__ *Sdb__LogInstance__ __attribute__((used))                             \
     = &SDB_CONCAT3(Sdb__LogModule, name, __)
 
