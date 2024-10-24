@@ -79,8 +79,10 @@ CbInsert(circular_buffer *Cb, void *Data, size_t Size)
     Cb->Count += Size;
     Cb->Full = (Cb->Count == Cb->DataSize);
 
+    AddSample(&BufferWriteThroughput, Size);
+
     int percentageFilled = (Cb->Count * 100) / Cb->DataSize;
-    AddSample(percentageFilled);
+    AddSample(&OccupancyMetric, percentageFilled);
 
     pthread_cond_signal(&Cb->NotEmpty);
     pthread_mutex_unlock(&Cb->WriteLock);
@@ -108,6 +110,12 @@ CbRead(circular_buffer *Cb, void *Dest, size_t Size)
     Cb->Tail = (Cb->Tail + Size) % Cb->DataSize;
     Cb->Count -= Size;
     Cb->Full = false;
+
+    AddSample(&BufferReadThroughput, Size);
+
+
+    int percentageFilled = (Cb->Count * 100) / Cb->DataSize;
+    AddSample(&OccupancyMetric, percentageFilled);
 
     pthread_cond_signal(&Cb->NotFull);
     pthread_mutex_unlock(&Cb->ReadLock);
