@@ -188,14 +188,39 @@ typedef struct sdb_arena
     u64 Cur;
     u64 Cap;
     u8 *Mem;
+
 } sdb_arena;
 
 typedef struct
 {
-
     sdb_arena *Arena;
     u64        F5;
+
 } sdb_scratch_arena;
+
+typedef struct
+{
+    sdb_arena **Arenas;
+    u64         Count;
+    u64         MaxCount;
+
+} sdb__thread_arenas__;
+
+#define SDB_THREAD_ARENAS_REGISTER(thread_name, count)                                             \
+    static __thread sdb_arena *SDB_CONCAT3(Sdb__ThreadArenas, thread_name, Buffer__)[count];       \
+    static __thread sdb__thread_arenas__ SDB_CONCAT3(Sdb__ThreadArenas, thread_name, __)           \
+        __attribute__((used))                                                                      \
+        = { .Arenas   = SDB_CONCAT3(Sdb__ThreadArenas, thread_name, Buffer__),                     \
+            .Count    = 0,                                                                         \
+            .MaxCount = count };                                                                   \
+    static __thread sdb__thread_arenas__ *Sdb__ThreadArenasInstance__ __attribute__((used))        \
+    = &SDB_CONCAT3(Sdb__ThreadArenas, thread_name, __)
+
+#define SdbThreadArenasAdd(arena) Sdb__ThreadArenasAdd__(arena, Sdb__ThreadArenasInstance__)
+sdb_scratch_arena SdbScratchBegin(sdb_arena *Arena);
+#define SdbScratchGet(conflicts, conflic_count)                                                    \
+    Sdb__ScratchGet__(conflicts, conflict_count, Sdb__ThreadArenasInstance__)
+#define SdbScratchRelease(scratch) Sdb__ScratchRelease__(scratch)
 
 void *SdbMemcpy(void *__restrict To, const void *__restrict From, size_t Len);
 void *SdbMemset(void *__restrict Data, int SetTo, size_t Len);
@@ -203,9 +228,6 @@ bool  SdbMemcmp(const void *Lhs, const void *Rhs, size_t Len);
 
 void       SdbArenaInit(sdb_arena *Arena, u8 *Mem, u64 Size);
 sdb_arena *SdbArenaBootstrap(sdb_arena *Arena, sdb_arena *NewArena_, u64 Size);
-
-sdb_scratch_arena SdbScratchArena(sdb_arena **Conflicts, u64 ConflictCount);
-void              SdbScratchRelease(sdb_scratch_arena ScratchArena);
 
 void *SdbArenaPush(sdb_arena *Arena, u64 Size);
 void *SdbArenaPushZero(sdb_arena *Arena, u64 Size);
@@ -672,6 +694,46 @@ SdbArenaClearZero(sdb_arena *Arena)
 }
 
 void
+Sdb__ThreadArenasAdd__(sdb_arena *Arena, sdb__thread_arenas__ *TAs)
+{
+    if(TAs->Count + 1 <= TAs->MaxCount) {
+        TAs->Arenas[TAs->Count++] = Arena;
+    }
+}
+
+sdb_scratch_arena
+SdbScratchBegin(sdb_arena *Arena)
+{
+    sdb_scratch_arena Scratch;
+    Scratch.Arena = Arena;
+    Scratch.F5    = SdbArenaGetPos(Arena);
+    return Scratch;
+}
+
+sdb_scratch_arena
+Sdb__ScratchGet__(sdb_arena **Conflicts, u64 ConflictCount, sdb__thread_arenas__ *TAs)
+{
+    sdb_arena *Arena = TAs->Arenas[0];
+    if(ConflictCount > 0) {
+        for(u64 i = 0; i < TAs->Count; ++i) {
+            for(u64 j = 0; j < ConflictCount; ++j) {
+                if(TAs->Arenas[i] != Conflicts[j]) {
+                    Arena = TAs->Arenas[i];
+                }
+            }
+        }
+    }
+
+    return SdbScratchBegin(Arena);
+}
+
+void
+Sdb__ScratchRelease__(sdb_scratch_arena *Scratch)
+{
+    SdbArenaSeek(Scratch->Arena, Scratch->F5);
+}
+
+void
 SdbArrayShift(void *Mem, u64 From, u64 To, u64 Count, u64 ElementSize)
 {
     if(From != To) {
@@ -839,10 +901,14 @@ SdbStringBackspace(sdb_string String, u64 N)
 sdb_string
 SdbStringMakeSpace(sdb_string String, u64 AddLen)
 {
+#ifdef DEBUG
+    // NOTE(ingar): Only here to be able to see the header in the debugger
+    sdb_string_header *__Header__ = SDB_STRING_HEADER(String);
+#endif
     u64 Available = SdbStringAvailableSpace(String);
     if(Available < AddLen) {
         sdb_arena *A        = SDB_STRING_HEADER(String)->Arena;
-        u64        Reserved = SdbArenaReserve(A, AddLen + 1);
+        u64        Reserved = SdbArenaReserve(A, AddLen);
         if(Reserved < AddLen) {
             return NULL;
         }
@@ -856,6 +922,10 @@ SdbStringMakeSpace(sdb_string String, u64 AddLen)
 sdb_string
 Sdb__StringAppend__(sdb_string String, const void *Other, u64 OtherLen)
 {
+#ifdef DEBUG
+    // NOTE(ingar): Only here to be able to see the header in the debugger
+    sdb_string_header *__Header__ = SDB_STRING_HEADER(String);
+#endif
     String = SdbStringMakeSpace(String, OtherLen);
     if(String == NULL) {
         return NULL;
@@ -863,6 +933,7 @@ Sdb__StringAppend__(sdb_string String, const void *Other, u64 OtherLen)
 
     u64 CurLen = SdbStringLen(String);
     SdbMemcpy(String + CurLen, Other, OtherLen);
+    Sdb__StringSetLen__(String, CurLen + OtherLen);
     String[CurLen + OtherLen] = '\0';
     return String;
 }
