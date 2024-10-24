@@ -362,7 +362,7 @@ SDB_END_EXTERN_C
 
 // WARN: Only one file in a program should define SDB_H_IMPLEMENTATION, otherwise you will get
 // redefintion errors
-// #define SDB_H_IMPLEMENTATION
+#define SDB_H_IMPLEMENTATION
 #ifdef SDB_H_IMPLEMENTATION
 
 // NOTE(ingar): The reason this is done is so that functions inside Sdb.h don't use the trace
@@ -372,10 +372,6 @@ SDB_END_EXTERN_C
 #undef calloc
 #undef realloc
 #undef free
-#endif
-
-#if defined(__cplusplus)
-SDB_BEGIN_EXTERN_C
 #endif
 
 ////////////////////////////////////////
@@ -674,6 +670,39 @@ SdbStrdup(char *String, sdb_arena *Arena)
     return NewString;
 }
 
+
+u64
+SdbStringLength(sdb_string String)
+{
+    return SDB_STRING_HEADER(String)->Len;
+}
+u64 SdbStringCapacity(sdb_string String);
+
+u64
+SdbStringCapacity(sdb_string String)
+{
+    return SDB_STRING_HEADER(String)->Cap;
+}
+
+u64
+SdbStringAvailableSpace(sdb_string String)
+{
+    sdb_string_header *Header = SDB_STRING_HEADER(String);
+    return Header->Cap - Header->Len;
+}
+
+void
+Sdb__StringSetLen(sdb_string String, u64 Len)
+{
+    SDB_STRING_HEADER(String)->Len = Len;
+}
+
+void
+Sdb__StringSetCap(sdb_string String, u64 Cap)
+{
+    SDB_STRING_HEADER(String)->Cap = Cap;
+}
+
 sdb_string
 Sdb__StringMake(sdb_arena *A, const void *InitString, u64 Len)
 {
@@ -703,20 +732,6 @@ Sdb__StringMake(sdb_arena *A, const void *InitString, u64 Len)
     return String;
 }
 
-u64
-SdbStringLength(sdb_string String)
-{
-    return SDB_STRING_HEADER(String)->Len;
-}
-u64 SdbStringCapacity(sdb_string String);
-
-u64
-SdbStringCapacity(sdb_string String)
-{
-    return SDB_STRING_HEADER(String)->Cap;
-}
-
-
 sdb_string
 SdbStringMake(sdb_arena *A, const char *String)
 {
@@ -733,47 +748,15 @@ SdbStringFree(sdb_string String)
     }
 }
 
-void
-SdbStrBuilderInit(sdb_string_builder *Builder, sdb_arena *Arena)
+sdb_string
+SdbStringDuplicate(sdb_arena *A, const sdb_string String)
 {
-    Builder->Len      = 0;
-    Builder->Cap      = 1;
-    Builder->Arena    = Arena;
-    Builder->Str      = SdbPushArray(Arena, char, 1);
-    Builder->ArenaPos = SdbArenaGetPos(Arena);
+    return Sdb__StringMake(A, String, SdbStringLength(String));
 }
 
 void
-SdbStrBuilderAppend(sdb_string_builder *Builder, char *String)
+SdbStringClear(sdb_string String)
 {
-    u64 StrLen = SdbStrlen(String);
-    if(Builder->Len + StrLen > Builder->Cap) {
-        u64 ArenaPos = SdbArenaGetPos(Builder->Arena);
-        u64 NewCap   = Builder->Cap * 1.5 + StrLen;
-
-        if(ArenaPos == Builder->ArenaPos) {
-            // Nothing has been allocated on the arena after the string, so we simply push the arena
-            // pos up by how much we need
-            u64 ArenaSeek = ArenaPos + NewCap - Builder->Cap;
-            SdbArenaSeek(Builder->Arena, ArenaPos + ArenaSeek);
-            Builder->ArenaPos = ArenaPos + ArenaSeek;
-        } else {
-            char *NewLocation = SdbPushArray(Builder->Arena, char, NewCap);
-            SdbMemcpy(NewLocation, Builder->Str, Builder->Len);
-            Builder->Str = NewLocation;
-        }
-        Builder->Cap = NewCap;
-    }
-
-    SdbMemcpy(Builder->Str + Builder->Len, String, StrLen);
-    Builder->Len += StrLen;
-    Builder->Str[Builder->Len] = '\0';
-}
-
-char *
-SdbStrBuilderGetString(sdb_string_builder *Builder)
-{
-    return Builder->Str;
 }
 
 
@@ -947,10 +930,6 @@ Sdb__FreeTrace__(void *Pointer, int Line, const char *Func, sdb__log_module__ *M
 #define realloc(Pointer, Size)                                                                     \
     Sdb__ReallocTrace__(Pointer, Size, __LINE__, __func__, Sdb__LogInstance__)
 #define free(Pointer) Sdb__FreeTrace__(Pointer, __LINE__, __func__, Sdb__LogInstance__)
-#endif
-
-#if defined(__cplusplus)
-SDB_END_EXTERN_C
 #endif
 
 // NOLINTEND(misc-definitions-in-headers)
