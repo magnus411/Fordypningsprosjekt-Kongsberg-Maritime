@@ -192,12 +192,14 @@ typedef struct sdb_arena
 
 typedef struct
 {
+
     sdb_arena *Arena;
     u64        F5;
 } sdb_scratch_arena;
 
 void *SdbMemcpy(void *__restrict To, const void *__restrict From, size_t Len);
 void *SdbMemset(void *__restrict Data, int SetTo, size_t Len);
+bool  SdbMemcmp(const void *Lhs, const void *Rhs, size_t Len);
 
 void       SdbArenaInit(sdb_arena *Arena, u8 *Mem, u64 Size);
 sdb_arena *SdbArenaBootstrap(sdb_arena *Arena, sdb_arena *NewArena_, u64 Size);
@@ -207,10 +209,12 @@ void              SdbScratchRelease(sdb_scratch_arena ScratchArena);
 
 void *SdbArenaPush(sdb_arena *Arena, u64 Size);
 void *SdbArenaPushZero(sdb_arena *Arena, u64 Size);
-void  SdbArenaPop(sdb_arena *Arena, u64 Size);
+void *SdbArenaPop(sdb_arena *Arena, u64 Size);
 
-u64  SdbArenaGetPos(sdb_arena *Arena);
-void SdbArenaSeek(sdb_arena *Arena, u64 Pos);
+u64   SdbArenaRemaining(sdb_arena *Arena);
+u64   SdbArenaGetPos(sdb_arena *Arena);
+void *SdbArenaSeek(sdb_arena *Arena, u64 Pos);
+u64   SdbArenaReserve(sdb_arena *Arena, u64 Size);
 
 void SdbArenaClear(sdb_arena *Arena);
 void SdbArenaClearZero(sdb_arena *Arena);
@@ -277,11 +281,26 @@ typedef struct
 } sdb_string_header;
 
 #define SDB_STRING_HEADER(str) ((sdb_string_header *)(str)-1)
-sdb_string Sdb__StringMake(sdb_arena *A, const void *InitString, u64 Len);
 
-u64        SdbStringLength(sdb_string String);
+u64        SdbStringLen(sdb_string String);
+u64        SdbStringCap(sdb_string String);
+u64        SdbStringAvailableSpace(sdb_string String);
+u64        SdbStringAllocSize(sdb_string String);
+sdb_string SdbStringMakeSpace(sdb_string String, u64 AddLen);
+
 sdb_string SdbStringMake(sdb_arena *A, const char *String);
 void       SdbStringFree(sdb_string String);
+
+sdb_string SdbStringDuplicate(sdb_arena *A, const sdb_string String);
+void       SdbStringClear(sdb_string String);
+sdb_string SdbStringSet(sdb_string String, const char *CString);
+void       SdbStringBackspace(sdb_string String, u64 N);
+
+sdb_string SdbStringAppend(sdb_string String, sdb_string Other);
+sdb_string SdbStringAppendC(sdb_string String, const char *Other);
+sdb_string SdbStringAppendFmt(sdb_string String, const char *Fmt, ...);
+
+bool SdbStringsAreEqual(sdb_string Lhs, sdb_string Rhs);
 
 
 typedef struct
@@ -362,7 +381,7 @@ SDB_END_EXTERN_C
 
 // WARN: Only one file in a program should define SDB_H_IMPLEMENTATION, otherwise you will get
 // redefintion errors
-#define SDB_H_IMPLEMENTATION
+// #define SDB_H_IMPLEMENTATION
 #ifdef SDB_H_IMPLEMENTATION
 
 // NOTE(ingar): The reason this is done is so that functions inside Sdb.h don't use the trace
@@ -510,8 +529,20 @@ SdbMemset(void *__restrict Data, int SetTo, size_t Len)
     for(size_t i = 0; i < Len; ++i) {
         ((u8 *)Data)[i] = SetTo;
     }
-
     return Data;
+}
+
+bool
+SdbMemcmp(const void *Lhs, const void *Rhs, size_t Len)
+{
+    // NOTE(ingar): The compiler (probably) won't replace this one with memcmp, but GCC didn't
+    // replace their own memcmp implementation with a call to memcmp, so that's just on them
+    for(size_t i = 0; i < Len; ++i) {
+        if(((u8 *)Lhs)[i] != ((u8 *)Rhs)[i]) {
+            return false;
+        }
+    }
+    return true;
 }
 
 void
@@ -554,15 +585,14 @@ SdbArenaBootstrap(sdb_arena *Arena, sdb_arena *NewArena_, u64 Size)
     return NewArena;
 }
 
-
 // TODO(ingar): Create aligning pushes
 void *
 SdbArenaPush(sdb_arena *Arena, u64 Size)
 {
-    if((Arena->Cur + Size) <= Arena->Cap) {
+    if(Arena->Cur + Size <= Arena->Cap) {
         u8 *AllocedMem = Arena->Mem + Arena->Cur;
         Arena->Cur += Size;
-        return (void *)AllocedMem;
+        return AllocedMem;
     }
 
     return NULL;
@@ -571,21 +601,32 @@ SdbArenaPush(sdb_arena *Arena, u64 Size)
 void *
 SdbArenaPushZero(sdb_arena *Arena, u64 Size)
 {
-    if((Arena->Cur + Size) <= Arena->Cap) {
+    if(Arena->Cur + Size <= Arena->Cap) {
         u8 *AllocedMem = Arena->Mem + Arena->Cur;
         Arena->Cur += Size;
-        SdbMemZeroSecure(AllocedMem, Size);
-        return (void *)AllocedMem;
+        SdbMemZero(AllocedMem, Size);
+        return AllocedMem;
     }
 
     return NULL;
 }
 
-void
+u64
+SdbArenaRemaining(sdb_arena *Arena)
+{
+    return Arena->Cap - Arena->Cur;
+}
+
+// TODO(ingar): Does returning the position add overhead/is it necessary?
+void *
 SdbArenaPop(sdb_arena *Arena, u64 Size)
 {
-    assert(Arena->Cur >= Size);
-    Arena->Cur -= Size;
+    if(Arena->Cur >= Size) {
+        Arena->Cur -= Size;
+        return Arena->Mem + Arena->Cur;
+    }
+
+    return NULL;
 }
 
 u64
@@ -595,11 +636,26 @@ SdbArenaGetPos(sdb_arena *Arena)
     return Pos;
 }
 
-void
+void *
 SdbArenaSeek(sdb_arena *Arena, u64 Pos)
 {
-    assert(0 <= Pos && Pos <= Arena->Cap);
-    Arena->Cur = Pos;
+    if(0 <= Pos && Pos <= Arena->Cap) {
+        Arena->Cur = Pos;
+        return Arena->Mem + Arena->Cur;
+    }
+
+    return NULL;
+}
+
+u64
+SdbArenaReserve(sdb_arena *Arena, u64 Size)
+{
+    if(Arena->Cur + Size <= Arena->Cap) {
+        Arena->Cur += Size;
+        return Size;
+    } else {
+        return SdbArenaRemaining(Arena);
+    }
 }
 
 void
@@ -611,7 +667,7 @@ SdbArenaClear(sdb_arena *Arena)
 void
 SdbArenaClearZero(sdb_arena *Arena)
 {
-    SdbMemZeroSecure(Arena->Mem, Arena->Cap);
+    SdbMemZero(Arena->Mem, Arena->Cap);
     Arena->Cur = 0;
 }
 
@@ -670,16 +726,19 @@ SdbStrdup(char *String, sdb_arena *Arena)
     return NewString;
 }
 
+//
+// SDB String
+//
 
 u64
-SdbStringLength(sdb_string String)
+SdbStringLen(sdb_string String)
 {
     return SDB_STRING_HEADER(String)->Len;
 }
-u64 SdbStringCapacity(sdb_string String);
+u64 SdbStringCap(sdb_string String);
 
 u64
-SdbStringCapacity(sdb_string String)
+SdbStringCap(sdb_string String)
 {
     return SDB_STRING_HEADER(String)->Cap;
 }
@@ -691,20 +750,27 @@ SdbStringAvailableSpace(sdb_string String)
     return Header->Cap - Header->Len;
 }
 
+u64
+SdbStringAllocSize(sdb_string String)
+{
+    u64 Size = sizeof(sdb_string_header) + SdbStringCap(String);
+    return Size;
+}
+
 void
-Sdb__StringSetLen(sdb_string String, u64 Len)
+Sdb__StringSetLen__(sdb_string String, u64 Len)
 {
     SDB_STRING_HEADER(String)->Len = Len;
 }
 
 void
-Sdb__StringSetCap(sdb_string String, u64 Cap)
+Sdb__StringSetCap__(sdb_string String, u64 Cap)
 {
     SDB_STRING_HEADER(String)->Cap = Cap;
 }
 
 sdb_string
-Sdb__StringMake(sdb_arena *A, const void *InitString, u64 Len)
+Sdb__StringMake__(sdb_arena *A, const void *InitString, u64 Len)
 {
     size_t HeaderSize = sizeof(sdb_string_header);
     void  *Ptr        = SdbArenaPush(A, HeaderSize + Len + 1);
@@ -736,29 +802,123 @@ sdb_string
 SdbStringMake(sdb_arena *A, const char *String)
 {
     u64 Len = (String != NULL) ? SdbStrlen(String) : 0;
-    return Sdb__StringMake(A, String, Len);
+    return Sdb__StringMake__(A, String, Len);
 }
 
 void
 SdbStringFree(sdb_string String)
 {
     if(String != NULL) {
-        size_t PopSize = sizeof(sdb_string_header) + SdbStrlen(String) + 1;
-        SdbArenaPop(SDB_STRING_HEADER(String)->Arena, PopSize);
+        sdb_string_header *H       = SDB_STRING_HEADER(String);
+        u64                PopSize = sizeof(sdb_string_header) + H->Cap + 1;
+        SdbArenaPop(H->Arena, PopSize);
     }
 }
 
 sdb_string
 SdbStringDuplicate(sdb_arena *A, const sdb_string String)
 {
-    return Sdb__StringMake(A, String, SdbStringLength(String));
+    return Sdb__StringMake__(A, String, SdbStringLen(String));
 }
 
 void
 SdbStringClear(sdb_string String)
 {
+    Sdb__StringSetLen__(String, 0);
+    String[0] = '\0';
 }
 
+void
+SdbStringBackspace(sdb_string String, u64 N)
+{
+    u64 NewLen = SdbStringLen(String) - N;
+    Sdb__StringSetLen__(String, NewLen);
+    String[NewLen] = '\0';
+}
+
+sdb_string
+SdbStringMakeSpace(sdb_string String, u64 AddLen)
+{
+    u64 Available = SdbStringAvailableSpace(String);
+    if(Available < AddLen) {
+        sdb_arena *A        = SDB_STRING_HEADER(String)->Arena;
+        u64        Reserved = SdbArenaReserve(A, AddLen + 1);
+        if(Reserved < AddLen) {
+            return NULL;
+        }
+
+        u64 NewCap = SdbStringCap(String) + AddLen;
+        Sdb__StringSetCap__(String, NewCap);
+    }
+    return String;
+}
+
+sdb_string
+Sdb__StringAppend__(sdb_string String, const void *Other, u64 OtherLen)
+{
+    String = SdbStringMakeSpace(String, OtherLen);
+    if(String == NULL) {
+        return NULL;
+    }
+
+    u64 CurLen = SdbStringLen(String);
+    SdbMemcpy(String + CurLen, Other, OtherLen);
+    String[CurLen + OtherLen] = '\0';
+    return String;
+}
+
+sdb_string
+SdbStringAppend(sdb_string String, sdb_string Other)
+{
+    return Sdb__StringAppend__(String, Other, SdbStringLen(Other));
+}
+
+sdb_string
+SdbStringAppendC(sdb_string String, const char *Other)
+{
+    return Sdb__StringAppend__(String, Other, SdbStrlen(Other));
+}
+
+sdb_string
+SdbStringAppendFmt(sdb_string String, const char *Fmt, ...)
+{
+    // TODO(ingar): Make arena mandatory or use String's arena?
+    char    Buf[1024] = { 0 };
+    va_list Va;
+    va_start(Va, Fmt);
+    u64 FmtLen = snprintf(Buf, SdbArrayLen(Buf), Fmt, Va); // TODO(ingar): stb_sprintf?
+    va_end(Va);
+    return Sdb__StringAppend__(String, Buf, FmtLen);
+}
+
+sdb_string
+SdbStringSet(sdb_string String, const char *CString)
+{
+    u64 Len = SdbStrlen(CString);
+    String  = SdbStringMakeSpace(String, Len);
+    if(String == NULL) {
+        return NULL;
+    }
+
+    SdbMemcpy(String, CString, Len);
+    String[Len] = '\0';
+    Sdb__StringSetLen__(String, Len);
+
+    return String;
+}
+
+bool
+SdbStringsAreEqual(sdb_string Lhs, sdb_string Rhs)
+{
+    u64 LStringLen = SdbStringLen(Lhs);
+    u64 RStringLen = SdbStringLen(Rhs);
+
+    if(LStringLen != RStringLen) {
+        return false;
+    } else {
+        return SdbMemcmp(Lhs, Rhs, LStringLen);
+    }
+}
 
 ////////////////////////////////////////
 //                RNG                 //
@@ -767,7 +927,7 @@ SdbStringClear(sdb_string String)
 u32 *
 Sdb__GetPCGState__(void)
 {
-    sdb_persist uint32_t Sdb__PCGState = 0;
+    static uint32_t Sdb__PCGState = 0;
     return &Sdb__PCGState;
 }
 
