@@ -54,15 +54,15 @@ main(int argc, char const *argv[])
 {
 
 
-    InitMetric(&OccupancyMetric, METRIC_OCCUPANCY, "occupancy_metrics.sdb");
+    MetricInit(&OccupancyMetric, METRIC_OCCUPANCY, "occupancy_metrics.sdb");
 
 
-    InitMetric(&InputThroughput, METRIC_INPUT_THROUGHPUT, "input_throughput_metrics.sdb");
-    InitMetric(&BufferWriteThroughput, METRIC_BUFFER_WRITE_THROUGHPUT,
+    MetricInit(&InputThroughput, METRIC_INPUT_THROUGHPUT, "input_throughput_metrics.sdb");
+    MetricInit(&BufferWriteThroughput, METRIC_BUFFER_WRITE_THROUGHPUT,
                "buffer_write_throughput_metrics.sdb");
-    InitMetric(&BufferReadThroughput, METRIC_BUFFER_READ_THROUGHPUT,
+    MetricInit(&BufferReadThroughput, METRIC_BUFFER_READ_THROUGHPUT,
                "buffer_read_throughput_metrics.sdb");
-    InitMetric(&OutputThroughput, METRIC_OUTPUT_THROUGHPUT, "output_throughput_metrics.sdb");
+    MetricInit(&OutputThroughput, METRIC_OUTPUT_THROUGHPUT, "output_throughput_metrics.sdb");
 
 
     sdb_arena SdbArena;

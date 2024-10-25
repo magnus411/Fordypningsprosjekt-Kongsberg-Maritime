@@ -18,7 +18,7 @@ metric OutputThroughput;
 
 
 void
-InitMetric(metric *Metric, metric_type Type, const char *FileName)
+MetricInit(metric *Metric, metric_type Type, const char *FileName)
 {
     memset(Metric->Samples, 0, sizeof(Metric->Samples));
     Metric->Head   = 0;
@@ -38,7 +38,7 @@ InitMetric(metric *Metric, metric_type Type, const char *FileName)
 }
 
 sdb_errno
-AddSample(metric *Metric, int Data)
+MetricAddSample(metric *Metric, int Data)
 {
     struct timespec Timestamp;
     clock_gettime(CLOCK_MONOTONIC, &Timestamp);
@@ -55,7 +55,7 @@ AddSample(metric *Metric, int Data)
     }
 
     if((Metric->Count % 40960) == 0) {
-        WriteMetricToFile(Metric);
+        MetricWriteToFile(Metric);
     }
 
     pthread_rwlock_unlock(&Metric->Rwlock);
@@ -63,7 +63,7 @@ AddSample(metric *Metric, int Data)
 }
 
 sdb_errno
-WriteMetricToFile(metric *Metric)
+MetricWriteToFile(metric *Metric)
 {
     SdbMutexLock(&Metric->FileLock, SDB_TIMEOUT_MAX);
 
@@ -106,7 +106,7 @@ WriteMetricToFile(metric *Metric)
 
 
 sdb_errno
-DestroyMetric(metric *Metric)
+MetricDestroy(metric *Metric)
 {
     if(Metric->File) {
         fclose(Metric->File);

@@ -38,10 +38,10 @@ typedef struct
     size_t           WIndex;
 } metric;
 
-void      InitMetric(metric *Metric, metric_type Type, const char *FileName);
-sdb_errno AddSample(metric *Metric, int Data);
-sdb_errno WriteMetricToFile(metric *Metric);
-sdb_errno DestroyMetric(metric *Metric);
+void      MetricInit(metric *Metric, metric_type Type, const char *FileName);
+sdb_errno MetricAddSample(metric *Metric, int Data);
+sdb_errno MetricWriteToFile(metric *Metric);
+sdb_errno MetricDestroy(metric *Metric);
 
 
 extern metric OccupancyMetric;

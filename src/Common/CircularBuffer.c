@@ -81,7 +81,7 @@ CbInsert(circular_buffer *Cb, void *Data, size_t Size)
     Cb->Count += Size;
     Cb->Full = (Cb->Count == Cb->DataSize);
 
-    AddSample(&BufferWriteThroughput, Size);
+    MetricAddSample(&BufferWriteThroughput, Size);
 
     int percentageFilled = (Cb->Count * 100) / Cb->DataSize;
     AddSample(&OccupancyMetric, percentageFilled);
@@ -114,7 +114,7 @@ CbRead(circular_buffer *Cb, void *Dest, size_t Size)
     Cb->Count -= Size;
     Cb->Full = false;
 
-    AddSample(&BufferReadThroughput, Size);
+    MetricAddSample(&BufferReadThroughput, Size);
 
 
     int percentageFilled = (Cb->Count * 100) / Cb->DataSize;
