@@ -54,7 +54,7 @@ AddSample(metric *Metric, int Data)
         Metric->Head = (Metric->Head + 1) % MAX_SAMPLES;
     }
 
-    if((Metric->Count % 100) == 0) {
+    if((Metric->Count % 1000) == 0) {
         WriteMetricToFile(Metric);
     }
 
@@ -65,7 +65,6 @@ AddSample(metric *Metric, int Data)
 sdb_errno
 WriteMetricToFile(metric *Metric)
 {
-    // We already hold the write lock on Metric->Rwlock from AddSample
     SdbMutexLock(&Metric->FileLock, SDB_TIMEOUT_MAX);
 
     size_t start = Metric->WIndex;

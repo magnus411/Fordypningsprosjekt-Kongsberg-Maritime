@@ -75,7 +75,7 @@ main(int argc, char const *argv[])
     u8       *SdbArenaMem  = malloc(SdbArenaSize);
 
     SdbArenaInit(&SdbArena, SdbArenaMem, SdbArenaSize);
-    CbInit(&CB, SdbKiloByte(100), &SdbArena);
+    CbInit(&CB, SdbMebiByte(10), &SdbArena);
 
 
     pthread_t temp1;
