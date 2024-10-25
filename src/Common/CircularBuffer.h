@@ -7,6 +7,7 @@
 
 #include <src/Sdb.h>
 
+#include <src/Metrics.h>
 SDB_BEGIN_EXTERN_C
 
 #define MAX_DATA_LENGTH 260
@@ -36,6 +37,8 @@ typedef struct
     pthread_mutex_t ReadLock;
     pthread_cond_t  NotEmpty;
     pthread_cond_t  NotFull;
+
+
 } circular_buffer;
 
 sdb_errno CbInit(circular_buffer *Cb, size_t Size, sdb_arena *Arena);

@@ -131,6 +131,8 @@ ModbusRun(comm_protocol_api *Modbus)
         if(NumBytes > 0) {
             queue_item Item;
             ParseModbusTCPFrame(Buf, NumBytes, &Item);
+            AddSample(&InputThroughput, NumBytes);
+
             SdPipeInsert(&Modbus->SdPipe, 0, &Item, sizeof(queue_item));
         } else if(NumBytes == 0) {
             SdbLogDebug("Connection closed by server");
