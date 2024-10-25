@@ -23,12 +23,12 @@ typedef struct
 {
     int             Data;
     struct timespec Timestamp;
-} sample;
+} metric_sample;
 
 typedef struct
 {
     metric_type      Type;
-    sample           Samples[MAX_SAMPLES];
+    metric_sample    Samples[MAX_SAMPLES];
     size_t           Head;
     size_t           Tail;
     size_t           Count;

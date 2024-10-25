@@ -79,19 +79,19 @@ MetricWriteToFile(metric *Metric)
         // No wrap-around
         size_t TotalSamples = End - Start;
         size_t written
-            = fwrite(&Metric->Samples[Start], sizeof(sample), TotalSamples, Metric->File);
+            = fwrite(&Metric->Samples[Start], sizeof(metric_sample), TotalSamples, Metric->File);
         if(written != TotalSamples) {
             SdbLogError("Failed to write all samples to file");
         }
     } else {
         size_t SamplesToEnd = MAX_SAMPLES - Start;
         size_t written
-            = fwrite(&Metric->Samples[Start], sizeof(sample), SamplesToEnd, Metric->File);
+            = fwrite(&Metric->Samples[Start], sizeof(metric_sample), SamplesToEnd, Metric->File);
         if(written != SamplesToEnd) {
             SdbLogError("Failed to write all samples to file (first part)");
         }
 
-        size_t written2 = fwrite(&Metric->Samples[0], sizeof(sample), End, Metric->File);
+        size_t written2 = fwrite(&Metric->Samples[0], sizeof(metric_sample), End, Metric->File);
         if(written2 != End) {
             SdbLogError("Failed to write all samples to file (second part)");
         }
