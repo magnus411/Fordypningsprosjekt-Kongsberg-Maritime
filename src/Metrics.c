@@ -67,42 +67,38 @@ WriteMetricToFile(metric *Metric)
 {
     SdbMutexLock(&Metric->FileLock, SDB_TIMEOUT_MAX);
 
-    size_t start = Metric->WIndex;
-    size_t end   = Metric->Tail;
+    size_t Start = Metric->WIndex;
+    size_t End   = Metric->Tail;
 
-    if(start == end) {
+    if(Start == End) {
         SdbMutexUnlock(&Metric->FileLock);
         return 0;
     }
 
-    if(end > start) {
+    if(End > Start) {
         // No wrap-around
-        size_t total_samples = end - start;
+        size_t TotalSamples = End - Start;
         size_t written
-            = fwrite(&Metric->Samples[start], sizeof(sample), total_samples, Metric->File);
-        if(written != total_samples) {
+            = fwrite(&Metric->Samples[Start], sizeof(sample), TotalSamples, Metric->File);
+        if(written != TotalSamples) {
             SdbLogError("Failed to write all samples to file");
         }
     } else {
-        size_t samples_to_end = MAX_SAMPLES - start;
+        size_t SamplesToEnd = MAX_SAMPLES - Start;
         size_t written
-            = fwrite(&Metric->Samples[start], sizeof(sample), samples_to_end, Metric->File);
-        if(written != samples_to_end) {
+            = fwrite(&Metric->Samples[Start], sizeof(sample), SamplesToEnd, Metric->File);
+        if(written != SamplesToEnd) {
             SdbLogError("Failed to write all samples to file (first part)");
         }
 
-        size_t written2 = fwrite(&Metric->Samples[0], sizeof(sample), end, Metric->File);
-        if(written2 != end) {
+        size_t written2 = fwrite(&Metric->Samples[0], sizeof(sample), End, Metric->File);
+        if(written2 != End) {
             SdbLogError("Failed to write all samples to file (second part)");
         }
     }
 
-    Metric->WIndex = end;
-
+    Metric->WIndex = End;
     fflush(Metric->File);
-
-    printf("Printed\n");
-
     SdbMutexUnlock(&Metric->FileLock);
 
     return 0;
