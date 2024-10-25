@@ -162,8 +162,6 @@ ModbusInitTest(comm_protocol_api *Modbus)
     return 0;
 }
 
-// TODO(ingar): Remove when tests are properly up and running
-#include <tests/TestConstants.h>
 sdb_errno
 ModbusRunTest(comm_protocol_api *Modbus)
 {
@@ -174,14 +172,13 @@ ModbusRunTest(comm_protocol_api *Modbus)
         return -1;
     }
 
-    u8  Buf[MAX_MODBUS_TCP_FRAME];
-    u64 Counter = 0;
-    while(Counter++ < MODBUS_PACKET_COUNT) {
+    u8 Buf[MAX_MODBUS_TCP_FRAME];
+    for(u64 i = 0; i < MODBUS_PACKET_COUNT; ++i) {
         ssize_t NumBytes = RecivedModbusTCPFrame(SockFd, Buf, sizeof(Buf));
         if(NumBytes > 0) {
             queue_item Item;
             ParseModbusTCPFrame(Buf, NumBytes, &Item);
-            SdPipeInsert(&Modbus->SdPipe, Counter % 4, &Item, sizeof(queue_item));
+            SdPipeInsert(&Modbus->SdPipe, i % 4, &Item, sizeof(queue_item));
         } else if(NumBytes == 0) {
             SdbLogDebug("Connection closed by server");
             close(SockFd); // TODO(ingar): Move to finalize
