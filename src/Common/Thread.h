@@ -9,7 +9,6 @@
 
 SDB_BEGIN_EXTERN_C
 
-#include <src/Common/Errno.h>
 #include <src/Common/Time.h>
 
 typedef sem_t             sdb_sem;

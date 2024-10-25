@@ -16,7 +16,6 @@
 SDB_LOG_REGISTER(Postgres);
 
 #include <src/Common/CircularBuffer.h>
-#include <src/Common/Errno.h>
 #include <src/DatabaseSystems/DatabaseInitializer.h>
 #include <src/DatabaseSystems/Postgres.h>
 #include <src/Libs/cJSON/cJSON.h>

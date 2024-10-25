@@ -5,7 +5,6 @@
 
 SDB_BEGIN_EXTERN_C
 
-#include <src/Common/Errno.h>
 #include <src/Common/SensorDataPipe.h>
 #include <src/Libs/cJSON/cJSON.h>
 

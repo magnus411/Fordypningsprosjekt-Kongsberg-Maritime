@@ -23,8 +23,6 @@
 #include <stdbool.h>
 #endif // C/C++
 
-#include <src/Common/Errno.h>
-
 ////////////////////////////////////////
 //              DEFINES               //
 ////////////////////////////////////////

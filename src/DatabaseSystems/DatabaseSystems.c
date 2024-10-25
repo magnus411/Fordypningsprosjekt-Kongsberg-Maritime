@@ -1,7 +1,6 @@
 #include <src/Sdb.h>
 SDB_LOG_REGISTER(DbSystems);
 
-#include <src/Common/Errno.h>
 #include <src/Common/SensorDataPipe.h>
 #include <src/DatabaseSystems/DatabaseSystems.h>
 #include <src/DatabaseSystems/Postgres.h>
