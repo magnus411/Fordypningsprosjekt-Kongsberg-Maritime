@@ -12,6 +12,19 @@ SDB_LOG_REGISTER(CircularBuffer);
 
 #include <src/Common/CircularBuffer.h>
 #include <src/Metrics.h>
+
+bool
+CbIsFull(circular_buffer *Cb)
+{
+return Cb->Full;
+}
+bool
+CbIsEmpty(circular_buffer *Cb)
+{
+return (!Cb->Full && (Cb->Head == Cb->Tail));
+}
+
+
 sdb_errno
 CbInit(circular_buffer *Cb, size_t Size, sdb_arena *Arena)
 {
