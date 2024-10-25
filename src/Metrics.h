@@ -7,7 +7,7 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define MAX_SAMPLES 1000
+#define MAX_SAMPLES 4194304 
 
 typedef enum
 {

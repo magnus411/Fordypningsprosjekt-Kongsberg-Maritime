@@ -54,7 +54,7 @@ AddSample(metric *Metric, int Data)
         Metric->Head = (Metric->Head + 1) % MAX_SAMPLES;
     }
 
-    if((Metric->Count % 1000) == 0) {
+    if((Metric->Count % 40960) == 0) {
         WriteMetricToFile(Metric);
     }
 
