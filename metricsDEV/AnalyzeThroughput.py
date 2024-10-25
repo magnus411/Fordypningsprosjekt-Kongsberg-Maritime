@@ -90,6 +90,26 @@ def calculate_average_throughput(throughputs):
     total = sum(value for _, value in throughputs)
     return total / len(throughputs)
 
+def calculate_overall_throughput(throughputs_list):
+    # Synchronize timestamps and calculate min throughput at each time point
+    # First, collect all timestamps
+    all_timestamps = sorted(set(ts for throughputs in throughputs_list for ts, _ in throughputs))
+
+    # Interpolate throughputs to these timestamps
+    interpolated_throughputs = []
+    for throughputs in throughputs_list:
+        timestamps = [ts for ts, _ in throughputs]
+        values = [val for _, val in throughputs]
+        interp_values = np.interp(all_timestamps, timestamps, values)
+        interpolated_throughputs.append(interp_values)
+
+    # Calculate overall throughput as the minimum throughput at each time point
+    overall_throughput_values = np.min(interpolated_throughputs, axis=0)
+    overall_throughput = list(zip(all_timestamps, overall_throughput_values))
+    return overall_throughput
+
+
+
 def main():
     # Define the metric files and labels
     metric_files = {
