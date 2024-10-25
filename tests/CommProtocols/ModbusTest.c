@@ -39,19 +39,19 @@ typedef struct __attribute__((packed))
 static void
 GeneratePowerShaftData(power_shaft_data *Data, int ID)
 {
-    time_t current_time = time(NULL);
-    struct tm *tm_info = localtime(&current_time);
+    time_t CurrentTime = time(NULL);
+    struct tm *TmInfo = localtime(&CurrentTime);
 
     if (rand() % 10 < 2) {
         Data->ID = ID;
-        Data->TIME = (pg_float8)difftime(current_time, 0);
+        Data->TIME = (pg_float8)difftime(CurrentTime, 0);
         Data->Rpm = 0;
         Data->Torque = 0;
         Data->Power = 0;
         Data->Peak_Peak_PFS = 0;
     } else {
         Data->ID = ID;
-        Data->TIME = (pg_float8)difftime(current_time, 0);
+        Data->TIME = (pg_float8)difftime(CurrentTime, 0);
         Data->Rpm = ((rand() % 100) + 30.0) * sin(ID * 0.1);  // RPM with variation
         Data->Torque = ((rand() % 600) + 100.0) * 0.8;  // Torque (Nm)
         Data->Power = Data->Rpm * Data->Torque / 9.5488;  // Derived power (kW)
