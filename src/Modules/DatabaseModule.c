@@ -2,7 +2,6 @@
 SDB_LOG_REGISTER(DbModule);
 
 #include <src/Common/CircularBuffer.h>
-#include <src/Common/Errno.h>
 #include <src/Common/Thread.h>
 #include <src/DatabaseSystems/DatabaseSystems.h>
 #include <src/Modules/DatabaseModule.h>

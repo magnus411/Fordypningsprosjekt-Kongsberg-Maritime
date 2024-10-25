@@ -16,7 +16,6 @@
 SDB_LOG_REGISTER(Postgres);
 
 #include <src/Common/CircularBuffer.h>
-#include <src/Common/Errno.h>
 #include <src/DatabaseSystems/DatabaseInitializer.h>
 #include <src/DatabaseSystems/Postgres.h>
 #include <src/Libs/cJSON/cJSON.h>
@@ -306,13 +305,9 @@ CreateTablesFromSchemaConf(PGconn *Conn, cJSON *SchemaConf, sdb_arena *Arena)
 
     u64 ArenaF5 = SdbArenaGetPos(Arena);
 
-    sdb_string_builder Builder;
-    SdbStrBuilderInit(&Builder, Arena);
-
-    char *Name = TableNameItem->valuestring;
-    SdbStrBuilderAppend(&Builder, "CREATE TABLE IF NOT EXISTS ");
-    SdbStrBuilderAppend(&Builder, Name);
-    SdbStrBuilderAppend(&Builder, "(\nid SERIAL PRIMARY KEY,\nprotocol TEXT,\n");
+    sdb_string CreationQuery = SdbStringMake(Arena, "CREATE TABLE IF NOT EXISTS ");
+    (void)SdbStringAppendC(CreationQuery, TableNameItem->valuestring);
+    (void)SdbStringAppendC(CreationQuery, "(\nid SERIAL PRIMARY KEY,\nprotocol TEXT,\n");
 
     cJSON *DataItem = cJSON_GetObjectItem(SchemaConf, "data");
     if(DataItem == NULL || !cJSON_IsObject(DataItem)) {
@@ -325,19 +320,18 @@ CreateTablesFromSchemaConf(PGconn *Conn, cJSON *SchemaConf, sdb_arena *Arena)
     cJSON_ArrayForEach(CurrentElement, DataItem)
     {
         if(cJSON_IsString(CurrentElement)) {
-            SdbStrBuilderAppend(&Builder, CurrentElement->string);
-            SdbStrBuilderAppend(&Builder, " ");
-            SdbStrBuilderAppend(&Builder, CurrentElement->valuestring);
-            SdbStrBuilderAppend(&Builder, ",\n");
+            (void)SdbStringAppendC(CreationQuery, CurrentElement->string);
+            (void)SdbStringAppendC(CreationQuery, " ");
+            (void)SdbStringAppendC(CreationQuery, CurrentElement->valuestring);
+            (void)SdbStringAppendC(CreationQuery, ",\n");
         }
     }
 
-    Builder.Len -= 2;
-    SdbStrBuilderAppend(&Builder, ");");
-    char *TableCreationQuery = SdbStrBuilderGetString(&Builder);
-    SdbPrintfDebug("Table creation query:\n%s\n", TableCreationQuery);
+    SdbStringBackspace(CreationQuery, 2);
+    SdbStringAppendC(CreationQuery, ");");
+    SdbPrintfDebug("Table creation query:\n%s\n", CreationQuery);
 
-    PGresult *CreateRes = PQexec(Conn, TableCreationQuery);
+    PGresult *CreateRes = PQexec(Conn, CreationQuery);
     if(PQresultStatus(CreateRes) != PGRES_COMMAND_OK) {
         SdbLogError("Table creation failed: %s", PQerrorMessage(Conn));
         PQclear(CreateRes);
@@ -346,12 +340,10 @@ CreateTablesFromSchemaConf(PGconn *Conn, cJSON *SchemaConf, sdb_arena *Arena)
     } else {
         SdbLogInfo("Table '%s' created successfully (or it already existed).",
                    TableNameItem->valuestring);
+        PQclear(CreateRes);
+        SdbArenaSeek(Arena, ArenaF5);
+        return 0;
     }
-
-    PQclear(CreateRes);
-    SdbArenaSeek(Arena, ArenaF5);
-
-    return 0;
 }
 
 sdb_errno

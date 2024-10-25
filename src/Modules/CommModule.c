@@ -3,7 +3,6 @@
 SDB_LOG_REGISTER(CommModule);
 
 #include <src/CommProtocols/CommProtocols.h>
-#include <src/Common/Errno.h>
 #include <src/Common/Thread.h>
 #include <src/Modules/CommModule.h>
 

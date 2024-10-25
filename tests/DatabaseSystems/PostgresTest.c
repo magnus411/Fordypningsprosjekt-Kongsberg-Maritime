@@ -4,6 +4,8 @@
 
 SDB_LOG_REGISTER(PostgresTest);
 
+SDB_THREAD_ARENAS_REGISTER(PostgresTest, 2);
+
 #include <src/DatabaseSystems/DatabaseInitializer.h>
 #include <src/DatabaseSystems/Postgres.h>
 #include <src/Libs/cJSON/cJSON.h>
@@ -66,8 +68,14 @@ TestBinaryInsert(PGconn *DbConnection, const char *TableName, u64 TableNameLen)
 sdb_errno
 PgInitTest(database_api *Pg)
 {
-    u64            ArenaF5  = SdbArenaGetPos(&Pg->Arena);
-    sdb_file_data *ConfFile = SdbLoadFileIntoMemory(POSTGRES_CONF_FS_PATH, &Pg->Arena);
+    SdbThreadArenasInit(PostgresTest);
+    sdb_arena *Scratch1 = SdbArenaBootstrap(&Pg->Arena, NULL, SdbKibiByte(512));
+    sdb_arena *Scratch2 = SdbArenaBootstrap(&Pg->Arena, NULL, SdbKibiByte(512));
+    SdbThreadArenasAdd(Scratch1);
+    SdbThreadArenasAdd(Scratch2);
+
+    sdb_scratch_arena Scratch  = SdbScratchGet(NULL, 0);
+    sdb_file_data    *ConfFile = SdbLoadFileIntoMemory(POSTGRES_CONF_FS_PATH, Scratch.Arena);
     // TODO(ingar): Make pg config a json file
     if(ConfFile == NULL) {
         SdbLogError("Failed to open config file");
@@ -81,20 +89,21 @@ PgInitTest(database_api *Pg)
     if(PQstatus(Conn) != CONNECTION_OK) {
         SdbLogError("Connection to database failed. PQ error:\n%s", PQerrorMessage(Conn));
         PQfinish(Conn);
-        SdbArenaSeek(&Pg->Arena, ArenaF5);
+        SdbScratchRelease(Scratch);
         return -1;
     } else {
         SdbLogInfo("Connected!");
     }
-    SdbArenaSeek(&Pg->Arena, ArenaF5);
 
-    cJSON *SchemaConf = DbInitGetConfFromFile("configs/shaft_power.json", &Pg->Arena);
-    if(CreateTablesFromSchemaConf(Conn, SchemaConf, &Pg->Arena) != 0) {
+    cJSON *SchemaConf = DbInitGetConfFromFile("configs/shaft_power.json", Scratch.Arena);
+    if(CreateTablesFromSchemaConf(Conn, SchemaConf, Scratch.Arena) != 0) {
         cJSON_Delete(SchemaConf);
+        SdbScratchRelease(Scratch);
         return -1;
     }
     cJSON_Delete(SchemaConf);
 
+    SdbScratchRelease(Scratch);
     postgres_ctx *PgCtx  = SdbPushStruct(&Pg->Arena, postgres_ctx);
     PgCtx->InsertBufSize = SdbKibiByte(4);
     PgCtx->InsertBuf     = SdbPushArray(&Pg->Arena, u8, PgCtx->InsertBufSize);

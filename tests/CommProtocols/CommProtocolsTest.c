@@ -3,7 +3,6 @@
 SDB_LOG_REGISTER(CommProtocolsTest);
 
 #include <src/CommProtocols/CommProtocols.h>
-#include <src/Common/Errno.h>
 #include <src/Common/SensorDataPipe.h>
 
 #include <tests/CommProtocols/CommProtocolsTest.h>

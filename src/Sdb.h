@@ -23,8 +23,6 @@
 #include <stdbool.h>
 #endif // C/C++
 
-#include <src/Common/Errno.h>
-
 ////////////////////////////////////////
 //              DEFINES               //
 ////////////////////////////////////////
@@ -49,6 +47,7 @@ SDB_BEGIN_EXTERN_C
 #define sdb_persist  static
 #define sdb_global   static
 
+
 typedef uint8_t  u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
@@ -58,6 +57,31 @@ typedef int8_t  i8;
 typedef int16_t i16;
 typedef int32_t i32;
 typedef int64_t i64;
+
+
+/**
+ * sdb_errno is a custom type to represent error and success codes in systems using Sdb.
+ * Values >= 0 indicate success, while values < 0 indicate errors.
+ *
+ * Generic success is defined as 0, and generic error is defined as -1.
+ * Custom errno codes can be defined in the below enum.
+ *
+ * When appropriate, negative POSIX errno values can be returned,
+ * e.g. -EINVAL.
+ */
+typedef int_least32_t sdb_errno;
+enum
+{
+    SDBE_SUCCESS = 0,
+    SDBE_ERR     = 1,
+
+    SDBE_DBS_UNAVAIL = 2,
+    SDBE_CP_UNAVAIL  = 3,
+
+    SDBE_CONN_CLOSED_SUCS = 4,
+    SDBE_CONN_CLOSED_ERR  = 5,
+};
+
 
 #define SDB_EXPAND(x)       x
 #define SDB__STRINGIFY__(x) #x
@@ -69,6 +93,7 @@ typedef int64_t i64;
 #define SDB__CONCAT3__(x, y, z) x##y##z
 #define SDB_CONCAT3(x, y, z)    SDB__CONCAT3__(x, y, z)
 
+
 #define SdbKiloByte(Number) (Number * 1000ULL)
 #define SdbMegaByte(Number) (SdbKiloByte(Number) * 1000ULL)
 #define SdbGigaByte(Number) (SdbMegaByte(Number) * 1000ULL)
@@ -79,10 +104,14 @@ typedef int64_t i64;
 #define SdbGibiByte(Number) (SdbMebiByte(Number) * 1024ULL)
 #define SdbTebiByte(Number) (SdbGibiByte(Number) * 1024ULL)
 
+
 #define SdbArrayLen(Array) (sizeof(Array) / sizeof(Array[0]))
+
 
 #define SdbMax(a, b) ((a > b) ? a : b)
 #define SdbMin(a, b) ((a < b) ? a : b)
+
+
 bool   SdbDoubleEpsilonCompare(const double A, const double B);
 u64    SdbDoubleSignBit(double F);
 double SdbRadiansFromDegrees(double Degrees);
@@ -138,7 +167,7 @@ i64 Sdb__WriteLog__(sdb__log_module__ *Module, const char *LogLevel, const char 
     = &SDB_CONCAT3(Sdb__LogModule, module_name, __)
 
 #define SDB_LOG_DECLARE(name)                                                                      \
-    sdb__log_module__         SDB_CONCAT3(Sdb__LogModule, name, __);                               \
+    extern sdb__log_module__  SDB_CONCAT3(Sdb__LogModule, name, __);                               \
     static sdb__log_module__ *Sdb__LogInstance__ __attribute__((used))                             \
     = &SDB_CONCAT3(Sdb__LogModule, name, __)
 
@@ -169,11 +198,6 @@ i64 Sdb__WriteLog__(sdb__log_module__ *Module, const char *LogLevel, const char 
 //               MEMORY               //
 ////////////////////////////////////////
 
-void SdbMemZero(void *Mem, u64 Size);
-void SdbMemZeroSecure(void *Mem, u64 Size);
-#define SdbMemZeroStruct(struct)       SdbMemZero(struct, sizeof(*struct))
-#define SdbMemZeroStructSecure(struct) SdbMemZeroSecure(struct, sizeof(*struct))
-
 typedef struct sdb_slice
 {
     u64 Len;
@@ -181,36 +205,82 @@ typedef struct sdb_slice
     u8 *Mem;
 } sdb_slice;
 
-// TODO(ingar): Make stack support, maybe by having an array which you can set the size of that
-// contains positions
 typedef struct sdb_arena
 {
     u64 Cur;
     u64 Cap;
     u8 *Mem;
+
 } sdb_arena;
 
 typedef struct
 {
     sdb_arena *Arena;
     u64        F5;
+
 } sdb_scratch_arena;
+
+typedef struct
+{
+    sdb_arena **Arenas;
+    u64         Count;
+    u64         MaxCount;
+
+} sdb__thread_arenas__;
+
+
+#define SDB_THREAD_ARENAS_REGISTER(thread_name, count)                                             \
+    static __thread sdb_arena *SDB_CONCAT3(Sdb__ThreadArenas, thread_name, Buffer__)[count]        \
+        __attribute__((used));                                                                     \
+    static __thread sdb__thread_arenas__ SDB_CONCAT3(Sdb__ThreadArenas, thread_name, __)           \
+        __attribute__((used))                                                                      \
+        = { .Arenas = NULL, .Count = 0, .MaxCount = count };                                       \
+    static __thread sdb__thread_arenas__ *Sdb__ThreadArenasInstance__ __attribute__((used))
+
+// WARN: Must be used at runtime, not compile time. This is because you cannot take the address of a
+// __thread varible in static initialization, since the address will differ per thread.
+void Sdb__ThreadArenasInit__(sdb_arena *TABuf[], sdb__thread_arenas__ *TAs,
+                             sdb__thread_arenas__ **TAInstance);
+#define SdbThreadArenasInit(thread_name)                                                           \
+    Sdb__ThreadArenasInit__(SDB_CONCAT3(Sdb__ThreadArenas, thread_name, Buffer__),                 \
+                            &SDB_CONCAT3(Sdb__ThreadArenas, thread_name, __),                      \
+                            &Sdb__ThreadArenasInstance__)
+
+sdb_errno Sdb__ThreadArenasAdd__(sdb_arena *Arena, sdb__thread_arenas__ *TAInstance);
+#define SdbThreadArenasAdd(arena) Sdb__ThreadArenasAdd__(arena, Sdb__ThreadArenasInstance__)
+
+sdb_scratch_arena SdbScratchBegin(sdb_arena *Arena);
+
+sdb_scratch_arena Sdb__ScratchGet__(sdb_arena **Conflicts, u64 ConflictCount,
+                                    sdb__thread_arenas__ *TAs);
+#define SdbScratchGet(conflicts, conflict_count)                                                   \
+    Sdb__ScratchGet__(conflicts, conflict_count, Sdb__ThreadArenasInstance__)
+
+void Sdb__ScratchRelease__(sdb_scratch_arena Scratch);
+#define SdbScratchRelease(scratch) Sdb__ScratchRelease__(scratch)
+
+sdb_scratch_arena SdbScratchBegin(sdb_arena *Arena);
+
+void SdbMemZero(void *Mem, u64 Size);
+void SdbMemZeroSecure(void *Mem, u64 Size);
+#define SdbMemZeroStruct(struct)       SdbMemZero(struct, sizeof(*struct))
+#define SdbMemZeroStructSecure(struct) SdbMemZeroSecure(struct, sizeof(*struct))
 
 void *SdbMemcpy(void *__restrict To, const void *__restrict From, size_t Len);
 void *SdbMemset(void *__restrict Data, int SetTo, size_t Len);
+bool  SdbMemcmp(const void *Lhs, const void *Rhs, size_t Len);
 
 void       SdbArenaInit(sdb_arena *Arena, u8 *Mem, u64 Size);
 sdb_arena *SdbArenaBootstrap(sdb_arena *Arena, sdb_arena *NewArena_, u64 Size);
 
-sdb_scratch_arena SdbScratchArena(sdb_arena **Conflicts, u64 ConflictCount);
-void              SdbScratchRelease(sdb_scratch_arena ScratchArena);
-
 void *SdbArenaPush(sdb_arena *Arena, u64 Size);
 void *SdbArenaPushZero(sdb_arena *Arena, u64 Size);
-void  SdbArenaPop(sdb_arena *Arena, u64 Size);
+void *SdbArenaPop(sdb_arena *Arena, u64 Size);
 
-u64  SdbArenaGetPos(sdb_arena *Arena);
-void SdbArenaSeek(sdb_arena *Arena, u64 Pos);
+u64   SdbArenaRemaining(sdb_arena *Arena);
+u64   SdbArenaGetPos(sdb_arena *Arena);
+void *SdbArenaSeek(sdb_arena *Arena, u64 Pos);
+u64   SdbArenaReserve(sdb_arena *Arena, u64 Size);
 
 void SdbArenaClear(sdb_arena *Arena);
 void SdbArenaClearZero(sdb_arena *Arena);
@@ -223,7 +293,6 @@ void SdbArenaClearZero(sdb_arena *Arena);
 
 void SdbArrayShift(void *Mem, u64 From, u64 To, u64 Count, u64 ElementSize);
 #define SdbArrayDeleteAndShift(mem, i, count, esize) SdbArrayShift(mem, (i + 1), i, count, esize)
-
 
 #define SDB_POOL_ALLOCATOR_DEFINE(type_name, func_name)                                            \
     typedef struct type_name##_pool                                                                \
@@ -262,11 +331,19 @@ u64   SdbStrlen(const char *String);
 char *SdbStrdup(char *String, sdb_arena *Arena);
 
 
-// Based on ginger bills gbString implementation. A few assumptions being made:
-// The strings are not intended to be reallocated. If something has been pushed onto the arena, and
-// you use a function that increases the strings length or capacity, it will *NOT* work (atm).
-// Therefore, you should ideally use a scratch allocator to build a string and then copy it to
-// permanent storage once it's finished and will not be altered further
+// Based on ginger bills gbString implementation.
+//
+// A few assumptions being made:
+// The strings are not intended to be reallocated at a new address. If something has been pushed
+// onto the arena, and you use a function that increases the strings length or capacity, it will
+// *NOT* work (at least for the moment).
+//
+// The way it works is that sdb_string functions return a pointer to to the C-string, which is
+// always null-terminated, while an "invisible" header precedes it in memory. The advantage of this
+// is that an sdb_string can be passed to any function that accepts a C-string, and it will work
+// correctly. This avoids the typical "improved strings" pattern of having to access the string a la
+// custom_string->cstring. This improves the ergonomics of sdb_strings, and also improves cache
+// behavior since the header and the C-string are always contiguous in memory.
 typedef char *sdb_string;
 typedef struct
 {
@@ -277,26 +354,27 @@ typedef struct
 } sdb_string_header;
 
 #define SDB_STRING_HEADER(str) ((sdb_string_header *)(str)-1)
-sdb_string Sdb__StringMake(sdb_arena *A, const void *InitString, u64 Len);
 
-u64        SdbStringLength(sdb_string String);
+u64 SdbStringLen(sdb_string String);
+u64 SdbStringCap(sdb_string String);
+u64 SdbStringAvailableSpace(sdb_string String);
+u64 SdbStringAllocSize(sdb_string String);
+
+sdb_string SdbStringMakeSpace(sdb_string String, u64 AddLen);
 sdb_string SdbStringMake(sdb_arena *A, const char *String);
 void       SdbStringFree(sdb_string String);
 
+sdb_string SdbStringDuplicate(sdb_arena *A, const sdb_string String);
+void       SdbStringClear(sdb_string String);
+sdb_string SdbStringSet(sdb_string String, const char *CString);
+void       SdbStringBackspace(sdb_string String, u64 N);
 
-typedef struct
-{
-    u64 Len; /* Does not include the null terminator*/
-    u64 Cap;
-    u64 ArenaPos;
+sdb_string SdbStringAppend(sdb_string String, sdb_string Other);
+sdb_string SdbStringAppendC(sdb_string String, const char *Other);
+sdb_string SdbStringAppendFmt(sdb_string String, const char *Fmt, ...);
 
-    sdb_arena *Arena;
-    char      *Str; /* Will always be null-terminated for simplicity */
-} sdb_string_builder;
+bool SdbStringsAreEqual(sdb_string Lhs, sdb_string Rhs);
 
-void  SdbStrBuilderInit(sdb_string_builder *Builder, sdb_arena *Arena);
-void  SdbStrBuilderAppend(sdb_string_builder *Builder, char *String);
-char *SdbStrBuilderGetString(sdb_string_builder *Builder);
 
 ////////////////////////////////////////
 //                RNG                 //
@@ -304,6 +382,9 @@ char *SdbStrBuilderGetString(sdb_string_builder *Builder);
 
 // Implementation of the PCG algorithm (https://www.pcg-random.org)
 // It's the caller's responsibilites to have called SeedRandPCG before use
+// WARN: The pcg state is statically allocated inside Sdb__GetPCGState__, and is not protected by a
+// lock, which means race conditions can occurr if multiple threads use it! (Though maybe this
+// actually improves unpredictability?)
 
 u32 *Sdb__GetPCGState__(void);
 u32  SdbRandPCG(void);
@@ -324,13 +405,14 @@ bool SdbWriteBufferToFile(void *Buffer, u64 ElementSize, u64 ElementCount, const
 bool SdbWrite_sdb_file_data_ToFile(sdb_file_data *FileData, const char *Filename);
 
 ////////////////////////////////////////
-//             TOKENIZER              //
+//            "TOKENIZER"             //
 ////////////////////////////////////////
 
 typedef struct
 {
     char *Start;
     u64   Len;
+
 } sdb_token;
 
 sdb_token SdbGetNextToken(char **Cursor);
@@ -372,10 +454,6 @@ SDB_END_EXTERN_C
 #undef calloc
 #undef realloc
 #undef free
-#endif
-
-#if defined(__cplusplus)
-SDB_BEGIN_EXTERN_C
 #endif
 
 ////////////////////////////////////////
@@ -514,8 +592,20 @@ SdbMemset(void *__restrict Data, int SetTo, size_t Len)
     for(size_t i = 0; i < Len; ++i) {
         ((u8 *)Data)[i] = SetTo;
     }
-
     return Data;
+}
+
+bool
+SdbMemcmp(const void *Lhs, const void *Rhs, size_t Len)
+{
+    // NOTE(ingar): The compiler (probably) won't replace this one with memcmp, but GCC didn't
+    // replace their own memcmp implementation with a call to memcmp, so that's just on them
+    for(size_t i = 0; i < Len; ++i) {
+        if(((u8 *)Lhs)[i] != ((u8 *)Rhs)[i]) {
+            return false;
+        }
+    }
+    return true;
 }
 
 void
@@ -527,6 +617,9 @@ SdbMemZero(void *__restrict Mem, u64 Size)
 void /* From https://github.com/BLAKE2/BLAKE2/blob/master/ref/blake2-impl.h */
 SdbMemZeroSecure(void *Mem, u64 Size)
 {
+    // NOTE(ingar): This prevents the compiler from optimizing away memset. This could be replaced
+    // by a call to memset_s if one uses C11, but this method should be compatible with earlier C
+    // standards
     static void *(*const volatile memset_v)(void *, int, u64) = &memset;
     (void)memset_v(Mem, 0, Size);
 }
@@ -558,15 +651,14 @@ SdbArenaBootstrap(sdb_arena *Arena, sdb_arena *NewArena_, u64 Size)
     return NewArena;
 }
 
-
 // TODO(ingar): Create aligning pushes
 void *
 SdbArenaPush(sdb_arena *Arena, u64 Size)
 {
-    if((Arena->Cur + Size) <= Arena->Cap) {
+    if(Arena->Cur + Size <= Arena->Cap) {
         u8 *AllocedMem = Arena->Mem + Arena->Cur;
         Arena->Cur += Size;
-        return (void *)AllocedMem;
+        return AllocedMem;
     }
 
     return NULL;
@@ -575,21 +667,32 @@ SdbArenaPush(sdb_arena *Arena, u64 Size)
 void *
 SdbArenaPushZero(sdb_arena *Arena, u64 Size)
 {
-    if((Arena->Cur + Size) <= Arena->Cap) {
+    if(Arena->Cur + Size <= Arena->Cap) {
         u8 *AllocedMem = Arena->Mem + Arena->Cur;
         Arena->Cur += Size;
-        SdbMemZeroSecure(AllocedMem, Size);
-        return (void *)AllocedMem;
+        SdbMemZero(AllocedMem, Size);
+        return AllocedMem;
     }
 
     return NULL;
 }
 
-void
+u64
+SdbArenaRemaining(sdb_arena *Arena)
+{
+    return Arena->Cap - Arena->Cur;
+}
+
+// TODO(ingar): Does returning the position add overhead/is it necessary?
+void *
 SdbArenaPop(sdb_arena *Arena, u64 Size)
 {
-    assert(Arena->Cur >= Size);
-    Arena->Cur -= Size;
+    if(Arena->Cur >= Size) {
+        Arena->Cur -= Size;
+        return Arena->Mem + Arena->Cur;
+    }
+
+    return NULL;
 }
 
 u64
@@ -599,11 +702,26 @@ SdbArenaGetPos(sdb_arena *Arena)
     return Pos;
 }
 
-void
+void *
 SdbArenaSeek(sdb_arena *Arena, u64 Pos)
 {
-    assert(0 <= Pos && Pos <= Arena->Cap);
-    Arena->Cur = Pos;
+    if(0 <= Pos && Pos <= Arena->Cap) {
+        Arena->Cur = Pos;
+        return Arena->Mem + Arena->Cur;
+    }
+
+    return NULL;
+}
+
+u64
+SdbArenaReserve(sdb_arena *Arena, u64 Size)
+{
+    if(Arena->Cur + Size <= Arena->Cap) {
+        Arena->Cur += Size;
+        return Size;
+    } else {
+        return SdbArenaRemaining(Arena);
+    }
 }
 
 void
@@ -615,8 +733,59 @@ SdbArenaClear(sdb_arena *Arena)
 void
 SdbArenaClearZero(sdb_arena *Arena)
 {
-    SdbMemZeroSecure(Arena->Mem, Arena->Cap);
+    SdbMemZero(Arena->Mem, Arena->Cap);
     Arena->Cur = 0;
+}
+
+void
+Sdb__ThreadArenasInit__(sdb_arena *TABuf[], sdb__thread_arenas__ *TAs,
+                        sdb__thread_arenas__ **TAInstance)
+{
+    TAs->Arenas = TABuf;
+    *TAInstance = TAs;
+}
+
+sdb_errno
+Sdb__ThreadArenasAdd__(sdb_arena *Arena, sdb__thread_arenas__ *TAInstance)
+{
+    if(TAInstance->Count + 1 <= TAInstance->MaxCount) {
+        TAInstance->Arenas[TAInstance->Count++] = Arena;
+        return 0;
+    }
+
+    return -1;
+}
+
+sdb_scratch_arena
+SdbScratchBegin(sdb_arena *Arena)
+{
+    sdb_scratch_arena Scratch;
+    Scratch.Arena = Arena;
+    Scratch.F5    = SdbArenaGetPos(Arena);
+    return Scratch;
+}
+
+sdb_scratch_arena
+Sdb__ScratchGet__(sdb_arena **Conflicts, u64 ConflictCount, sdb__thread_arenas__ *TAs)
+{
+    sdb_arena *Arena = TAs->Arenas[0];
+    if(ConflictCount > 0) {
+        for(u64 i = 0; i < TAs->Count; ++i) {
+            for(u64 j = 0; j < ConflictCount; ++j) {
+                if(TAs->Arenas[i] != Conflicts[j]) {
+                    Arena = TAs->Arenas[i];
+                }
+            }
+        }
+    }
+
+    return SdbScratchBegin(Arena);
+}
+
+void
+Sdb__ScratchRelease__(sdb_scratch_arena Scratch)
+{
+    SdbArenaSeek(Scratch.Arena, Scratch.F5);
 }
 
 void
@@ -674,8 +843,51 @@ SdbStrdup(char *String, sdb_arena *Arena)
     return NewString;
 }
 
+//
+// SDB String
+//
+
+u64
+SdbStringLen(sdb_string String)
+{
+    return SDB_STRING_HEADER(String)->Len;
+}
+u64 SdbStringCap(sdb_string String);
+
+u64
+SdbStringCap(sdb_string String)
+{
+    return SDB_STRING_HEADER(String)->Cap;
+}
+
+u64
+SdbStringAvailableSpace(sdb_string String)
+{
+    sdb_string_header *Header = SDB_STRING_HEADER(String);
+    return Header->Cap - Header->Len;
+}
+
+u64
+SdbStringAllocSize(sdb_string String)
+{
+    u64 Size = sizeof(sdb_string_header) + SdbStringCap(String);
+    return Size;
+}
+
+void
+Sdb__StringSetLen__(sdb_string String, u64 Len)
+{
+    SDB_STRING_HEADER(String)->Len = Len;
+}
+
+void
+Sdb__StringSetCap__(sdb_string String, u64 Cap)
+{
+    SDB_STRING_HEADER(String)->Cap = Cap;
+}
+
 sdb_string
-Sdb__StringMake(sdb_arena *A, const void *InitString, u64 Len)
+Sdb__StringMake__(sdb_arena *A, const void *InitString, u64 Len)
 {
     size_t HeaderSize = sizeof(sdb_string_header);
     void  *Ptr        = SdbArenaPush(A, HeaderSize + Len + 1);
@@ -703,79 +915,136 @@ Sdb__StringMake(sdb_arena *A, const void *InitString, u64 Len)
     return String;
 }
 
-u64
-SdbStringLength(sdb_string String)
-{
-    return SDB_STRING_HEADER(String)->Len;
-}
-u64 SdbStringCapacity(sdb_string String);
-
-u64
-SdbStringCapacity(sdb_string String)
-{
-    return SDB_STRING_HEADER(String)->Cap;
-}
-
-
 sdb_string
 SdbStringMake(sdb_arena *A, const char *String)
 {
     u64 Len = (String != NULL) ? SdbStrlen(String) : 0;
-    return Sdb__StringMake(A, String, Len);
+    return Sdb__StringMake__(A, String, Len);
 }
 
 void
 SdbStringFree(sdb_string String)
 {
     if(String != NULL) {
-        size_t PopSize = sizeof(sdb_string_header) + SdbStrlen(String) + 1;
-        SdbArenaPop(SDB_STRING_HEADER(String)->Arena, PopSize);
+        sdb_string_header *H       = SDB_STRING_HEADER(String);
+        u64                PopSize = sizeof(sdb_string_header) + H->Cap + 1;
+        SdbArenaPop(H->Arena, PopSize);
     }
 }
 
-void
-SdbStrBuilderInit(sdb_string_builder *Builder, sdb_arena *Arena)
+sdb_string
+SdbStringDuplicate(sdb_arena *A, const sdb_string String)
 {
-    Builder->Len      = 0;
-    Builder->Cap      = 1;
-    Builder->Arena    = Arena;
-    Builder->Str      = SdbPushArray(Arena, char, 1);
-    Builder->ArenaPos = SdbArenaGetPos(Arena);
+    return Sdb__StringMake__(A, String, SdbStringLen(String));
 }
 
 void
-SdbStrBuilderAppend(sdb_string_builder *Builder, char *String)
+SdbStringClear(sdb_string String)
 {
-    u64 StrLen = SdbStrlen(String);
-    if(Builder->Len + StrLen > Builder->Cap) {
-        u64 ArenaPos = SdbArenaGetPos(Builder->Arena);
-        u64 NewCap   = Builder->Cap * 1.5 + StrLen;
+    Sdb__StringSetLen__(String, 0);
+    String[0] = '\0';
+}
 
-        if(ArenaPos == Builder->ArenaPos) {
-            // Nothing has been allocated on the arena after the string, so we simply push the arena
-            // pos up by how much we need
-            u64 ArenaSeek = ArenaPos + NewCap - Builder->Cap;
-            SdbArenaSeek(Builder->Arena, ArenaPos + ArenaSeek);
-            Builder->ArenaPos = ArenaPos + ArenaSeek;
-        } else {
-            char *NewLocation = SdbPushArray(Builder->Arena, char, NewCap);
-            SdbMemcpy(NewLocation, Builder->Str, Builder->Len);
-            Builder->Str = NewLocation;
+void
+SdbStringBackspace(sdb_string String, u64 N)
+{
+    u64 NewLen = SdbStringLen(String) - N;
+    Sdb__StringSetLen__(String, NewLen);
+    String[NewLen] = '\0';
+}
+
+sdb_string
+SdbStringMakeSpace(sdb_string String, u64 AddLen)
+{
+#ifdef DEBUG
+    // NOTE(ingar): Only here to be able to see the header in the debugger
+    sdb_string_header *__Header__ = SDB_STRING_HEADER(String);
+#endif
+    u64 Available = SdbStringAvailableSpace(String);
+    if(Available < AddLen) {
+        sdb_arena *A        = SDB_STRING_HEADER(String)->Arena;
+        u64        Reserved = SdbArenaReserve(A, AddLen);
+        if(Reserved < AddLen) {
+            return NULL;
         }
-        Builder->Cap = NewCap;
+
+        u64 NewCap = SdbStringCap(String) + AddLen;
+        Sdb__StringSetCap__(String, NewCap);
+    }
+    return String;
+}
+
+sdb_string
+Sdb__StringAppend__(sdb_string String, const void *Other, u64 OtherLen)
+{
+#ifdef DEBUG
+    // NOTE(ingar): Only here to be able to see the header in the debugger
+    sdb_string_header *__Header__ = SDB_STRING_HEADER(String);
+#endif
+    String = SdbStringMakeSpace(String, OtherLen);
+    if(String == NULL) {
+        return NULL;
     }
 
-    SdbMemcpy(Builder->Str + Builder->Len, String, StrLen);
-    Builder->Len += StrLen;
-    Builder->Str[Builder->Len] = '\0';
+    u64 CurLen = SdbStringLen(String);
+    SdbMemcpy(String + CurLen, Other, OtherLen);
+    Sdb__StringSetLen__(String, CurLen + OtherLen);
+    String[CurLen + OtherLen] = '\0';
+    return String;
 }
 
-char *
-SdbStrBuilderGetString(sdb_string_builder *Builder)
+sdb_string
+SdbStringAppend(sdb_string String, sdb_string Other)
 {
-    return Builder->Str;
+    return Sdb__StringAppend__(String, Other, SdbStringLen(Other));
 }
 
+sdb_string
+SdbStringAppendC(sdb_string String, const char *Other)
+{
+    return Sdb__StringAppend__(String, Other, SdbStrlen(Other));
+}
+
+sdb_string
+SdbStringAppendFmt(sdb_string String, const char *Fmt, ...)
+{
+    // TODO(ingar): Make arena mandatory or use String's arena?
+    char    Buf[1024] = { 0 };
+    va_list Va;
+    va_start(Va, Fmt);
+    u64 FmtLen = snprintf(Buf, SdbArrayLen(Buf), Fmt, Va); // TODO(ingar): stb_sprintf?
+    va_end(Va);
+    return Sdb__StringAppend__(String, Buf, FmtLen);
+}
+
+sdb_string
+SdbStringSet(sdb_string String, const char *CString)
+{
+    u64 Len = SdbStrlen(CString);
+    String  = SdbStringMakeSpace(String, Len);
+    if(String == NULL) {
+        return NULL;
+    }
+
+    SdbMemcpy(String, CString, Len);
+    String[Len] = '\0';
+    Sdb__StringSetLen__(String, Len);
+
+    return String;
+}
+
+bool
+SdbStringsAreEqual(sdb_string Lhs, sdb_string Rhs)
+{
+    u64 LStringLen = SdbStringLen(Lhs);
+    u64 RStringLen = SdbStringLen(Rhs);
+
+    if(LStringLen != RStringLen) {
+        return false;
+    } else {
+        return SdbMemcmp(Lhs, Rhs, LStringLen);
+    }
+}
 
 ////////////////////////////////////////
 //                RNG                 //
@@ -784,7 +1053,7 @@ SdbStrBuilderGetString(sdb_string_builder *Builder)
 u32 *
 Sdb__GetPCGState__(void)
 {
-    sdb_persist uint32_t Sdb__PCGState = 0;
+    static uint32_t Sdb__PCGState = 0;
     return &Sdb__PCGState;
 }
 
@@ -947,10 +1216,6 @@ Sdb__FreeTrace__(void *Pointer, int Line, const char *Func, sdb__log_module__ *M
 #define realloc(Pointer, Size)                                                                     \
     Sdb__ReallocTrace__(Pointer, Size, __LINE__, __func__, Sdb__LogInstance__)
 #define free(Pointer) Sdb__FreeTrace__(Pointer, __LINE__, __func__, Sdb__LogInstance__)
-#endif
-
-#if defined(__cplusplus)
-SDB_END_EXTERN_C
 #endif
 
 // NOLINTEND(misc-definitions-in-headers)
