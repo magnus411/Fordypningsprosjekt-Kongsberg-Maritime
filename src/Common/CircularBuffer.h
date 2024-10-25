@@ -38,7 +38,6 @@ typedef struct
     pthread_cond_t  NotEmpty;
     pthread_cond_t  NotFull;
 
-    int Fd;
 
 } circular_buffer;
 
