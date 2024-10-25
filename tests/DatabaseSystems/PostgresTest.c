@@ -9,7 +9,9 @@ SDB_THREAD_ARENAS_REGISTER(PostgresTest, 2);
 #include <src/DatabaseSystems/DatabaseInitializer.h>
 #include <src/DatabaseSystems/Postgres.h>
 #include <src/Libs/cJSON/cJSON.h>
+
 #include <tests/DatabaseSystems/PostgresTest.h>
+#include <tests/TestConstants.h>
 
 void
 TestBinaryInsert(PGconn *DbConnection, const char *TableName, u64 TableNameLen)
@@ -73,9 +75,9 @@ PgInitTest(database_api *Pg)
     sdb_arena *Scratch2 = SdbArenaBootstrap(&Pg->Arena, NULL, SdbKibiByte(512));
     SdbThreadArenasAdd(Scratch1);
     SdbThreadArenasAdd(Scratch2);
+    sdb_scratch_arena Scratch = SdbScratchGet(NULL, 0);
 
-    sdb_scratch_arena Scratch  = SdbScratchGet(NULL, 0);
-    sdb_file_data    *ConfFile = SdbLoadFileIntoMemory(POSTGRES_CONF_FS_PATH, Scratch.Arena);
+    sdb_file_data *ConfFile = SdbLoadFileIntoMemory(POSTGRES_CONF_FS_PATH, Scratch.Arena);
     // TODO(ingar): Make pg config a json file
     if(ConfFile == NULL) {
         SdbLogError("Failed to open config file");
@@ -95,8 +97,14 @@ PgInitTest(database_api *Pg)
         SdbLogInfo("Connected!");
     }
 
-    cJSON *SchemaConf = DbInitGetConfFromFile("configs/shaft_power.json", Scratch.Arena);
-    if(CreateTablesFromSchemaConf(Conn, SchemaConf, Scratch.Arena) != 0) {
+    postgres_ctx *PgCtx  = SdbPushStruct(&Pg->Arena, postgres_ctx);
+    PgCtx->InsertBufSize = SdbKibiByte(16);
+    PgCtx->InsertBuf     = SdbPushArray(&Pg->Arena, u8, PgCtx->InsertBufSize);
+    PgCtx->DbConn        = Conn;
+    Pg->Ctx              = PgCtx;
+
+    cJSON *SchemaConf = DbInitGetConfFromFile("./configs/sensor_schemas.json", Scratch.Arena);
+    if(ProcessTablesInConfig(Pg, SchemaConf, Scratch) != 0) {
         cJSON_Delete(SchemaConf);
         SdbScratchRelease(Scratch);
         return -1;
@@ -104,20 +112,14 @@ PgInitTest(database_api *Pg)
     cJSON_Delete(SchemaConf);
 
     SdbScratchRelease(Scratch);
-    postgres_ctx *PgCtx  = SdbPushStruct(&Pg->Arena, postgres_ctx);
-    PgCtx->InsertBufSize = SdbKibiByte(4);
-    PgCtx->InsertBuf     = SdbPushArray(&Pg->Arena, u8, PgCtx->InsertBufSize);
-    PgCtx->DbConn        = Conn;
-    Pg->Ctx              = PgCtx;
-
     return 0;
 }
 
 sdb_errno
 PgRunTest(database_api *Pg)
 {
-    while(true) {
-        ssize_t Ret = SdPipeRead(&Pg->SdPipe, 0, PG_CTX(Pg)->InsertBuf, sizeof(queue_item));
+    for(u64 i = 0; i < MODBUS_PACKET_COUNT; ++i) {
+        ssize_t Ret = SdPipeRead(&Pg->SdPipe, i % 4, PG_CTX(Pg)->InsertBuf, sizeof(queue_item));
         if(Ret > 0) {
             SdbLogDebug("Succesfully read %zd from pipe!", Ret);
         } else {

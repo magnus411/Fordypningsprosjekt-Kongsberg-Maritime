@@ -14,7 +14,7 @@ SDB_BEGIN_EXTERN_C
 
 #define POSTGRES_CONF_FS_PATH "./configs/postgres-conf"
 
-// PostgreSQL Type OIDs and Names
+// PostgreSQL Type OID  and Names
 enum pq_oid
 {
     BOOL        = 16,
