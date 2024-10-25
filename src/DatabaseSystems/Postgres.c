@@ -14,6 +14,7 @@
 #include <src/Sdb.h>
 
 SDB_LOG_REGISTER(Postgres);
+SDB_THREAD_ARENAS_REGISTER(Postgres, 2);
 
 #include <src/Common/CircularBuffer.h>
 #include <src/DatabaseSystems/DatabaseInitializer.h>
@@ -174,6 +175,13 @@ GetTableMetadata(PGconn *DbConn, const char *TableName, u64 TableNameLen, int *C
     return MetadataArray;
 }
 
+sdb_errno
+PrepareStatements(database_api *Pg)
+{
+
+    return 0;
+}
+
 void
 InsertSensorData(PGconn *DbConn, const char *TableName, u64 TableNameLen, const u8 *SensorData,
                  size_t DataSize)
@@ -290,65 +298,83 @@ InsertSensorData(PGconn *DbConn, const char *TableName, u64 TableNameLen, const 
 }
 
 sdb_errno
-CreateTablesFromSchemaConf(PGconn *Conn, cJSON *SchemaConf, sdb_arena *Arena)
+ProcessTablesInConfig(database_api *Pg, cJSON *SchemaConf, sdb_scratch_arena Scratch)
 {
     if(!cJSON_IsObject(SchemaConf)) {
         SdbLogError("Input was not a valid, parsed JSON object.");
         return -1;
     }
 
-    cJSON *TableNameItem = cJSON_GetObjectItem(SchemaConf, "name");
-    if(TableNameItem == NULL || !cJSON_IsString(TableNameItem)) {
-        SdbLogError("JSON does not contain a \"name\" field");
+    cJSON *SensorSchemaArray = cJSON_GetObjectItem(SchemaConf, "sensors");
+    if(SensorSchemaArray == NULL || !cJSON_IsArray(SensorSchemaArray)) {
+        SdbLogError("JSON does not contain a \"sensors\" field");
         return -1;
     }
 
-    u64 ArenaF5 = SdbArenaGetPos(Arena);
+    postgres_ctx *PgCtx = PG_CTX(Pg);
+    PgCtx->TableCount   = cJSON_GetArraySize(SensorSchemaArray);
+    PgCtx->TableNames   = SdbPushArray(&Pg->Arena, sdb_string *, PgCtx->TableCount);
 
-    sdb_string CreationQuery = SdbStringMake(Arena, "CREATE TABLE IF NOT EXISTS ");
-    (void)SdbStringAppendC(CreationQuery, TableNameItem->valuestring);
-    (void)SdbStringAppendC(CreationQuery, "(\nid SERIAL PRIMARY KEY,\nprotocol TEXT,\n");
-
-    cJSON *DataItem = cJSON_GetObjectItem(SchemaConf, "data");
-    if(DataItem == NULL || !cJSON_IsObject(DataItem)) {
-        SdbLogError("JSON does not contain a \"data\" object");
-        SdbArenaSeek(Arena, ArenaF5);
-        return -1;
-    }
-
-    cJSON *CurrentElement = NULL;
-    cJSON_ArrayForEach(CurrentElement, DataItem)
+    u64    Counter      = 0;
+    cJSON *SensorSchema = NULL;
+    cJSON_ArrayForEach(SensorSchema, SensorSchemaArray)
     {
-        if(cJSON_IsString(CurrentElement)) {
-            (void)SdbStringAppendC(CreationQuery, CurrentElement->string);
-            (void)SdbStringAppendC(CreationQuery, " ");
-            (void)SdbStringAppendC(CreationQuery, CurrentElement->valuestring);
-            (void)SdbStringAppendC(CreationQuery, ",\n");
+        if(cJSON_IsObject(SensorSchema)) {
+            cJSON *SensorName = cJSON_GetObjectItem(SensorSchema, "name");
+            if(SensorName != NULL && cJSON_IsString(SensorName)) {
+                sdb_string TableName         = SdbStringMake(&Pg->Arena, SensorName->valuestring);
+                PgCtx->TableNames[Counter++] = &TableName;
+
+                sdb_string CreationQuery
+                    = SdbStringMake(Scratch.Arena, "CREATE TABLE IF NOT EXISTS ");
+                (void)SdbStringAppendC(CreationQuery, SensorName->valuestring);
+                (void)SdbStringAppendC(CreationQuery, "(\nid SERIAL PRIMARY KEY,\n");
+
+                cJSON *SensorData = cJSON_GetObjectItem(SensorSchema, "data");
+                if(SensorData != NULL && cJSON_IsObject(SensorData)) {
+                    cJSON *DataAttribute = NULL;
+                    cJSON_ArrayForEach(DataAttribute, SensorData)
+                    {
+                        if(cJSON_IsString(DataAttribute)) {
+                            (void)SdbStringAppendC(CreationQuery, DataAttribute->string);
+                            (void)SdbStringAppendC(CreationQuery, " ");
+                            (void)SdbStringAppendC(CreationQuery, DataAttribute->valuestring);
+                            (void)SdbStringAppendC(CreationQuery, ",\n");
+                        }
+                    }
+
+                    SdbStringBackspace(CreationQuery, 2);
+                    SdbStringAppendC(CreationQuery, ");");
+                    SdbPrintfDebug("Table creation query:\n%s\n", CreationQuery);
+
+                    PGresult *CreateRes = PQexec(PgCtx->DbConn, CreationQuery);
+                    if(PQresultStatus(CreateRes) != PGRES_COMMAND_OK) {
+                        SdbLogError("Table creation failed: %s", PQerrorMessage(PgCtx->DbConn));
+                        PQclear(CreateRes);
+                        return -1;
+                    } else {
+                        SdbLogInfo("Table '%s' created successfully (or it already existed).",
+                                   TableName);
+                        PQclear(CreateRes);
+                    }
+                }
+            }
         }
     }
 
-    SdbStringBackspace(CreationQuery, 2);
-    SdbStringAppendC(CreationQuery, ");");
-    SdbPrintfDebug("Table creation query:\n%s\n", CreationQuery);
-
-    PGresult *CreateRes = PQexec(Conn, CreationQuery);
-    if(PQresultStatus(CreateRes) != PGRES_COMMAND_OK) {
-        SdbLogError("Table creation failed: %s", PQerrorMessage(Conn));
-        PQclear(CreateRes);
-        SdbArenaSeek(Arena, ArenaF5);
-        return -1;
-    } else {
-        SdbLogInfo("Table '%s' created successfully (or it already existed).",
-                   TableNameItem->valuestring);
-        PQclear(CreateRes);
-        SdbArenaSeek(Arena, ArenaF5);
-        return 0;
-    }
+    return 0;
 }
 
 sdb_errno
 PgInit(database_api *Pg)
 {
+    SdbThreadArenasInit(Postgres);
+    sdb_arena *Scratch1 = SdbArenaBootstrap(&Pg->Arena, NULL, SdbKibiByte(512));
+    sdb_arena *Scratch2 = SdbArenaBootstrap(&Pg->Arena, NULL, SdbKibiByte(512));
+    SdbThreadArenasAdd(Scratch1);
+    SdbThreadArenasAdd(Scratch2);
+    sdb_scratch_arena Scratch = SdbScratchGet(NULL, 0);
+
     u64            ArenaF5  = SdbArenaGetPos(&Pg->Arena);
     sdb_file_data *ConfFile = SdbLoadFileIntoMemory(POSTGRES_CONF_FS_PATH, &Pg->Arena);
     // TODO(ingar): Make pg config a json file
@@ -371,18 +397,18 @@ PgInit(database_api *Pg)
     }
     SdbArenaSeek(&Pg->Arena, ArenaF5);
 
-    cJSON *SchemaConf = DbInitGetConfFromFile("configs/shaft_power.json", &Pg->Arena);
-    if(CreateTablesFromSchemaConf(Conn, SchemaConf, &Pg->Arena) != 0) {
-        cJSON_Delete(SchemaConf);
-        return -1;
-    }
-    cJSON_Delete(SchemaConf);
-
     postgres_ctx *PgCtx  = SdbPushStruct(&Pg->Arena, postgres_ctx);
     PgCtx->InsertBufSize = SdbKibiByte(4);
     PgCtx->InsertBuf     = SdbPushArray(&Pg->Arena, u8, PgCtx->InsertBufSize);
     PgCtx->DbConn        = Conn;
     Pg->Ctx              = PgCtx;
+
+    cJSON *SchemaConf = DbInitGetConfFromFile("./configs/sensor_schemas.json", &Pg->Arena);
+    if(ProcessTablesInConfig(Pg, SchemaConf, Scratch) != 0) {
+        cJSON_Delete(SchemaConf);
+        return -1;
+    }
+    cJSON_Delete(SchemaConf);
 
     return 0;
 }

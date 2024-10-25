@@ -73,6 +73,21 @@ typedef struct
     char *FullDataType;
 } pq_col_metadata;
 
+typedef struct
+{
+    PGconn *DbConn;
+
+    sdb_string **TableNames;
+    u64          TableCount;
+
+    sdb_string **PreparedStatements;
+    u64          StatementCount;
+
+    size_t InsertBufSize;
+    u8    *InsertBuf;
+
+} postgres_ctx;
+
 void             DiagnoseConnectionAndTable(PGconn *DbConn, const char *TableName);
 void             PrintPGresult(const PGresult *Result);
 char            *PqTableMetaDataQuery(const char *TableName, u64 TableNameLen);
@@ -81,22 +96,12 @@ pq_col_metadata *GetTableMetadata(PGconn *DbConn, const char *TableName, u64 Tab
                                   int *ColCount);
 void InsertSensorData(PGconn *DbConn, const char *TableName, u64 TableNameLen, const u8 *SensorData,
                       size_t DataSize);
-sdb_errno CreateTablesFromSchemaConf(PGconn *Conn, cJSON *SchemaConf, sdb_arena *Arena);
+sdb_errno ProcessTablesInConfig(database_api *Pg, cJSON *SchemaConf, sdb_scratch_arena Arena);
 
 sdb_errno PgInit(database_api *Pg);
 sdb_errno PgRun(database_api *Pg);
 sdb_errno PgFinalize(database_api *Pg);
 
-typedef struct
-{
-    PGconn     *DbConn;
-    sdb_string *TableNames;
-    sdb_string *PreparedStatements;
-
-    size_t InsertBufSize;
-    u8    *InsertBuf;
-
-} postgres_ctx;
 
 #define PG_CTX(pg) ((postgres_ctx *)pg->Ctx)
 

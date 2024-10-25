@@ -1,0 +1,18 @@
+{
+  "sensors": [
+    {
+        "name": "shaft_power",
+        "data": {
+            "rpm": "INT",
+            "torque": "FLOAT",
+            "power": "FLOAT"
+        }   
+    },
+    {
+        "name": "deez",
+        "data": {
+            "nuts": "INT"
+        }
+    }
+  ]
+}
