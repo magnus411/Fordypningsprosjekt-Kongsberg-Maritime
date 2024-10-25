@@ -20,23 +20,43 @@ SDB_LOG_REGISTER(TestModbus);
 #define MAX_MODBUS_PDU_SIZE   253
 #define MAX_MODBUS_TCP_FRAME  260
 #define BACKLOG               5
+#define PACKET_HZ           10
+
+
 
 #define READ_HOLDING_REGISTERS 0x03
 
 typedef struct __attribute__((packed))
 {
-    pg_int4   Rpm;
+    pg_int4   ID;
+    pg_float8 TIME;
+    pg_float8 Rpm;
     pg_float8 Torque;
     pg_float8 Power;
-
+    pg_float8 Peak_Peak_PFS;
 } power_shaft_data;
 
 static void
-GeneratePowerShaftData(power_shaft_data *Data)
+GeneratePowerShaftData(power_shaft_data *Data, int ID)
 {
-    Data->Power  = rand() % 1000 + 100; //  Power in kW (random between 100 and 1000)
-    Data->Torque = rand() % 500 + 50;   // Torque in Nm (random between 50 and 550)
-    Data->Rpm    = rand() % 5000 + 500; // RPM (random between 500 and 5500)
+    time_t current_time = time(NULL);
+    struct tm *tm_info = localtime(&current_time);
+
+    if (rand() % 10 < 2) {
+        Data->ID = ID;
+        Data->TIME = (pg_float8)difftime(current_time, 0);
+        Data->Rpm = 0;
+        Data->Torque = 0;
+        Data->Power = 0;
+        Data->Peak_Peak_PFS = 0;
+    } else {
+        Data->ID = ID;
+        Data->TIME = (pg_float8)difftime(current_time, 0);
+        Data->Rpm = ((rand() % 100) + 30.0) * sin(ID * 0.1);  // RPM with variation
+        Data->Torque = ((rand() % 600) + 100.0) * 0.8;  // Torque (Nm)
+        Data->Power = Data->Rpm * Data->Torque / 9.5488;  // Derived power (kW)
+        Data->Peak_Peak_PFS = ((rand() % 50) + 25.0) * cos(ID * 0.1);  // PFS variation
+    }
 }
 
 static void
@@ -56,7 +76,7 @@ GenerateModbusTcpFrame(u8 *Buffer, u16 TransactionId, u16 ProtocolId, u16 Length
 }
 
 sdb_errno
-SendModbusData(int NewFd, u16 UnitId)
+SendModbusData(int NewFd, u16 UnitId, int ID)
 {
     u8 ModbusFrame[MODBUS_TCP_HEADER_LEN + MAX_MODBUS_PDU_SIZE];
 
@@ -69,7 +89,7 @@ SendModbusData(int NewFd, u16 UnitId)
     u16 DataLength = sizeof(Data);
     u16 Length     = DataLength + 3;
 
-    GeneratePowerShaftData(&Data);
+    GeneratePowerShaftData(&Data, ID);
     GenerateModbusTcpFrame(ModbusFrame, TransactionId, ProtocolId, Length, UnitId, FunctionCode,
                            (u8 *)&Data, DataLength);
 
@@ -77,6 +97,7 @@ SendModbusData(int NewFd, u16 UnitId)
 
     return SendResult;
 }
+
 
 sdb_errno
 RunModbusTestServer(sdb_thread *Thread)
@@ -133,7 +154,7 @@ RunModbusTestServer(sdb_thread *Thread)
 
     i64 Counter = 0;
     while(Counter++ < MODBUS_PACKET_COUNT) {
-        if(SendModbusData(NewFd, UnitId) == -1) {
+        if(SendModbusData(NewFd, UnitId, Counter) == -1) {
             SdbLogError("Failed to send Modbus data to client %s:%d, closing connection", ClientIp,
                         ntohs(ClientAddr.sin_port));
 
@@ -143,7 +164,7 @@ RunModbusTestServer(sdb_thread *Thread)
         SdbLogDebug("Successfully sent Modbus data to client %s:%d", ClientIp,
                     ntohs(ClientAddr.sin_port));
 
-        SdbSleep(SDB_TIME_MS(1));
+        SdbSleep(SDB_TIME_S(1/PACKET_HZ));
     }
 
     close(SockFd);
