@@ -65,7 +65,7 @@ def calculate_throughput2(samples):
             throughputs.append((timestamp, throughput))
     return throughputs
 
-def plot_throughputs(throughputs_dict):
+def plot_throughputs(throughputs_dict, save_path=None):
     plt.figure(figsize=(12, 6))
     for label, data in throughputs_dict.items():
         if not data:
@@ -78,25 +78,17 @@ def plot_throughputs(throughputs_dict):
     plt.ylabel('Throughput (Bytes/sec)')
     plt.legend()
     plt.grid(True)
+    if save_path:
+        plt.savefig(save_path, format='png')
+        print(f"Plot saved to {save_path}")
     plt.show()
 
-def calculate_overall_throughput(throughputs_list):
-    # Synchronize timestamps and calculate min throughput at each time point
-    # First, collect all timestamps
-    all_timestamps = sorted(set(ts for throughputs in throughputs_list for ts, _ in throughputs))
-
-    # Interpolate throughputs to these timestamps
-    interpolated_throughputs = []
-    for throughputs in throughputs_list:
-        timestamps = [ts for ts, _ in throughputs]
-        values = [val for _, val in throughputs]
-        interp_values = np.interp(all_timestamps, timestamps, values)
-        interpolated_throughputs.append(interp_values)
-
-    # Calculate overall throughput as the minimum throughput at each time point
-    overall_throughput_values = np.min(interpolated_throughputs, axis=0)
-    overall_throughput = list(zip(all_timestamps, overall_throughput_values))
-    return overall_throughput
+def calculate_average_throughput(throughputs):
+    # Calculate average throughput for a list of throughput data
+    if not throughputs:
+        return 0
+    total = sum(value for _, value in throughputs)
+    return total / len(throughputs)
 
 def main():
     # Define the metric files and labels
@@ -110,6 +102,7 @@ def main():
     # Read and process each metric
     throughputs_dict = {}
     throughputs_list = []
+    averages = {}  # Dictionary to store average throughputs for each label
     for label, file_name in metric_files.items():
         if not os.path.exists(file_name):
             print(f"File {file_name} not found. Skipping.")
@@ -121,13 +114,21 @@ def main():
         throughputs = calculate_throughput(samples)
         throughputs_dict[label] = throughputs
         throughputs_list.append(throughputs)
+        
+        # Calculate and store the average throughput
+        avg_throughput = calculate_average_throughput(throughputs)
+        averages[label] = avg_throughput
+        print(f"Average {label}: {avg_throughput:.2f} Bytes/sec")
 
-    # Plot individual throughputs
-    plot_throughputs(throughputs_dict)
+    # Plot individual throughputs and save the plot
+    plot_throughputs(throughputs_dict, save_path="individual_throughputs.png")
 
     # Calculate and plot overall throughput
     overall_throughput = calculate_overall_throughput(throughputs_list)
     if overall_throughput:
+        overall_avg = calculate_average_throughput(overall_throughput)
+        print(f"Overall Average Throughput: {overall_avg:.2f} Bytes/sec")
+        
         plt.figure(figsize=(12, 6))
         timestamps = [datetime.datetime.fromtimestamp(ts) for ts, _ in overall_throughput]
         values = [value for _, value in overall_throughput]
@@ -137,6 +138,8 @@ def main():
         plt.ylabel('Throughput (Bytes/sec)')
         plt.legend()
         plt.grid(True)
+        plt.savefig("overall_throughput.png", format='png')
+        print("Overall throughput plot saved to overall_throughput.png")
         plt.show()
     else:
         print("Not enough data to calculate overall throughput.")
