@@ -131,8 +131,7 @@ RunModbusTestServer(sdb_thread *Thread)
     inet_ntop(ClientAddr.sin_family, &(ClientAddr.sin_addr), ClientIp, sizeof(ClientIp));
     SdbLogInfo("Server: accepted connection from %s:%d", ClientIp, ntohs(ClientAddr.sin_port));
 
-    i64 Counter = 0;
-    while(Counter++ < MODBUS_PACKET_COUNT) {
+    for(u64 i = 0; i < MODBUS_PACKET_COUNT; ++i) {
         if(SendModbusData(NewFd, UnitId) == -1) {
             SdbLogError("Failed to send Modbus data to client %s:%d, closing connection", ClientIp,
                         ntohs(ClientAddr.sin_port));
@@ -143,7 +142,7 @@ RunModbusTestServer(sdb_thread *Thread)
         SdbLogDebug("Successfully sent Modbus data to client %s:%d", ClientIp,
                     ntohs(ClientAddr.sin_port));
 
-        SdbSleep(SDB_TIME_MS(1));
+        // SdbSleep(SDB_TIME_MS(1));
     }
 
     close(SockFd);

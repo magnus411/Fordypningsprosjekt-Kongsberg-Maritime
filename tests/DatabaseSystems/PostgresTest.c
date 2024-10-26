@@ -3,8 +3,7 @@
 #include <src/Sdb.h>
 
 SDB_LOG_REGISTER(PostgresTest);
-
-SDB_THREAD_ARENAS_REGISTER(PostgresTest, 2);
+SDB_THREAD_ARENAS_EXTERN(Postgres);
 
 #include <src/DatabaseSystems/DatabaseInitializer.h>
 #include <src/DatabaseSystems/Postgres.h>
@@ -62,15 +61,17 @@ TestBinaryInsert(PGconn *DbConnection, const char *TableName, u64 TableNameLen)
 
     for(int i = 0; i < 3; ++i) {
         SdbLogDebug("Inserting sensor %d into database", i);
-        InsertSensorData(DbConnection, TableName, TableNameLen, (u8 *)&SensorData[i],
-                         sizeof(power_shaft_sensor_data));
+        // InsertSensorData(DbConnection, TableName, TableNameLen, (u8 *)&SensorData[i],
+        //                  sizeof(power_shaft_sensor_data));
     }
 }
 
 sdb_errno
 PgInitTest(database_api *Pg)
 {
-    SdbThreadArenasInit(PostgresTest);
+    PgInitThreadArenas();
+    SdbThreadArenasInitExtern(Postgres);
+
     sdb_arena *Scratch1 = SdbArenaBootstrap(&Pg->Arena, NULL, SdbKibiByte(512));
     sdb_arena *Scratch2 = SdbArenaBootstrap(&Pg->Arena, NULL, SdbKibiByte(512));
     SdbThreadArenasAdd(Scratch1);
@@ -78,9 +79,10 @@ PgInitTest(database_api *Pg)
     sdb_scratch_arena Scratch = SdbScratchGet(NULL, 0);
 
     sdb_file_data *ConfFile = SdbLoadFileIntoMemory(POSTGRES_CONF_FS_PATH, Scratch.Arena);
-    // TODO(ingar): Make pg config a json file
+    // TODO(ingar): Make pg config a json file??
     if(ConfFile == NULL) {
         SdbLogError("Failed to open config file");
+        SdbScratchRelease(Scratch);
         return -1;
     }
 
@@ -104,14 +106,21 @@ PgInitTest(database_api *Pg)
     Pg->Ctx              = PgCtx;
 
     cJSON *SchemaConf = DbInitGetConfFromFile("./configs/sensor_schemas.json", Scratch.Arena);
-    if(ProcessTablesInConfig(Pg, SchemaConf, Scratch) != 0) {
+    if(ProcessSchemaConfig(Pg, SchemaConf) != 0) {
         cJSON_Delete(SchemaConf);
         SdbScratchRelease(Scratch);
         return -1;
     }
-    cJSON_Delete(SchemaConf);
+
+    if(PrepareStatements(Pg) != 0) {
+        SdbScratchRelease(Scratch);
+        cJSON_Delete(SchemaConf);
+        return -1;
+    }
 
     SdbScratchRelease(Scratch);
+    cJSON_Delete(SchemaConf);
+
     return 0;
 }
 
