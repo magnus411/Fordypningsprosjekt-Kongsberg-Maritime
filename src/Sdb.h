@@ -232,19 +232,29 @@ typedef struct
 #define SDB_THREAD_ARENAS_REGISTER(thread_name, count)                                             \
     static __thread sdb_arena *SDB_CONCAT3(Sdb__ThreadArenas, thread_name, Buffer__)[count]        \
         __attribute__((used));                                                                     \
-    static __thread sdb__thread_arenas__ SDB_CONCAT3(Sdb__ThreadArenas, thread_name, __)           \
+    __thread sdb__thread_arenas__ SDB_CONCAT3(Sdb__ThreadArenas, thread_name, __)                  \
         __attribute__((used))                                                                      \
         = { .Arenas = NULL, .Count = 0, .MaxCount = count };                                       \
     static __thread sdb__thread_arenas__ *Sdb__ThreadArenasInstance__ __attribute__((used))
 
-// WARN: Must be used at runtime, not compile time. This is because you cannot take the address of a
-// __thread varible in static initialization, since the address will differ per thread.
+#define SDB_THREAD_ARENAS_EXTERN(thread_name)                                                      \
+    extern __thread sdb__thread_arenas__  SDB_CONCAT3(Sdb__ThreadArenas, thread_name, __);         \
+    static __thread sdb__thread_arenas__ *Sdb__ThreadArenasInstance__
+
+// WARN: Must be used at runtime, not compile time. This is because you cannot take the address
+// of a __thread varible in static initialization, since the address will differ per thread.
 void Sdb__ThreadArenasInit__(sdb_arena *TABuf[], sdb__thread_arenas__ *TAs,
                              sdb__thread_arenas__ **TAInstance);
 #define SdbThreadArenasInit(thread_name)                                                           \
     Sdb__ThreadArenasInit__(SDB_CONCAT3(Sdb__ThreadArenas, thread_name, Buffer__),                 \
                             &SDB_CONCAT3(Sdb__ThreadArenas, thread_name, __),                      \
                             &Sdb__ThreadArenasInstance__)
+
+void Sdb__ThreadArenasInitExtern__(sdb__thread_arenas__ *TAs, sdb__thread_arenas__ **TAInstance);
+#define SdbThreadArenasInitExtern(thread_name)                                                     \
+    Sdb__ThreadArenasInitExtern__(&SDB_CONCAT3(Sdb__ThreadArenas, thread_name, __),                \
+                                  &Sdb__ThreadArenasInstance__)
+
 
 sdb_errno Sdb__ThreadArenasAdd__(sdb_arena *Arena, sdb__thread_arenas__ *TAInstance);
 #define SdbThreadArenasAdd(arena) Sdb__ThreadArenasAdd__(arena, Sdb__ThreadArenasInstance__)
@@ -745,6 +755,12 @@ Sdb__ThreadArenasInit__(sdb_arena *TABuf[], sdb__thread_arenas__ *TAs,
     *TAInstance = TAs;
 }
 
+void
+Sdb__ThreadArenasInitExtern__(sdb__thread_arenas__ *TAs, sdb__thread_arenas__ **TAInstance)
+{
+    *TAInstance = TAs;
+}
+
 sdb_errno
 Sdb__ThreadArenasAdd__(sdb_arena *Arena, sdb__thread_arenas__ *TAInstance)
 {
@@ -768,18 +784,22 @@ SdbScratchBegin(sdb_arena *Arena)
 sdb_scratch_arena
 Sdb__ScratchGet__(sdb_arena **Conflicts, u64 ConflictCount, sdb__thread_arenas__ *TAs)
 {
-    sdb_arena *Arena = TAs->Arenas[0];
+    sdb_arena *Arena = NULL;
     if(ConflictCount > 0) {
         for(u64 i = 0; i < TAs->Count; ++i) {
             for(u64 j = 0; j < ConflictCount; ++j) {
                 if(TAs->Arenas[i] != Conflicts[j]) {
                     Arena = TAs->Arenas[i];
+                    goto exit;
                 }
             }
         }
+    } else {
+        Arena = TAs->Arenas[0];
     }
 
-    return SdbScratchBegin(Arena);
+exit:
+    return (Arena == NULL) ? (sdb_scratch_arena){ 0 } : SdbScratchBegin(Arena);
 }
 
 void
@@ -1012,7 +1032,7 @@ SdbStringAppendFmt(sdb_string String, const char *Fmt, ...)
     char    Buf[1024] = { 0 };
     va_list Va;
     va_start(Va, Fmt);
-    u64 FmtLen = snprintf(Buf, SdbArrayLen(Buf), Fmt, Va); // TODO(ingar): stb_sprintf?
+    u64 FmtLen = vsnprintf(Buf, SdbArrayLen(Buf) - 1, Fmt, Va); // TODO(ingar): stb_sprintf?
     va_end(Va);
     return Sdb__StringAppend__(String, Buf, FmtLen);
 }
