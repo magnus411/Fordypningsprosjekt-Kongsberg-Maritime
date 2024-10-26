@@ -3,12 +3,26 @@
 #include <stdlib.h>
 #include <string.h>
 #include <sys/types.h>
-
+#include <sys/mman.h>
+#include <unistd.h>
 #include <src/Sdb.h>
 
 SDB_LOG_REGISTER(CircularBuffer);
 
 #include <src/Common/CircularBuffer.h>
+#include <src/Metrics.h>
+
+bool
+CbIsFull(circular_buffer *Cb)
+{
+return Cb->Full;
+}
+bool
+CbIsEmpty(circular_buffer *Cb)
+{
+return (!Cb->Full && (Cb->Head == Cb->Tail));
+}
+
 
 sdb_errno
 CbInit(circular_buffer *Cb, size_t Size, sdb_arena *Arena)
@@ -45,18 +59,6 @@ CbInit(circular_buffer *Cb, size_t Size, sdb_arena *Arena)
     return 0;
 }
 
-bool
-CbIsFull(circular_buffer *Cb)
-{
-    return Cb->Full;
-}
-
-bool
-CbIsEmpty(circular_buffer *Cb)
-{
-    return (!Cb->Full && (Cb->Head == Cb->Tail));
-}
-
 ssize_t
 CbInsert(circular_buffer *Cb, void *Data, size_t Size)
 {
@@ -79,11 +81,17 @@ CbInsert(circular_buffer *Cb, void *Data, size_t Size)
     Cb->Count += Size;
     Cb->Full = (Cb->Count == Cb->DataSize);
 
+    MetricAddSample(&BufferWriteThroughput, Size);
+
+    int percentageFilled = (Cb->Count * 100) / Cb->DataSize;
+    AddSample(&OccupancyMetric, percentageFilled);
+
     pthread_cond_signal(&Cb->NotEmpty);
     pthread_mutex_unlock(&Cb->WriteLock);
 
     return Size;
 }
+
 
 ssize_t
 CbRead(circular_buffer *Cb, void *Dest, size_t Size)
@@ -105,6 +113,12 @@ CbRead(circular_buffer *Cb, void *Dest, size_t Size)
     Cb->Tail = (Cb->Tail + Size) % Cb->DataSize;
     Cb->Count -= Size;
     Cb->Full = false;
+
+    MetricAddSample(&BufferReadThroughput, Size);
+
+
+    int percentageFilled = (Cb->Count * 100) / Cb->DataSize;
+    AddSample(&OccupancyMetric, percentageFilled);
 
     pthread_cond_signal(&Cb->NotFull);
     pthread_mutex_unlock(&Cb->ReadLock);
