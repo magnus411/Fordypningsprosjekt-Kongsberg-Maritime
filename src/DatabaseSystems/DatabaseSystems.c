@@ -3,7 +3,7 @@ SDB_LOG_REGISTER(DbSystems);
 
 #include <src/Common/SensorDataPipe.h>
 #include <src/DatabaseSystems/DatabaseSystems.h>
-#include <src/DatabaseSystems/Postgres.h>
+#include <src/DatabaseSystems/PostgresApi.h>
 #include <src/Modules/DatabaseModule.h>
 
 #if DATABASE_SYSTEM_POSTGRES == 1

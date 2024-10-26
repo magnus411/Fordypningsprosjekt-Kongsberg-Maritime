@@ -23,6 +23,12 @@ SDB_THREAD_ARENAS_REGISTER(Postgres, 2);
 #include <src/Modules/DatabaseModule.h>
 
 void
+PgInitThreadArenas(void)
+{
+    SdbThreadArenasInit(Postgres);
+}
+
+void
 DiagnoseConnectionAndTable(PGconn *DbConn, const char *TableName)
 {
     SdbLogInfo("Connected to database: %s", PQdb(DbConn));
@@ -94,17 +100,17 @@ PrintPGresult(const PGresult *Result)
 }
 
 char *
-PqTableMetaDataQuery(const char *TableName, u64 TableNameLen)
+PqTableMetaDataFull(const char *TableName, u64 TableNameLen)
 {
-    u64   QueryLen = PQ_TABLE_METADATA_QUERY_FMT_LEN + TableNameLen;
+    u64   QueryLen = PG_TABLE_METADATA_FULL_QUERY_FMT_LEN + TableNameLen;
     char *QueryBuf = (char *)malloc(QueryLen);
-    snprintf(QueryBuf, QueryLen, PQ_TABLE_METADATA_QUERY_FMT, TableName);
+    snprintf(QueryBuf, QueryLen, PG_TABLE_METADATA_FULL_QUERY_FMT, TableName);
 
     return QueryBuf;
 }
 
 void
-PrintColumnMetadata(const pq_col_metadata *Metadata)
+PrintColumnMetadataFull(const pg_col_metadata_full *Metadata)
 {
     printf("\n");
     printf("Table OID: %u\n", Metadata->TableOid);
@@ -123,13 +129,13 @@ PrintColumnMetadata(const pq_col_metadata *Metadata)
     printf("\n");
 }
 
-pq_col_metadata *
-GetTableMetadata(PGconn *DbConn, const char *TableName, u64 TableNameLen, int *ColCount)
+pg_col_metadata_full *
+GetTableMetadataFull(PGconn *DbConn, const char *TableName, u64 TableNameLen, int *ColCount)
 {
     /* Typical libpq convention that variables for sizes are passed in an filled out by the
      * function. Not used here atm */
 
-    const char *MetadataQuery = PqTableMetaDataQuery(TableName, TableNameLen);
+    const char *MetadataQuery = PqTableMetaDataFull(TableName, TableNameLen);
     PGresult   *Result        = PQexec(DbConn, MetadataQuery);
     if(PQresultStatus(Result) != PGRES_TUPLES_OK) {
         SdbLogError("Query failed: %s", PQerrorMessage(DbConn));
@@ -143,7 +149,7 @@ GetTableMetadata(PGconn *DbConn, const char *TableName, u64 TableNameLen, int *C
     int RowCount = PQntuples(Result);
     *ColCount
         = RowCount; // NOTE(ingar): Each row is the metadata for one column in the requested table
-    pq_col_metadata *MetadataArray = malloc(RowCount * sizeof(pq_col_metadata));
+    pg_col_metadata_full *MetadataArray = malloc(RowCount * sizeof(pg_col_metadata_full));
     if(!MetadataArray) {
         SdbLogError("Memory allocation failed");
         PQclear(Result);
@@ -153,7 +159,7 @@ GetTableMetadata(PGconn *DbConn, const char *TableName, u64 TableNameLen, int *C
     SdbLogDebug("Array allocated for %d columns!", RowCount);
 
     for(int RowIndex = 0; RowIndex < RowCount; RowIndex++) {
-        pq_col_metadata *CurrentMetadata = &MetadataArray[RowIndex];
+        pg_col_metadata_full *CurrentMetadata = &MetadataArray[RowIndex];
 
         CurrentMetadata->TableOid      = (u32)atoi(PQgetvalue(Result, RowIndex, 0));
         CurrentMetadata->TableName     = strdup(PQgetvalue(Result, RowIndex, 1));
@@ -175,60 +181,124 @@ GetTableMetadata(PGconn *DbConn, const char *TableName, u64 TableNameLen, int *C
     return MetadataArray;
 }
 
+#define PQ_TABLE_METADATA_QUERY_FMT                                                                \
+    "SELECT a.attname AS column_name, t.oid AS type_oid, t.typlen AS type_length, "                \
+    "a.atttypmod AS type_modifier FROM pg_catalog.pg_class c "                                     \
+    "JOIN pg_catalog.pg_attribute a ON a.attrelid = c.oid "                                        \
+    "JOIN pg_catalog.pg_type t ON a.atttypid = t.oid "                                             \
+    "WHERE c.relname = '%s' AND a.attnum > 0 AND NOT a.attisdropped "                              \
+    "AND a.attname != 'id' ORDER BY a.attnum"
+
+pg_col_metadata *
+GetTableMetadata(PGconn *DbConn, sdb_string TableName, int *ColCount, sdb_arena *A)
+{
+    sdb_arena        *Conflicts[1] = { A };
+    sdb_scratch_arena Scratch      = SdbScratchGet(Conflicts, 1);
+
+    sdb_string MetadataQuery = SdbStringMake(Scratch.Arena, NULL);
+    SdbStringAppendFmt(MetadataQuery, PQ_TABLE_METADATA_QUERY_FMT, TableName);
+
+    PGresult *Result = PQexec(DbConn, MetadataQuery);
+    if(PQresultStatus(Result) != PGRES_TUPLES_OK) {
+        SdbLogError("Metadata query failed: %s", PQerrorMessage(DbConn));
+        PQclear(Result);
+        SdbScratchRelease(Scratch);
+        return NULL;
+    }
+    SdbScratchRelease(Scratch);
+
+    int RowCount = PQntuples(Result);
+    // NOTE(ingar): Each row is the metadata for one column in the requested table
+    *ColCount = RowCount;
+
+    pg_col_metadata *MetadataArray = SdbPushArray(A, pg_col_metadata, RowCount);
+    if(!MetadataArray) {
+        SdbLogError("Memory allocation for PG metadata failed");
+        PQclear(Result);
+        return NULL;
+    }
+
+    for(int RowIndex = 0; RowIndex < RowCount; ++RowIndex) {
+        pg_col_metadata *CurrentMetadata = &MetadataArray[RowIndex];
+
+        CurrentMetadata->ColumnName   = SdbStringMake(A, PQgetvalue(Result, RowIndex, 0));
+        CurrentMetadata->TypeOid      = (pg_oid)atoi(PQgetvalue(Result, RowIndex, 1));
+        CurrentMetadata->TypeLength   = (i16)atoi(PQgetvalue(Result, RowIndex, 2));
+        CurrentMetadata->TypeModifier = (i32)atoi(PQgetvalue(Result, RowIndex, 3));
+    }
+
+    PQclear(Result);
+
+    return MetadataArray;
+}
+
 sdb_errno
 PrepareStatements(database_api *Pg)
 {
+    postgres_ctx *PgCtx       = PG_CTX(Pg);
+    PGconn       *DbConn      = PgCtx->DbConn;
+    sdb_string   *TableNames  = PgCtx->TableNames;
+    u64           TableCount  = PgCtx->TableCount;
+    PgCtx->PreparedStatements = SdbPushArray(&Pg->Arena, sdb_string, PgCtx->TableCount);
+    sdb_scratch_arena Scratch = SdbScratchGet(NULL, 0);
 
+    for(u64 TableIdx = 0; TableIdx < TableCount; ++TableIdx) {
+        sdb_string TableName = TableNames[TableIdx];
+
+        int              NTableCols = 0;
+        pg_col_metadata *ColMetadata
+            = GetTableMetadata(DbConn, TableName, &NTableCols, Scratch.Arena);
+        if(NULL == ColMetadata || 0 == NTableCols) {
+            SdbLogError("Failed to get column metadata for table %s", TableName);
+            return -1;
+        }
+
+        sdb_string StatementString = SdbStringMake(Scratch.Arena, "INSERT INTO ");
+
+        SdbStringAppend(StatementString, TableName);
+        SdbStringAppendC(StatementString, " (");
+        for(int i = 0; i < NTableCols; i++) {
+            if(i > 0) {
+                SdbStringAppendC(StatementString, ", ");
+            }
+            SdbStringAppendC(StatementString, ColMetadata[i].ColumnName);
+        }
+
+        SdbStringAppendC(StatementString, ") VALUES (");
+        for(int i = 0; i < NTableCols; i++) {
+            if(i > 0) {
+                SdbStringAppendC(StatementString, ", ");
+            }
+            SdbStringAppendFmt(StatementString, "$%lu", (u64)(i + 1));
+        }
+        SdbStringAppendC(StatementString, ")");
+
+        SdbLogDebug("%s", StatementString);
+        PgCtx->PreparedStatements[TableIdx] = SdbStringMake(&Pg->Arena, TableName);
+        SdbStringAppendC(PgCtx->PreparedStatements[TableIdx], "_insert");
+
+        PGresult *PqPrepareResult = PQprepare(DbConn, PgCtx->PreparedStatements[TableIdx],
+                                              StatementString, NTableCols, NULL);
+        if(PQresultStatus(PqPrepareResult) != PGRES_COMMAND_OK) {
+            SdbLogError("Prepare failed: %s", PQerrorMessage(DbConn));
+            PQclear(PqPrepareResult);
+            SdbScratchRelease(Scratch);
+            return -1;
+        }
+
+        PgCtx->StatementCount += 1;
+        PQclear(PqPrepareResult);
+    }
+
+    SdbScratchRelease(Scratch);
     return 0;
 }
-
+#if 0
 void
 InsertSensorData(PGconn *DbConn, const char *TableName, u64 TableNameLen, const u8 *SensorData,
                  size_t DataSize)
 {
     int              NTableCols;
-    pq_col_metadata *ColMetadata = GetTableMetadata(DbConn, TableName, TableNameLen, &NTableCols);
-    if(NULL == ColMetadata) {
-        SdbLogError("Failed to get column metadata for table %s", TableName);
-        return;
-    }
-    if(0 == NTableCols) {
-        SdbLogError("Table had no columns!");
-        return;
-    }
-
-    char Query[1024] = "INSERT INTO "; // TODO(ingar): Better memory management
-    strcat(Query, TableName);
-    strcat(Query, " (");
-    for(int i = 0; i < NTableCols; i++) {
-        if(i > 0) {
-            strcat(Query, ", ");
-        }
-        strcat(Query, ColMetadata[i].ColumnName);
-    }
-
-    strcat(Query, ") VALUES (");
-    for(int i = 0; i < NTableCols; i++) {
-        if(i > 0) {
-            strcat(Query, ", ");
-        }
-        strcat(Query, "$");
-        char ParamNumber[8];
-        snprintf(ParamNumber, sizeof(ParamNumber), "%lu", (u64)(i + 1));
-        strcat(Query, ParamNumber);
-    }
-    strcat(Query, ")");
-
-    SdbLogDebug("%s", Query);
-
-    PGresult *PqPrepareResult = PQprepare(DbConn, "", Query, NTableCols, NULL);
-    if(PQresultStatus(PqPrepareResult) != PGRES_COMMAND_OK) {
-        SdbLogError("Prepare failed: %s", PQerrorMessage(DbConn));
-        PQclear(PqPrepareResult);
-        return;
-    }
-    PQclear(PqPrepareResult);
-
     char **ParamValues  = malloc(NTableCols * sizeof(char *));
     int   *ParamLengths = malloc(NTableCols * sizeof(int));
     int   *ParamFormats = malloc(NTableCols * sizeof(int));
@@ -296,141 +366,84 @@ InsertSensorData(PGconn *DbConn, const char *TableName, u64 TableNameLen, const 
     free(ParamLengths);
     free(ParamFormats);
 }
+#endif
 
 sdb_errno
-ProcessTablesInConfig(database_api *Pg, cJSON *SchemaConf, sdb_scratch_arena Scratch)
+ProcessTablesInConfig(database_api *Pg, cJSON *SchemaConf)
 {
     if(!cJSON_IsObject(SchemaConf)) {
-        SdbLogError("Input was not a valid, parsed JSON object.");
-        return -1;
+        goto JSON_err;
     }
 
     cJSON *SensorSchemaArray = cJSON_GetObjectItem(SchemaConf, "sensors");
     if(SensorSchemaArray == NULL || !cJSON_IsArray(SensorSchemaArray)) {
-        SdbLogError("JSON does not contain a \"sensors\" field");
-        return -1;
+        goto JSON_err;
     }
 
     postgres_ctx *PgCtx = PG_CTX(Pg);
     PgCtx->TableCount   = cJSON_GetArraySize(SensorSchemaArray);
-    PgCtx->TableNames   = SdbPushArray(&Pg->Arena, sdb_string *, PgCtx->TableCount);
+    PgCtx->TableNames   = SdbPushArray(&Pg->Arena, sdb_string, PgCtx->TableCount);
 
-    u64    Counter      = 0;
+    u64    TableCounter = 0;
     cJSON *SensorSchema = NULL;
     cJSON_ArrayForEach(SensorSchema, SensorSchemaArray)
     {
-        if(cJSON_IsObject(SensorSchema)) {
-            cJSON *SensorName = cJSON_GetObjectItem(SensorSchema, "name");
-            if(SensorName != NULL && cJSON_IsString(SensorName)) {
-                sdb_string TableName         = SdbStringMake(&Pg->Arena, SensorName->valuestring);
-                PgCtx->TableNames[Counter++] = &TableName;
+        if(!cJSON_IsObject(SensorSchema)) {
+            goto JSON_err;
+        }
 
-                sdb_string CreationQuery
-                    = SdbStringMake(Scratch.Arena, "CREATE TABLE IF NOT EXISTS ");
-                (void)SdbStringAppendC(CreationQuery, SensorName->valuestring);
-                (void)SdbStringAppendC(CreationQuery, "(\nid SERIAL PRIMARY KEY,\n");
+        cJSON *SensorName = cJSON_GetObjectItem(SensorSchema, "name");
+        if(SensorName == NULL || !cJSON_IsString(SensorName)) {
+            goto JSON_err;
+        }
 
-                cJSON *SensorData = cJSON_GetObjectItem(SensorSchema, "data");
-                if(SensorData != NULL && cJSON_IsObject(SensorData)) {
-                    cJSON *DataAttribute = NULL;
-                    cJSON_ArrayForEach(DataAttribute, SensorData)
-                    {
-                        if(cJSON_IsString(DataAttribute)) {
-                            (void)SdbStringAppendC(CreationQuery, DataAttribute->string);
-                            (void)SdbStringAppendC(CreationQuery, " ");
-                            (void)SdbStringAppendC(CreationQuery, DataAttribute->valuestring);
-                            (void)SdbStringAppendC(CreationQuery, ",\n");
-                        }
-                    }
+        sdb_string TableName              = SdbStringMake(&Pg->Arena, SensorName->valuestring);
+        PgCtx->TableNames[TableCounter++] = TableName;
 
-                    SdbStringBackspace(CreationQuery, 2);
-                    SdbStringAppendC(CreationQuery, ");");
-                    SdbPrintfDebug("Table creation query:\n%s\n", CreationQuery);
+        sdb_scratch_arena Scratch = SdbScratchGet(NULL, 0);
+        sdb_string CreationQuery  = SdbStringMake(Scratch.Arena, "CREATE TABLE IF NOT EXISTS ");
+        (void)SdbStringAppendC(CreationQuery, SensorName->valuestring);
+        (void)SdbStringAppendC(CreationQuery, "(\nid SERIAL PRIMARY KEY,\n");
 
-                    PGresult *CreateRes = PQexec(PgCtx->DbConn, CreationQuery);
-                    if(PQresultStatus(CreateRes) != PGRES_COMMAND_OK) {
-                        SdbLogError("Table creation failed: %s", PQerrorMessage(PgCtx->DbConn));
-                        PQclear(CreateRes);
-                        return -1;
-                    } else {
-                        SdbLogInfo("Table '%s' created successfully (or it already existed).",
-                                   TableName);
-                        PQclear(CreateRes);
-                    }
-                }
+        cJSON *SensorData = cJSON_GetObjectItem(SensorSchema, "data");
+        if(SensorData == NULL || !cJSON_IsObject(SensorData)) {
+            goto JSON_err;
+        }
+
+        cJSON *DataAttribute = NULL;
+        cJSON_ArrayForEach(DataAttribute, SensorData)
+        {
+            if(!cJSON_IsString(DataAttribute)) {
+                goto JSON_err;
             }
+
+            (void)SdbStringAppendC(CreationQuery, DataAttribute->string);
+            (void)SdbStringAppendC(CreationQuery, " ");
+            (void)SdbStringAppendC(CreationQuery, DataAttribute->valuestring);
+            (void)SdbStringAppendC(CreationQuery, ",\n");
         }
-    }
 
-    return 0;
-}
+        SdbStringBackspace(CreationQuery, 2);
+        SdbStringAppendC(CreationQuery, ");");
+        SdbPrintfDebug("Table creation query:\n%s\n", CreationQuery);
 
-sdb_errno
-PgInit(database_api *Pg)
-{
-    SdbThreadArenasInit(Postgres);
-    sdb_arena *Scratch1 = SdbArenaBootstrap(&Pg->Arena, NULL, SdbKibiByte(512));
-    sdb_arena *Scratch2 = SdbArenaBootstrap(&Pg->Arena, NULL, SdbKibiByte(512));
-    SdbThreadArenasAdd(Scratch1);
-    SdbThreadArenasAdd(Scratch2);
-    sdb_scratch_arena Scratch = SdbScratchGet(NULL, 0);
-
-    u64            ArenaF5  = SdbArenaGetPos(&Pg->Arena);
-    sdb_file_data *ConfFile = SdbLoadFileIntoMemory(POSTGRES_CONF_FS_PATH, &Pg->Arena);
-    // TODO(ingar): Make pg config a json file
-    if(ConfFile == NULL) {
-        SdbLogError("Failed to open config file");
-        return -1;
-    }
-
-    const char *ConnInfo = (const char *)ConfFile->Data;
-    SdbLogInfo("Attempting to connect to Postgres database using: %s", ConnInfo);
-
-    PGconn *Conn = PQconnectdb(ConnInfo);
-    if(PQstatus(Conn) != CONNECTION_OK) {
-        SdbLogError("Connection to database failed. PQ error:\n%s", PQerrorMessage(Conn));
-        PQfinish(Conn);
-        SdbArenaSeek(&Pg->Arena, ArenaF5);
-        return -1;
-    } else {
-        SdbLogInfo("Connected!");
-    }
-    SdbArenaSeek(&Pg->Arena, ArenaF5);
-
-    postgres_ctx *PgCtx  = SdbPushStruct(&Pg->Arena, postgres_ctx);
-    PgCtx->InsertBufSize = SdbKibiByte(4);
-    PgCtx->InsertBuf     = SdbPushArray(&Pg->Arena, u8, PgCtx->InsertBufSize);
-    PgCtx->DbConn        = Conn;
-    Pg->Ctx              = PgCtx;
-
-    cJSON *SchemaConf = DbInitGetConfFromFile("./configs/sensor_schemas.json", &Pg->Arena);
-    if(ProcessTablesInConfig(Pg, SchemaConf, Scratch) != 0) {
-        cJSON_Delete(SchemaConf);
-        return -1;
-    }
-    cJSON_Delete(SchemaConf);
-
-    return 0;
-}
-
-sdb_errno
-PgRun(database_api *Pg)
-{
-    while(true) {
-        ssize_t Ret = SdPipeRead(&Pg->SdPipe, 0, PG_CTX(Pg)->InsertBuf, sizeof(queue_item));
-        if(Ret > 0) {
-            SdbLogDebug("Succesfully read %zd from pipe!", Ret);
+        PGresult *CreateRes = PQexec(PgCtx->DbConn, CreationQuery);
+        if(PQresultStatus(CreateRes) != PGRES_COMMAND_OK) {
+            SdbLogError("Table creation failed: %s", PQerrorMessage(PgCtx->DbConn));
+            PQclear(CreateRes);
+            return -1;
         } else {
-            SdbLogError("Failed to read from pipe");
+            SdbLogInfo("Table '%s' created successfully (or it already existed).", TableName);
+            PQclear(CreateRes);
         }
-    }
-    return 0;
-}
 
-sdb_errno
-PgFinalize(database_api *Pg)
-{
-    PQfinish(PG_CTX(Pg)->DbConn);
-    SdbArenaClear(&Pg->Arena);
+        SdbScratchRelease(Scratch);
+    }
+
+
     return 0;
+
+JSON_err:
+    SdbLogError("Sensor schema JSON incorrect, cJSON error: %s", cJSON_GetErrorPtr());
+    return -1;
 }

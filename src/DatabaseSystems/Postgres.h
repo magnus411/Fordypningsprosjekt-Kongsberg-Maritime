@@ -15,37 +15,39 @@ SDB_BEGIN_EXTERN_C
 #define POSTGRES_CONF_FS_PATH "./configs/postgres-conf"
 
 // PostgreSQL Type OID  and Names
-enum pq_oid
+enum pg_oid
 {
-    BOOL        = 16,
-    INT8        = 20,
-    INT4        = 23,
-    TEXT        = 25,
-    FLOAT8      = 701,
-    VARCHAR     = 1043,
-    DATE        = 1082,
-    TIME        = 1083,
-    TIMESTAMPTZ = 1184,
-    NUMERIC     = 1700,
+    PG_BOOL        = 16,
+    PG_INT8        = 20,
+    PG_INT4        = 23,
+    PG_TEXT        = 25,
+    PG_FLOAT8      = 701,
+    PG_VARCHAR     = 1043,
+    PG_DATE        = 1082,
+    PG_TIME        = 1083,
+    PG_TIMESTAMPTZ = 1184,
+    PG_NUMERIC     = 1700,
 };
 
-typedef i64    pg_int8;
+typedef u32    pg_oid;
 typedef i32    pg_int4;
+typedef i64    pg_int8;
+typedef float  pg_float4;
 typedef double pg_float8;
 
-#define PQ_BOOL_NAME        "boolean";
-#define PQ_INT8_NAME        "bigint";
-#define PQ_INT4_NAME        "integer";
-#define PQ_TEXT_NAME        "text";
-#define PQ_FLOAT8_NAME      "double precision";
-#define PQ_VARCHAR_NAME     "character varying";
-#define PQ_DATE_NAME        "date";
-#define PQ_TIMESTAMPTZ_NAME "timestamp with time zone";
-#define PQ_TIME_NAME        "time without time zone";
-#define PQ_NUMERIC_NAME     "numeric";
+#define PG_BOOL_NAME        "boolean";
+#define PG_INT8_NAME        "bigint";
+#define PG_INT4_NAME        "integer";
+#define PG_TEXT_NAME        "text";
+#define PG_FLOAT8_NAME      "double precision";
+#define PG_VARCHAR_NAME     "character varying";
+#define PG_DATE_NAME        "date";
+#define PG_TIMESTAMPTZ_NAME "timestamp with time zone";
+#define PG_TIME_NAME        "time without time zone";
+#define PG_NUMERIC_NAME     "numeric";
 
-#define PQ_TABLE_METADATA_QUERY_FMT_LEN 609
-#define PQ_TABLE_METADATA_QUERY_FMT                                                                \
+#define PG_TABLE_METADATA_FULL_QUERY_FMT_LEN 609
+#define PG_TABLE_METADATA_FULL_QUERY_FMT                                                           \
     "SELECT c.oid AS table_oid, c.relname AS table_name, a.attnum AS column_number, a.attname AS " \
     "column_name, t.oid AS type_oid, t.typname AS type_name, t.typlen AS type_length, t.typbyval " \
     "AS type_by_value, t.typalign AS type_alignment, t.typstorage AS type_storage, a.atttypmod "   \
@@ -54,8 +56,6 @@ typedef double pg_float8;
     "c.oid JOIN pg_catalog.pg_type t ON a.atttypid = t.oid WHERE c.relname = "                     \
     "'%s' AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum"
 
-// TODO(ingar): Create a minimal structure that only contains the necessary data to perform inserts
-// from a byte stream
 typedef struct
 {
     u32   TableOid;
@@ -71,39 +71,50 @@ typedef struct
     i32   TypeModifier;
     bool  NotNull;
     char *FullDataType;
-} pq_col_metadata;
+} pg_col_metadata_full;
+
+typedef struct
+{
+    sdb_string ColumnName;
+    pg_oid     TypeOid;
+    i16        TypeLength;
+    i32        TypeModifier;
+
+} pg_col_metadata;
 
 typedef struct
 {
     PGconn *DbConn;
 
-    sdb_string **TableNames;
-    u64          TableCount;
+    sdb_string *TableNames;
+    u64         TableCount;
 
-    sdb_string **PreparedStatements;
-    u64          StatementCount;
+    sdb_string *PreparedStatements;
+    u64         StatementCount;
 
     size_t InsertBufSize;
     u8    *InsertBuf;
 
 } postgres_ctx;
 
-void             DiagnoseConnectionAndTable(PGconn *DbConn, const char *TableName);
-void             PrintPGresult(const PGresult *Result);
-char            *PqTableMetaDataQuery(const char *TableName, u64 TableNameLen);
-void             PrintColumnMetadata(const pq_col_metadata *Metadata);
-pq_col_metadata *GetTableMetadata(PGconn *DbConn, const char *TableName, u64 TableNameLen,
-                                  int *ColCount);
+#define PG_CTX(pg) ((postgres_ctx *)pg->Ctx)
+
+void                  DiagnoseConnectionAndTable(PGconn *DbConn, const char *TableName);
+void                  PrintPGresult(const PGresult *Result);
+char                 *PqTableMetaDataFull(const char *TableName, u64 TableNameLen);
+void                  PrintColumnMetadataFull(const pg_col_metadata_full *Metadata);
+sdb_errno             PrepareStatements(database_api *Pg);
+pg_col_metadata_full *GetTableMetadataFull(PGconn *DbConn, const char *TableName, u64 TableNameLen,
+                                           int *ColCount);
+pg_col_metadata      *GetTableMetadata(PGconn *DbConn, sdb_string TableName, int *ColCount,
+                                       sdb_arena *A);
+
 void InsertSensorData(PGconn *DbConn, const char *TableName, u64 TableNameLen, const u8 *SensorData,
                       size_t DataSize);
-sdb_errno ProcessTablesInConfig(database_api *Pg, cJSON *SchemaConf, sdb_scratch_arena Arena);
 
-sdb_errno PgInit(database_api *Pg);
-sdb_errno PgRun(database_api *Pg);
-sdb_errno PgFinalize(database_api *Pg);
+sdb_errno ProcessTablesInConfig(database_api *Pg, cJSON *SchemaConf);
+void      PgInitThreadArenas(void);
 
-
-#define PG_CTX(pg) ((postgres_ctx *)pg->Ctx)
 
 SDB_END_EXTERN_C
 

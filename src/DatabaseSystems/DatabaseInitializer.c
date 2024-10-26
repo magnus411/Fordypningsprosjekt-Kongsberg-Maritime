@@ -63,14 +63,11 @@ DbInitGetSchemasFromDb(PGconn *Conn)
 cJSON *
 DbInitGetConfFromFile(const char *Filename, sdb_arena *Arena)
 {
-    u64            ArenaF5    = SdbArenaGetPos(Arena);
     sdb_file_data *SchemaFile = SdbLoadFileIntoMemory(Filename, Arena);
-
-    cJSON *Schema = cJSON_Parse((char *)SchemaFile->Data);
+    cJSON         *Schema     = cJSON_Parse((char *)SchemaFile->Data);
     if(Schema == NULL) {
         SdbLogError("Error parsing JSON: %s", cJSON_GetErrorPtr());
     }
 
-    SdbArenaSeek(Arena, ArenaF5);
     return Schema;
 }
