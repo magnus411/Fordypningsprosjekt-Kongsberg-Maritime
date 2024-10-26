@@ -46,32 +46,13 @@ typedef double pg_float8;
 #define PG_TIME_NAME        "time without time zone";
 #define PG_NUMERIC_NAME     "numeric";
 
-#define PG_TABLE_METADATA_FULL_QUERY_FMT_LEN 609
-#define PG_TABLE_METADATA_FULL_QUERY_FMT                                                           \
-    "SELECT c.oid AS table_oid, c.relname AS table_name, a.attnum AS column_number, a.attname AS " \
-    "column_name, t.oid AS type_oid, t.typname AS type_name, t.typlen AS type_length, t.typbyval " \
-    "AS type_by_value, t.typalign AS type_alignment, t.typstorage AS type_storage, a.atttypmod "   \
-    "AS type_modifier, a.attnotnull AS not_null, pg_catalog.format_type(a.atttypid, a.atttypmod) " \
-    "AS full_data_type FROM pg_catalog.pg_class c JOIN pg_catalog.pg_attribute a ON a.attrelid = " \
-    "c.oid JOIN pg_catalog.pg_type t ON a.atttypid = t.oid WHERE c.relname = "                     \
-    "'%s' AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum"
-
-typedef struct
-{
-    u32   TableOid;
-    char *TableName;
-    i16   ColumnNumber;
-    char *ColumnName;
-    u32   TypeOid;
-    char *TypeName;
-    i16   TypeLength;
-    bool  TypeByValue;
-    char  TypeAlignment;
-    char  TypeStorage;
-    i32   TypeModifier;
-    bool  NotNull;
-    char *FullDataType;
-} pg_col_metadata_full;
+#define PQ_TABLE_METADATA_QUERY_FMT                                                                \
+    "SELECT a.attname AS column_name, t.oid AS type_oid, t.typlen AS type_length, "                \
+    "a.atttypmod AS type_modifier FROM pg_catalog.pg_class c "                                     \
+    "JOIN pg_catalog.pg_attribute a ON a.attrelid = c.oid "                                        \
+    "JOIN pg_catalog.pg_type t ON a.atttypid = t.oid "                                             \
+    "WHERE c.relname = '%s' AND a.attnum > 0 AND NOT a.attisdropped "                              \
+    "AND a.attname != 'id' ORDER BY a.attnum"
 
 typedef struct
 {
@@ -99,20 +80,16 @@ typedef struct
 
 #define PG_CTX(pg) ((postgres_ctx *)pg->Ctx)
 
-void                  DiagnoseConnectionAndTable(PGconn *DbConn, const char *TableName);
-void                  PrintPGresult(const PGresult *Result);
-char                 *PqTableMetaDataFull(const char *TableName, u64 TableNameLen);
-void                  PrintColumnMetadataFull(const pg_col_metadata_full *Metadata);
-sdb_errno             PrepareStatements(database_api *Pg);
-pg_col_metadata_full *GetTableMetadataFull(PGconn *DbConn, const char *TableName, u64 TableNameLen,
-                                           int *ColCount);
-pg_col_metadata      *GetTableMetadata(PGconn *DbConn, sdb_string TableName, int *ColCount,
-                                       sdb_arena *A);
+void             DiagnoseConnectionAndTable(PGconn *DbConn, const char *TableName);
+void             PrintPGresult(const PGresult *Result);
+sdb_errno        PrepareStatements(database_api *Pg);
+pg_col_metadata *GetTableMetadata(PGconn *DbConn, sdb_string TableName, int *ColCount,
+                                  sdb_arena *A);
 
 void InsertSensorData(PGconn *DbConn, const char *TableName, u64 TableNameLen, const u8 *SensorData,
                       size_t DataSize);
 
-sdb_errno ProcessTablesInConfig(database_api *Pg, cJSON *SchemaConf);
+sdb_errno ProcessSchemaConfig(database_api *Pg, cJSON *SchemaConf);
 void      PgInitThreadArenas(void);
 
 

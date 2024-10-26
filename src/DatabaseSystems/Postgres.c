@@ -99,95 +99,6 @@ PrintPGresult(const PGresult *Result)
     }
 }
 
-char *
-PqTableMetaDataFull(const char *TableName, u64 TableNameLen)
-{
-    u64   QueryLen = PG_TABLE_METADATA_FULL_QUERY_FMT_LEN + TableNameLen;
-    char *QueryBuf = (char *)malloc(QueryLen);
-    snprintf(QueryBuf, QueryLen, PG_TABLE_METADATA_FULL_QUERY_FMT, TableName);
-
-    return QueryBuf;
-}
-
-void
-PrintColumnMetadataFull(const pg_col_metadata_full *Metadata)
-{
-    printf("\n");
-    printf("Table OID: %u\n", Metadata->TableOid);
-    printf("Table Name: %s\n", Metadata->TableName);
-    printf("Column Number: %d\n", Metadata->ColumnNumber);
-    printf("Column Name: %s\n", Metadata->ColumnName);
-    printf("Type OID: %u\n", Metadata->TypeOid);
-    printf("Type Name: %s\n", Metadata->TypeName);
-    printf("Type Length: %d\n", Metadata->TypeLength);
-    printf("Type By Value: %s\n", Metadata->TypeByValue ? "Yes" : "No");
-    printf("Type Alignment: %c\n", Metadata->TypeAlignment);
-    printf("Type Storage: %c\n", Metadata->TypeStorage);
-    printf("Type Modifier: %d\n", Metadata->TypeModifier);
-    printf("Not Null: %s\n", Metadata->NotNull ? "Yes" : "No");
-    printf("Full Data Type: %s\n", Metadata->FullDataType);
-    printf("\n");
-}
-
-pg_col_metadata_full *
-GetTableMetadataFull(PGconn *DbConn, const char *TableName, u64 TableNameLen, int *ColCount)
-{
-    /* Typical libpq convention that variables for sizes are passed in an filled out by the
-     * function. Not used here atm */
-
-    const char *MetadataQuery = PqTableMetaDataFull(TableName, TableNameLen);
-    PGresult   *Result        = PQexec(DbConn, MetadataQuery);
-    if(PQresultStatus(Result) != PGRES_TUPLES_OK) {
-        SdbLogError("Query failed: %s", PQerrorMessage(DbConn));
-        PQclear(Result);
-    }
-
-    SdbLogDebug("Metadata query successful!");
-
-    PrintPGresult(Result);
-
-    int RowCount = PQntuples(Result);
-    *ColCount
-        = RowCount; // NOTE(ingar): Each row is the metadata for one column in the requested table
-    pg_col_metadata_full *MetadataArray = malloc(RowCount * sizeof(pg_col_metadata_full));
-    if(!MetadataArray) {
-        SdbLogError("Memory allocation failed");
-        PQclear(Result);
-        return NULL;
-    }
-
-    SdbLogDebug("Array allocated for %d columns!", RowCount);
-
-    for(int RowIndex = 0; RowIndex < RowCount; RowIndex++) {
-        pg_col_metadata_full *CurrentMetadata = &MetadataArray[RowIndex];
-
-        CurrentMetadata->TableOid      = (u32)atoi(PQgetvalue(Result, RowIndex, 0));
-        CurrentMetadata->TableName     = strdup(PQgetvalue(Result, RowIndex, 1));
-        CurrentMetadata->ColumnNumber  = (i16)atoi(PQgetvalue(Result, RowIndex, 2));
-        CurrentMetadata->ColumnName    = strdup(PQgetvalue(Result, RowIndex, 3));
-        CurrentMetadata->TypeOid       = (u32)atoi(PQgetvalue(Result, RowIndex, 4));
-        CurrentMetadata->TypeName      = strdup(PQgetvalue(Result, RowIndex, 5));
-        CurrentMetadata->TypeLength    = (i16)atoi(PQgetvalue(Result, RowIndex, 6));
-        CurrentMetadata->TypeByValue   = strcmp(PQgetvalue(Result, RowIndex, 7), "t") == 0;
-        CurrentMetadata->TypeAlignment = PQgetvalue(Result, RowIndex, 8)[0];
-        CurrentMetadata->TypeStorage   = PQgetvalue(Result, RowIndex, 9)[0];
-        CurrentMetadata->TypeModifier  = (i32)atoi(PQgetvalue(Result, RowIndex, 10));
-        CurrentMetadata->NotNull       = strcmp(PQgetvalue(Result, RowIndex, 11), "t") == 0;
-        CurrentMetadata->FullDataType  = strdup(PQgetvalue(Result, RowIndex, 12));
-    }
-
-    PQclear(Result);
-
-    return MetadataArray;
-}
-
-#define PQ_TABLE_METADATA_QUERY_FMT                                                                \
-    "SELECT a.attname AS column_name, t.oid AS type_oid, t.typlen AS type_length, "                \
-    "a.atttypmod AS type_modifier FROM pg_catalog.pg_class c "                                     \
-    "JOIN pg_catalog.pg_attribute a ON a.attrelid = c.oid "                                        \
-    "JOIN pg_catalog.pg_type t ON a.atttypid = t.oid "                                             \
-    "WHERE c.relname = '%s' AND a.attnum > 0 AND NOT a.attisdropped "                              \
-    "AND a.attname != 'id' ORDER BY a.attnum"
 
 pg_col_metadata *
 GetTableMetadata(PGconn *DbConn, sdb_string TableName, int *ColCount, sdb_arena *A)
@@ -293,6 +204,7 @@ PrepareStatements(database_api *Pg)
     SdbScratchRelease(Scratch);
     return 0;
 }
+
 #if 0
 void
 InsertSensorData(PGconn *DbConn, const char *TableName, u64 TableNameLen, const u8 *SensorData,
@@ -369,7 +281,7 @@ InsertSensorData(PGconn *DbConn, const char *TableName, u64 TableNameLen, const 
 #endif
 
 sdb_errno
-ProcessTablesInConfig(database_api *Pg, cJSON *SchemaConf)
+ProcessSchemaConfig(database_api *Pg, cJSON *SchemaConf)
 {
     if(!cJSON_IsObject(SchemaConf)) {
         goto JSON_err;
@@ -402,8 +314,8 @@ ProcessTablesInConfig(database_api *Pg, cJSON *SchemaConf)
 
         sdb_scratch_arena Scratch = SdbScratchGet(NULL, 0);
         sdb_string CreationQuery  = SdbStringMake(Scratch.Arena, "CREATE TABLE IF NOT EXISTS ");
-        (void)SdbStringAppendC(CreationQuery, SensorName->valuestring);
-        (void)SdbStringAppendC(CreationQuery, "(\nid SERIAL PRIMARY KEY,\n");
+        SdbStringAppendC(CreationQuery, SensorName->valuestring);
+        SdbStringAppendC(CreationQuery, "(\nid SERIAL PRIMARY KEY,\n");
 
         cJSON *SensorData = cJSON_GetObjectItem(SensorSchema, "data");
         if(SensorData == NULL || !cJSON_IsObject(SensorData)) {
@@ -417,10 +329,10 @@ ProcessTablesInConfig(database_api *Pg, cJSON *SchemaConf)
                 goto JSON_err;
             }
 
-            (void)SdbStringAppendC(CreationQuery, DataAttribute->string);
-            (void)SdbStringAppendC(CreationQuery, " ");
-            (void)SdbStringAppendC(CreationQuery, DataAttribute->valuestring);
-            (void)SdbStringAppendC(CreationQuery, ",\n");
+            SdbStringAppendC(CreationQuery, DataAttribute->string);
+            SdbStringAppendC(CreationQuery, " ");
+            SdbStringAppendC(CreationQuery, DataAttribute->valuestring);
+            SdbStringAppendC(CreationQuery, ",\n");
         }
 
         SdbStringBackspace(CreationQuery, 2);

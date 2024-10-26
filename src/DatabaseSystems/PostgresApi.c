@@ -17,7 +17,6 @@ PgInit(database_api *Pg)
 
     u64            ArenaF5  = SdbArenaGetPos(&Pg->Arena);
     sdb_file_data *ConfFile = SdbLoadFileIntoMemory(POSTGRES_CONF_FS_PATH, &Pg->Arena);
-    // TODO(ingar): Make pg config a json file
     if(ConfFile == NULL) {
         SdbLogError("Failed to open config file");
         return -1;
@@ -44,7 +43,7 @@ PgInit(database_api *Pg)
     Pg->Ctx              = PgCtx;
 
     cJSON *SchemaConf = DbInitGetConfFromFile("./configs/sensor_schemas.json", &Pg->Arena);
-    if(ProcessTablesInConfig(Pg, SchemaConf) != 0) {
+    if(ProcessSchemaConfig(Pg, SchemaConf) != 0) {
         cJSON_Delete(SchemaConf);
         return -1;
     }
