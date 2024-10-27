@@ -3,9 +3,12 @@
     {
         "name": "shaft_power",
         "data": {
-            "rpm": "INT",
-            "torque": "FLOAT",
-            "power": "FLOAT"
+            "packet_id": "BIGINT",
+            "time": "DOUBLE PRECISION",
+            "rpm": "DOUBLE PRECISION",
+            "torque": "DOUBLE PRECISION",
+            "power": "DOUBLE PRECISION",
+            "peak_peak_pfs": "DOUBLE PRECISION"
         }   
     },
     {

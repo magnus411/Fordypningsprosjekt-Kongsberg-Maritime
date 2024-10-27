@@ -6,6 +6,7 @@ SDB_THREAD_ARENAS_EXTERN(Postgres);
 #include <src/DatabaseSystems/DatabaseSystems.h>
 #include <src/DatabaseSystems/Postgres.h>
 
+#if 0
 sdb_errno
 PgInit(database_api *Pg)
 {
@@ -43,7 +44,7 @@ PgInit(database_api *Pg)
     Pg->Ctx              = PgCtx;
 
     cJSON *SchemaConf = DbInitGetConfFromFile("./configs/sensor_schemas.json", &Pg->Arena);
-    if(ProcessSchemaConfig(Pg, SchemaConf) != 0) {
+    if(ProcessSchemaConfig(Pg, SchemaConf, NULL, NULL) != 0) {
         cJSON_Delete(SchemaConf);
         return -1;
     }
@@ -73,3 +74,23 @@ PgFinalize(database_api *Pg)
     SdbArenaClear(&Pg->Arena);
     return 0;
 }
+#else
+// NOTE(ingar): Since development uses the test versions of these api functions, these stub
+// functions are used during development to avoid having to update them constantly
+// whenever changes are made
+sdb_errno
+PgInit(database_api *Pg)
+{
+    return 0;
+}
+sdb_errno
+PgRun(database_api *Pg)
+{
+    return 0;
+}
+sdb_errno
+PgFinalize(database_api *Pg)
+{
+    return 0;
+}
+#endif

@@ -103,18 +103,13 @@ PgInitTest(database_api *Pg)
     PgCtx->InsertBufSize = SdbKibiByte(16);
     PgCtx->InsertBuf     = SdbPushArray(&Pg->Arena, u8, PgCtx->InsertBufSize);
     PgCtx->DbConn        = Conn;
-    Pg->Ctx              = PgCtx;
+    SdbMutexInit(&PgCtx->ConnLock);
+    Pg->Ctx = PgCtx;
 
     cJSON *SchemaConf = DbInitGetConfFromFile("./configs/sensor_schemas.json", Scratch.Arena);
-    if(ProcessSchemaConfig(Pg, SchemaConf) != 0) {
+    if((PgPrepareTablesAndStatements(Pg, SchemaConf)) != 0) {
         cJSON_Delete(SchemaConf);
         SdbScratchRelease(Scratch);
-        return -1;
-    }
-
-    if(PrepareStatements(Pg) != 0) {
-        SdbScratchRelease(Scratch);
-        cJSON_Delete(SchemaConf);
         return -1;
     }
 
@@ -135,6 +130,7 @@ PgRunTest(database_api *Pg)
             SdbLogError("Failed to read from pipe");
         }
     }
+
     return 0;
 }
 

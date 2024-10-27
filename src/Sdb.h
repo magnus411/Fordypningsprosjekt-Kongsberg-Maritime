@@ -80,6 +80,8 @@ enum
 
     SDBE_CONN_CLOSED_SUCS = 4,
     SDBE_CONN_CLOSED_ERR  = 5,
+
+    SDBE_PG_ERROR = 6,
 };
 
 
@@ -239,7 +241,7 @@ typedef struct
 
 #define SDB_THREAD_ARENAS_EXTERN(thread_name)                                                      \
     extern __thread sdb__thread_arenas__  SDB_CONCAT3(Sdb__ThreadArenas, thread_name, __);         \
-    static __thread sdb__thread_arenas__ *Sdb__ThreadArenasInstance__
+    static __thread sdb__thread_arenas__ *Sdb__ThreadArenasInstance__ __attribute__((used))
 
 // WARN: Must be used at runtime, not compile time. This is because you cannot take the address
 // of a __thread varible in static initialization, since the address will differ per thread.
@@ -381,7 +383,8 @@ void       SdbStringBackspace(sdb_string String, u64 N);
 
 sdb_string SdbStringAppend(sdb_string String, sdb_string Other);
 sdb_string SdbStringAppendC(sdb_string String, const char *Other);
-sdb_string SdbStringAppendFmt(sdb_string String, const char *Fmt, ...);
+sdb_string SdbStringAppendFmt(sdb_string String, const char *Fmt, ...)
+    __attribute__((format(printf, 2, 3)));
 
 bool SdbStringsAreEqual(sdb_string Lhs, sdb_string Rhs);
 
@@ -976,10 +979,6 @@ SdbStringBackspace(sdb_string String, u64 N)
 sdb_string
 SdbStringMakeSpace(sdb_string String, u64 AddLen)
 {
-#ifdef DEBUG
-    // NOTE(ingar): Only here to be able to see the header in the debugger
-    sdb_string_header *__Header__ = SDB_STRING_HEADER(String);
-#endif
     u64 Available = SdbStringAvailableSpace(String);
     if(Available < AddLen) {
         sdb_arena *A        = SDB_STRING_HEADER(String)->Arena;
@@ -997,10 +996,6 @@ SdbStringMakeSpace(sdb_string String, u64 AddLen)
 sdb_string
 Sdb__StringAppend__(sdb_string String, const void *Other, u64 OtherLen)
 {
-#ifdef DEBUG
-    // NOTE(ingar): Only here to be able to see the header in the debugger
-    sdb_string_header *__Header__ = SDB_STRING_HEADER(String);
-#endif
     String = SdbStringMakeSpace(String, OtherLen);
     if(String == NULL) {
         return NULL;

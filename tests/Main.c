@@ -1,4 +1,3 @@
-#include <pthread.h>
 #include <stdlib.h>
 
 #define SDB_H_IMPLEMENTATION

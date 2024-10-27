@@ -1,27 +1,16 @@
-
-#define SDB_H_IMPLEMENTATION
-#include <src/Sdb.h>
-#undef SDB_H_IMPLEMENTATION
-
-SDB_LOG_REGISTER(Main);
-
+#if 0
+#include <src/Common/Metrics.h>
 #include <src/Common/SensorDataPipe.h>
 #include <src/DatabaseSystems/DatabaseSystems.h>
 #include <src/Modules/DatabaseModule.h>
 
-
-#include <src/Metrics.h>
-
 #define SD_PIPE_BUF_COUNT 4
-
-// TODO(ingar): Is it fine to keep this globally?
-static i64 NextDbmTId_ = 1;
 
 circular_buffer CB;
 
 
 void *
-tempInsert(void *)
+tempInsert(void *arg)
 {
     size_t data_size = 256;
     char  *data      = malloc(data_size);
@@ -36,7 +25,7 @@ tempInsert(void *)
 
 
 void *
-tempPop(void *)
+tempPop(void *arg)
 {
     size_t data_size = 256;
     char  *data      = malloc(data_size);
@@ -50,7 +39,7 @@ tempPop(void *)
 
 
 int
-main(int argc, char const *argv[])
+MetricTest(int argc, char const *argv[])
 {
 
 
@@ -84,12 +73,13 @@ main(int argc, char const *argv[])
     pthread_join(temp2, NULL);
 
 
-    DestroyMetric(&OccupancyMetric);
-    DestroyMetric(&InputThroughput);
-    DestroyMetric(&BufferWriteThroughput);
-    DestroyMetric(&BufferReadThroughput);
-    DestroyMetric(&OutputThroughput);
+    MetricDestroy(&OccupancyMetric);
+    MetricDestroy(&InputThroughput);
+    MetricDestroy(&BufferWriteThroughput);
+    MetricDestroy(&BufferReadThroughput);
+    MetricDestroy(&OutputThroughput);
 
 
     return 0;
 }
+#endif

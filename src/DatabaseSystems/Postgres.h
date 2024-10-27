@@ -9,13 +9,14 @@ SDB_BEGIN_EXTERN_C
 
 #include <src/Common/CircularBuffer.h>
 #include <src/Common/SensorDataPipe.h>
+#include <src/Common/Thread.h>
 #include <src/Libs/cJSON/cJSON.h>
 #include <src/Modules/DatabaseModule.h>
 
 #define POSTGRES_CONF_FS_PATH "./configs/postgres-conf"
 
 // PostgreSQL Type OID  and Names
-enum pg_oid
+enum
 {
     PG_BOOL        = 16,
     PG_INT8        = 20,
@@ -59,20 +60,30 @@ typedef struct
     sdb_string ColumnName;
     pg_oid     TypeOid;
     i16        TypeLength;
+    i16        Offset;
     i32        TypeModifier;
 
 } pg_col_metadata;
 
 typedef struct
 {
-    PGconn *DbConn;
+    sdb_string       TableName;
+    sdb_string       Statement;
+    u64              ColCount;
+    pg_col_metadata *ColMetadata;
 
-    sdb_string *TableNames;
-    u64         TableCount;
+} pg_table_info;
 
-    sdb_string *PreparedStatements;
-    u64         StatementCount;
+typedef struct
+{
+    PGconn   *DbConn;
+    sdb_mutex ConnLock;
 
+    pg_table_info *TablesInfo;
+    u64            TablesCount;
+
+    // TODO(ingar): We're probably just gonna use the pipe. Fill up a buffer, signal to db insert,
+    // and switch to another buffer for writing while the previous is written to db
     size_t InsertBufSize;
     u8    *InsertBuf;
 
@@ -82,16 +93,11 @@ typedef struct
 
 void             DiagnoseConnectionAndTable(PGconn *DbConn, const char *TableName);
 void             PrintPGresult(const PGresult *Result);
-sdb_errno        PrepareStatements(database_api *Pg);
 pg_col_metadata *GetTableMetadata(PGconn *DbConn, sdb_string TableName, int *ColCount,
                                   sdb_arena *A);
-
-void InsertSensorData(PGconn *DbConn, const char *TableName, u64 TableNameLen, const u8 *SensorData,
-                      size_t DataSize);
-
-sdb_errno ProcessSchemaConfig(database_api *Pg, cJSON *SchemaConf);
-void      PgInitThreadArenas(void);
-
+void             InsertSensorData(database_api *Pg);
+void             PgInitThreadArenas(void);
+sdb_errno        PgPrepareTablesAndStatements(database_api *Pg, cJSON *SchemaConf);
 
 SDB_END_EXTERN_C
 

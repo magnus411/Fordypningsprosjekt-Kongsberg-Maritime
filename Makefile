@@ -1,6 +1,6 @@
 CC = gcc
 INCLUDES = -I.
-LIBS = -lpaho-mqtt3c -lpthread -lpq -lpthread
+LIBS = -lpaho-mqtt3c -lpthread -lpq -lpthread -lm
 LINTER = clang-tidy
 LINTER_FLAGS = -quiet
 

@@ -20,42 +20,41 @@ SDB_LOG_REGISTER(TestModbus);
 #define MAX_MODBUS_PDU_SIZE   253
 #define MAX_MODBUS_TCP_FRAME  260
 #define BACKLOG               5
-#define PACKET_HZ           10
-
+#define PACKET_HZ             10
 
 
 #define READ_HOLDING_REGISTERS 0x03
 
-typedef struct __attribute__((packed))
+typedef struct __attribute__((packed, aligned(1)))
 {
-    pg_int4   ID;
-    pg_float8 TIME;
+    pg_int8   PacketId;
+    pg_float8 Time;
     pg_float8 Rpm;
     pg_float8 Torque;
     pg_float8 Power;
-    pg_float8 Peak_Peak_PFS;
-} power_shaft_data;
+    pg_float8 PeakPeakPfs;
+} shaft_power_data;
 
 static void
-GeneratePowerShaftData(power_shaft_data *Data, int ID)
+GeneratePowerShaftData(shaft_power_data *Data)
 {
     time_t CurrentTime = time(NULL);
-    struct tm *TmInfo = localtime(&CurrentTime);
-
-    if (rand() % 10 < 2) {
-        Data->ID = ID;
-        Data->TIME = (pg_float8)difftime(CurrentTime, 0);
-        Data->Rpm = 0;
-        Data->Torque = 0;
-        Data->Power = 0;
-        Data->Peak_Peak_PFS = 0;
+    localtime(&CurrentTime);
+    static i64 Id = 0;
+    if(rand() % 10 < 2) {
+        Data->PacketId    = Id++;
+        Data->Time        = (pg_float8)difftime(CurrentTime, 0);
+        Data->Rpm         = 0;
+        Data->Torque      = 0;
+        Data->Power       = 0;
+        Data->PeakPeakPfs = 0;
     } else {
-        Data->ID = ID;
-        Data->TIME = (pg_float8)difftime(CurrentTime, 0);
-        Data->Rpm = ((rand() % 100) + 30.0) * sin(ID * 0.1);  // RPM with variation
-        Data->Torque = ((rand() % 600) + 100.0) * 0.8;  // Torque (Nm)
-        Data->Power = Data->Rpm * Data->Torque / 9.5488;  // Derived power (kW)
-        Data->Peak_Peak_PFS = ((rand() % 50) + 25.0) * cos(ID * 0.1);  // PFS variation
+        Data->PacketId    = Id++;
+        Data->Time        = (pg_float8)difftime(CurrentTime, 0);
+        Data->Rpm         = ((rand() % 100) + 30.0) * sin(Id * 0.1); // RPM with variation
+        Data->Torque      = ((rand() % 600) + 100.0) * 0.8;          // Torque (Nm)
+        Data->Power       = Data->Rpm * Data->Torque / 9.5488;       // Derived power (kW)
+        Data->PeakPeakPfs = ((rand() % 50) + 25.0) * cos(Id * 0.1);  // PFS variation
     }
 }
 
@@ -76,7 +75,7 @@ GenerateModbusTcpFrame(u8 *Buffer, u16 TransactionId, u16 ProtocolId, u16 Length
 }
 
 sdb_errno
-SendModbusData(int NewFd, u16 UnitId, int ID)
+SendModbusData(int NewFd, u16 UnitId)
 {
     u8 ModbusFrame[MODBUS_TCP_HEADER_LEN + MAX_MODBUS_PDU_SIZE];
 
@@ -84,12 +83,12 @@ SendModbusData(int NewFd, u16 UnitId, int ID)
     u16 ProtocolId    = 0;
     u8  FunctionCode  = READ_HOLDING_REGISTERS;
 
-    power_shaft_data Data = { 0 };
+    shaft_power_data Data = { 0 };
 
     u16 DataLength = sizeof(Data);
     u16 Length     = DataLength + 3;
 
-    GeneratePowerShaftData(&Data, ID);
+    GeneratePowerShaftData(&Data);
     GenerateModbusTcpFrame(ModbusFrame, TransactionId, ProtocolId, Length, UnitId, FunctionCode,
                            (u8 *)&Data, DataLength);
 
@@ -163,7 +162,7 @@ RunModbusTestServer(sdb_thread *Thread)
         SdbLogDebug("Successfully sent Modbus data to client %s:%d", ClientIp,
                     ntohs(ClientAddr.sin_port));
 
-        SdbSleep(SDB_TIME_S(1/PACKET_HZ));
+        SdbSleep(SDB_TIME_S(1 / PACKET_HZ));
     }
 
     close(SockFd);
