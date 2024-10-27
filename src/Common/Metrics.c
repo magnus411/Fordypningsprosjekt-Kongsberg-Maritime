@@ -1,6 +1,6 @@
 #include <pthread.h>
+#include <src/Common/Metrics.h>
 #include <src/Common/Thread.h>
-#include <src/Metrics.h>
 #include <src/Sdb.h>
 #include <stdio.h>
 #include <stdlib.h>
