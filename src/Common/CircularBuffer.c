@@ -1,26 +1,28 @@
+#include "src/Common/Thread.h"
 #include <errno.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <sys/types.h>
 #include <sys/mman.h>
+#include <sys/types.h>
 #include <unistd.h>
-#include <src/Sdb.h>
 
+#include <src/Sdb.h>
 SDB_LOG_REGISTER(CircularBuffer);
 
 #include <src/Common/CircularBuffer.h>
-#include <src/Metrics.h>
+#include <src/Common/Metrics.h>
 
 bool
 CbIsFull(circular_buffer *Cb)
 {
-return Cb->Full;
+    return Cb->Full;
 }
+
 bool
 CbIsEmpty(circular_buffer *Cb)
 {
-return (!Cb->Full && (Cb->Head == Cb->Tail));
+    return (!Cb->Full && (Cb->Head == Cb->Tail));
 }
 
 
@@ -49,11 +51,10 @@ CbInit(circular_buffer *Cb, size_t Size, sdb_arena *Arena)
     Cb->Count    = 0;
     Cb->Full     = false;
 
-    pthread_mutex_init(&Cb->WriteLock, NULL);
-    pthread_mutex_init(&Cb->ReadLock, NULL);
-    pthread_cond_init(&Cb->NotEmpty, NULL);
-    pthread_cond_init(&Cb->NotFull, NULL);
-
+    SdbMutexInit(&Cb->WriteLock);
+    SdbMutexInit(&Cb->ReadLock);
+    SdbCondInit(&Cb->NotEmpty);
+    SdbCondInit(&Cb->NotFull);
     SdbLogDebug("Circular buffer initialized. Size: %zu, Buffer address: %p", Size, Cb->Data);
 
     return 0;
@@ -84,7 +85,7 @@ CbInsert(circular_buffer *Cb, void *Data, size_t Size)
     MetricAddSample(&BufferWriteThroughput, Size);
 
     int percentageFilled = (Cb->Count * 100) / Cb->DataSize;
-    AddSample(&OccupancyMetric, percentageFilled);
+    MetricAddSample(&OccupancyMetric, percentageFilled);
 
     pthread_cond_signal(&Cb->NotEmpty);
     pthread_mutex_unlock(&Cb->WriteLock);
@@ -118,7 +119,7 @@ CbRead(circular_buffer *Cb, void *Dest, size_t Size)
 
 
     int percentageFilled = (Cb->Count * 100) / Cb->DataSize;
-    AddSample(&OccupancyMetric, percentageFilled);
+    MetricAddSample(&OccupancyMetric, percentageFilled);
 
     pthread_cond_signal(&Cb->NotFull);
     pthread_mutex_unlock(&Cb->ReadLock);
@@ -129,10 +130,10 @@ CbRead(circular_buffer *Cb, void *Dest, size_t Size)
 void
 CbFree(circular_buffer *Cb)
 {
-    // WARN: This will not work if an arena was used to allocate the memory!
-    free(Cb->Data);
-    pthread_mutex_destroy(&Cb->WriteLock);
-    pthread_mutex_destroy(&Cb->ReadLock);
-    pthread_cond_destroy(&Cb->NotEmpty);
-    pthread_cond_destroy(&Cb->NotFull);
+    // NOTE(ingar): Data must be freed by user since we don't know if the memory was allocated with
+    // an arena or not
+    SdbMutexDeinit(&Cb->WriteLock);
+    SdbMutexDeinit(&Cb->ReadLock);
+    SdbCondDeinit(&Cb->NotEmpty);
+    SdbCondDeinit(&Cb->NotFull);
 }

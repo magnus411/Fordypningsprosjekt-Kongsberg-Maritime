@@ -1,13 +1,14 @@
 #ifndef CIRCULAR_BUFFER_H
 #define CIRCULAR_BUFFER_H
 
-#include <pthread.h>
 #include <stdbool.h>
 #include <sys/types.h>
 
 #include <src/Sdb.h>
 
-#include <src/Metrics.h>
+#include <src/Common/Metrics.h>
+#include <src/Common/Thread.h>
+
 SDB_BEGIN_EXTERN_C
 
 #define MAX_DATA_LENGTH 260
@@ -33,10 +34,10 @@ typedef struct
     bool   Full;
 
     // TODO(ingar): Replace with sdb variants
-    pthread_mutex_t WriteLock;
-    pthread_mutex_t ReadLock;
-    pthread_cond_t  NotEmpty;
-    pthread_cond_t  NotFull;
+    sdb_mutex WriteLock;
+    sdb_mutex ReadLock;
+    sdb_cond  NotEmpty;
+    sdb_cond  NotFull;
 
 
 } circular_buffer;
