@@ -14,27 +14,6 @@ typedef enum
 
 } Comm_Protocol_Type;
 
-typedef struct comm_protocol_api comm_protocol_api;
-struct comm_protocol_api
-{
-    sdb_errno (*Init)(comm_protocol_api *Cp);
-    sdb_errno (*Run)(comm_protocol_api *Cp);
-    sdb_errno (*Finalize)(comm_protocol_api *Cp);
-
-    sensor_data_pipe SdPipe;
-    sdb_arena        Arena;
-    void            *Ctx;
-    void            *OptArgs;
-};
-
-typedef sdb_errno (*cp_init_api)(Comm_Protocol_Type Type, sensor_data_pipe *SdPipe,
-                                 sdb_arena *Arena, u64 ArenaSize, i64 CommTId,
-                                 comm_protocol_api *CpApi);
-
-bool      CpProtocolIsAvailable(Comm_Protocol_Type Type);
-sdb_errno CpInitApi(Comm_Protocol_Type Type, sensor_data_pipe *SdPipe, sdb_arena *Arena,
-                    u64 ArenaSize, i64 CommTId, comm_protocol_api *CpApi);
-
 static inline const char *
 CpTypeToName(Comm_Protocol_Type Type)
 {
@@ -47,6 +26,56 @@ CpTypeToName(Comm_Protocol_Type Type)
             return "Protocol does not exist";
     }
 }
+
+typedef struct comm_protocol_api comm_protocol_api;
+struct comm_protocol_api
+{
+    sdb_errno (*Init)(comm_protocol_api *Cp);
+    sdb_errno (*Run)(comm_protocol_api *Cp);
+    sdb_errno (*Finalize)(comm_protocol_api *Cp);
+
+    u64                SensorCount;
+    sensor_data_pipe **SdPipes;
+
+    sdb_arena Arena;
+
+    void *Ctx;
+    void *OptArgs;
+};
+
+typedef sdb_errno (*cp_init_api)(Comm_Protocol_Type Type, u64 SensorCount,
+                                 sensor_data_pipe **SdPipes, sdb_arena *Arena, u64 ArenaSize,
+                                 i64 CommTId, comm_protocol_api *CpApi);
+
+typedef struct
+{
+    sdb_barrier *ModulesBarrier;
+
+    Comm_Protocol_Type CpType;
+    cp_init_api        InitApi;
+
+    sensor_data_pipe **SdPipes;
+    u64                SensorCount; // NOTE(ingar): 1 pipe per sensor
+
+    sdb_thread_control  Control;
+    sdb_thread_control *ChildControls;
+
+    sdb_arena Arena;
+    u64       ArenaSize;
+    u64       CpArenaSize;
+
+} comm_module_ctx;
+
+bool      CpProtocolIsAvailable(Comm_Protocol_Type Type);
+sdb_errno CpInitApi(Comm_Protocol_Type Type, u64 SensorCount, sensor_data_pipe **SdPipes,
+                    sdb_arena *Arena, u64 ArenaSize, i64 CommTId, comm_protocol_api *CpApi);
+
+comm_module_ctx *CommModuleInit(sdb_barrier *ModulesBarrier, Comm_Protocol_Type Type,
+                                cp_init_api ApiInit, sensor_data_pipe **Pipes, u64 SensorCount,
+                                u64 ModuleArenaSize, u64 DbsArenaSize, sdb_arena *Arena);
+
+sdb_errno CommModuleRun(sdb_thread *CommThread);
+
 
 SDB_END_EXTERN_C
 
