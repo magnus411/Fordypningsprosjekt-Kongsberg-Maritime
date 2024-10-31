@@ -14,6 +14,17 @@ typedef enum
 
 } Db_System_Type;
 
+static inline const char *
+DbsTypeToName(Db_System_Type Type)
+{
+    switch(Type) {
+        case Dbs_Postgres:
+            return "Postgres";
+        default:
+            return "Dbs does not exist";
+    }
+}
+
 // NOTE(ingar): The API design is inspired by
 // https://docs.zephyrproject.org/apidoc/latest/log__backend_8h_source.html
 
@@ -26,30 +37,46 @@ struct database_api
 
     // NOTE(ingar): For now, the db system can define a macro that casts the context to their own
     // context type. I don't know of a better solution atm
-    sensor_data_pipe SdPipe;
-    sdb_arena        Arena;
-    void            *Ctx;
-    void            *OptArgs;
+    u64                SensorCount;
+    sensor_data_pipe **SdPipes;
+    sdb_arena          Arena;
+    void              *Ctx;
+    void              *OptArgs;
 };
 
-typedef sdb_errno (*dbs_init_api)(Db_System_Type DbsType, sensor_data_pipe *SdPipe,
+typedef sdb_errno (*dbs_init_api)(Db_System_Type DbsType, u64 SensorCount, sensor_data_pipe **Pipes,
                                   sdb_arena *Arena, u64 ArenaSize, i64 DbmTId, database_api *Dbs);
+
+typedef struct
+{
+    sdb_barrier *ModulesBarrier;
+
+    Db_System_Type DbsType;
+    dbs_init_api   InitApi;
+
+    sensor_data_pipe **SdPipes;
+    u64                SensorCount; // NOTE(ingar): 1 pipe per sensor
+
+    sdb_thread_control Control;
+
+    sdb_arena Arena;
+    u64       ArenaSize;
+    u64       DbsArenaSize;
+
+} db_module_ctx;
+
 
 bool DbsDatabaseIsAvailable(Db_System_Type DbsId);
 
-sdb_errno DbsInitApi(Db_System_Type DbsType, sensor_data_pipe *SdPipe, sdb_arena *Arena,
-                     u64 ArenaSize, i64 DbmTId, database_api *Dbs);
+sdb_errno DbsInitApi(Db_System_Type DbsType, u64 SensorCount, sensor_data_pipe **Pipes,
+                     sdb_arena *Arena, u64 ArenaSize, i64 DbmTId, database_api *Dbs);
 
-static inline const char *
-DbsTypeToName(Db_System_Type Type)
-{
-    switch(Type) {
-        case Dbs_Postgres:
-            return "Postgres";
-        default:
-            return "Dbs does not exist";
-    }
-}
+db_module_ctx *DbModuleInit(sdb_barrier *ModulesBarrier, Db_System_Type Type, dbs_init_api ApiInit,
+                            sensor_data_pipe **Pipes, u64 SensorCount, u64 ModuleArenaSize,
+                            u64 DbsArenaSize, sdb_arena *Arena);
+
+sdb_errno DbModuleRun(sdb_thread *DbmThread);
+
 SDB_END_EXTERN_C
 
 #endif
