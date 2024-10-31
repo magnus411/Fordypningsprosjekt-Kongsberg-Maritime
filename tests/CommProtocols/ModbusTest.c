@@ -1,3 +1,4 @@
+#include "src/Common/SensorDataPipe.h"
 #include <arpa/inet.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -17,14 +18,8 @@ SDB_THREAD_ARENAS_EXTERN(Modbus);
 #include <src/DatabaseSystems/Postgres.h>
 #include <tests/TestConstants.h>
 
-#define MODBUS_TCP_HEADER_LEN 7
-#define MAX_MODBUS_PDU_SIZE   253
-#define MAX_MODBUS_TCP_FRAME  260
-#define BACKLOG               5
-#define PACKET_FREQ           10
-
-
-#define READ_HOLDING_REGISTERS 0x03
+#define BACKLOG     5
+#define PACKET_FREQ 10
 
 typedef struct __attribute__((packed, aligned(1)))
 {
@@ -78,11 +73,11 @@ GenerateModbusTcpFrame(u8 *Buffer, u16 TransactionId, u16 ProtocolId, u16 Length
 sdb_errno
 SendModbusData(int NewFd, u16 UnitId)
 {
-    u8 ModbusFrame[MODBUS_TCP_HEADER_LEN + MAX_MODBUS_PDU_SIZE];
+    u8 ModbusFrame[MODBUS_TCP_FRAME_MAX_SIZE];
 
     u16 TransactionId = 1;
     u16 ProtocolId    = 0;
-    u8  FunctionCode  = READ_HOLDING_REGISTERS;
+    u8  FunctionCode  = MODBUS_READ_HOLDING_REGISTERS;
 
     shaft_power_data Data = { 0 };
 
@@ -100,7 +95,7 @@ SendModbusData(int NewFd, u16 UnitId)
 
 
 sdb_errno
-RunModbusTestServer(sdb_thread *Thread)
+ModbusTestRunServer(sdb_thread *Thread)
 {
     SdbLogInfo("Running Modbus Test Server");
 
@@ -166,13 +161,14 @@ RunModbusTestServer(sdb_thread *Thread)
         SdbSleep(SDB_TIME_S(1.0 / PACKET_FREQ));
     }
     SdbLogDebug("All data sent, stopping server");
+    close(NewFd);
     close(SockFd);
     return 0;
 }
 
 
 sdb_errno
-MbInitTest(comm_protocol_api *Mb)
+MbTestApiInit(comm_protocol_api *Mb)
 {
     MbThreadArenasInit();
     SdbThreadArenasInitExtern(Modbus);
@@ -181,9 +177,9 @@ MbInitTest(comm_protocol_api *Mb)
     SdbThreadArenasAdd(Scratch1);
     SdbThreadArenasAdd(Scratch2);
 
-    modbus_ctx *MbCtx = SdbPushStruct(&Mb->Arena, modbus_ctx);
-    Mb->Ctx           = MbCtx;
-    if(MbPrepare(Mb) != 0) {
+    Mb->Ctx = MbPrepareCtx(Mb);
+    if(Mb->Ctx == NULL) {
+        SdbLogError("Failed to initialize Modbus context");
         return -1;
     }
 
@@ -191,16 +187,75 @@ MbInitTest(comm_protocol_api *Mb)
 }
 
 sdb_errno
-MbRunTest(comm_protocol_api *Mb)
+MbTestApiRun(comm_protocol_api *Mb)
 {
-    return 0;
+    sdb_errno Ret = 0;
+
+    modbus_ctx         *MbCtx         = MB_CTX(Mb);
+    sdb_thread_control *ModuleControl = Mb->ModuleControl;
+    sdb_arena          *MbArena       = &Mb->Arena;
+    mb_conn             Conn = MbCtx->Conns[0]; // TODO(ingar): Simplified to only use one for now
+
+    sensor_data_pipe *Pipe = Mb->SdPipes[0]; // TODO(ingar): Simplified to only use one pipe for now
+    sdb_arena        *CurBuf = Pipe->Buffers[atomic_load(&Pipe->WriteBufIdx)];
+
+    while(!SdbTCtlShouldStop(ModuleControl)) {
+        SdbAssert((SdbArenaGetPos(CurBuf) <= Pipe->BufferMaxFill),
+                  "Thread %ld: Pipe buffer overflow in buffer %u", Thread->pid,
+                  atomic_load(&Pipe->WriteBufIdx));
+
+        if(SdbArenaGetPos(CurBuf) == Pipe->BufferMaxFill) {
+            CurBuf = SdPipeGetWriteBuffer(Pipe);
+        }
+
+        u8  Frame[MODBUS_TCP_FRAME_MAX_SIZE];
+        int RecvResult = SocketRecvWithTimeout(Conn.SockFd, Frame, sizeof(Frame), SDB_TIME_MS(500));
+
+        switch(RecvResult) {
+            case -2: // Timeout
+                continue;
+            case -1: // Error
+                Ret = -1;
+                goto exit;
+                break;
+            case 0: // Server disconnected
+                Ret = 0;
+                goto exit;
+                break;
+            default: // Data received
+                {
+                    u16       UnitId, FunctionCode, DataLength;
+                    const u8 *Data = MbParseTcpFrame(Frame, &UnitId, &FunctionCode, &DataLength);
+
+                    SdbAssert(DataLength == Pipe->PacketSize,
+                              "Modbus packet size did not match expected, was %u expected %zd",
+                              DataLength, Pipe->PacketSize);
+
+                    u8 *Ptr = SdbArenaPush(CurBuf, DataLength);
+                    SdbMemcpy(Ptr, Data, DataLength);
+                }
+                break;
+        }
+    }
+
+exit:
+    SdPipeFlush(Pipe);
+    SdbLogDebug("Modbus main loop stopped with %s", (Ret == 0) ? "success" : "error");
+
+    return Ret;
 }
 
 sdb_errno
-MbFinalizeTest(comm_protocol_api *Mb)
+MbTestApiFinalize(comm_protocol_api *Mb)
 {
-    modbus_ctx *MbCtx = MB_CTX(Mb);
     sdb_errno   Ret   = 0;
+    modbus_ctx *MbCtx = MB_CTX(Mb);
+
+    for(u64 i = 0; i < MbCtx->ConnCount; ++i) {
+        int SockFd = MbCtx->Conns[i].SockFd;
+        SdbLogDebug("Closing connection %d", SockFd);
+        close(SockFd);
+    }
 
     return Ret;
 }

@@ -33,8 +33,8 @@ void TestBinaryInsert(PGconn *DbConnection, const char *TableName, u64 TableName
 void GetSensorSchemasFromDb(PGconn *Connection, sdb_arena *Arena);
 
 
-sdb_errno PgInitTest(database_api *Pg);
-sdb_errno PgRunTest(database_api *Pg);
-sdb_errno PgFinalizeTest(database_api *Pg);
+sdb_errno PgTestApiInit(database_api *Pg);
+sdb_errno PgTestApiRun(database_api *Pg);
+sdb_errno PgTestApiFinalize(database_api *Pg);
 
 #endif

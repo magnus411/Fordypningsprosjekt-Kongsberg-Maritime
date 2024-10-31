@@ -34,6 +34,10 @@ struct comm_protocol_api
     sdb_errno (*Run)(comm_protocol_api *Cp);
     sdb_errno (*Finalize)(comm_protocol_api *Cp);
 
+    sdb_thread_control *ModuleControl;
+    // NOTE(ingar): Passed in to stay in the api run function instead of returning to the module
+    // code
+
     u64                SensorCount;
     sensor_data_pipe **SdPipes;
 
@@ -43,9 +47,9 @@ struct comm_protocol_api
     sdb_arena Arena;
 };
 
-typedef sdb_errno (*cp_init_api)(Comm_Protocol_Type Type, u64 SensorCount,
-                                 sensor_data_pipe **SdPipes, sdb_arena *Arena, u64 ArenaSize,
-                                 i64 CommTId, comm_protocol_api *CpApi);
+typedef sdb_errno (*cp_init_api)(Comm_Protocol_Type Type, sdb_thread_control *ModuleControl,
+                                 u64 SensorCount, sensor_data_pipe **SdPipes, sdb_arena *Arena,
+                                 u64 ArenaSize, i64 CommTId, comm_protocol_api *CpApi);
 
 typedef struct
 {
@@ -55,7 +59,7 @@ typedef struct
     cp_init_api        InitApi;
 
     u64                SensorCount;
-    sensor_data_pipe **SdPipes; // NOTE(ingar): 1 pipe per sensor
+    sensor_data_pipe **SdPipes; // TODO(ingar): 1 pipe per sensor?
 
     sdb_thread_control Control;
 
@@ -67,12 +71,13 @@ typedef struct
 
 bool CpProtocolIsAvailable(Comm_Protocol_Type Type);
 
-sdb_errno CpInitApi(Comm_Protocol_Type Type, u64 SensorCount, sensor_data_pipe **SdPipes,
-                    sdb_arena *Arena, u64 ArenaSize, i64 CommTId, comm_protocol_api *CpApi);
+sdb_errno CpApiInit(Comm_Protocol_Type Type, sdb_thread_control *ModuleControl, u64 SensorCount,
+                    sensor_data_pipe **SdPipes, sdb_arena *Arena, u64 ArenaSize, i64 CommTId,
+                    comm_protocol_api *CpApi);
 
-comm_module_ctx *CommModuleInit(sdb_barrier *ModulesBarrier, Comm_Protocol_Type Type,
-                                cp_init_api ApiInit, sensor_data_pipe **Pipes, u64 SensorCount,
-                                u64 ModuleArenaSize, u64 DbsArenaSize, sdb_arena *Arena);
+comm_module_ctx *CommModulePrepare(sdb_barrier *ModulesBarrier, Comm_Protocol_Type Type,
+                                   cp_init_api ApiInit, sensor_data_pipe **Pipes, u64 SensorCount,
+                                   u64 ModuleArenaSize, u64 DbsArenaSize, sdb_arena *Arena);
 
 sdb_errno CommModuleRun(sdb_thread *CommThread);
 

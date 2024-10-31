@@ -157,10 +157,9 @@ GetTableMetadata(PGconn *DbConn, sdb_string TableName, int *ColCount, sdb_arena 
 }
 
 
-sdb_errno
-PgPrepare(database_api *Pg)
+postgres_ctx *
+PgPrepareCtx(database_api *Pg)
 {
-    postgres_ctx     *PgCtx   = PG_CTX(Pg);
     sdb_scratch_arena Scratch = SdbScratchGet(NULL, 0);
 
     // TODO(ingar): Make pg config a json file??
@@ -168,9 +167,11 @@ PgPrepare(database_api *Pg)
     if(ConfFile == NULL) {
         SdbLogError("Failed to open config file");
         SdbScratchRelease(Scratch);
-        return -1;
+        return NULL;
     }
 
+    postgres_ctx *PgCtx  = SdbPushStruct(&Pg->Arena, postgres_ctx);
+    PgCtx->TablesInfo    = SdbPushArray(&Pg->Arena, pg_table_info *, Pg->SensorCount);
     const char *ConnInfo = (const char *)ConfFile->Data;
     PgCtx->DbConn        = PQconnectdb(ConnInfo);
 
@@ -179,7 +180,7 @@ PgPrepare(database_api *Pg)
                     PQerrorMessage(PgCtx->DbConn));
         SdbScratchRelease(Scratch);
         PQfinish(PgCtx->DbConn);
-        return -1;
+        return NULL;
     }
 
 
@@ -207,13 +208,12 @@ PgPrepare(database_api *Pg)
             goto JSON_err;
         }
 
-        pg_table_info *Ti = PgCtx->TablesInfo[SensorIdx];
 
-        Ti            = SdbPushStruct(&Pg->Arena, pg_table_info);
-        Ti->TableName = SdbStringMake(&Pg->Arena, SensorName->valuestring);
-        Ti->Statement = SdbStringDuplicate(&Pg->Arena, Ti->TableName);
+        pg_table_info *Ti = SdbPushStruct(&Pg->Arena, pg_table_info);
+        Ti->TableName     = SdbStringMake(&Pg->Arena, SensorName->valuestring);
+        Ti->Statement     = SdbStringDuplicate(&Pg->Arena, Ti->TableName);
         SdbStringAppendC(Ti->Statement, "_copy");
-
+        PgCtx->TablesInfo[SensorIdx] = Ti;
 
         sdb_string CreationQuery = SdbStringMake(Scratch.Arena, "CREATE TABLE IF NOT EXISTS ");
         SdbStringAppendC(CreationQuery, SensorName->valuestring);
@@ -248,7 +248,7 @@ PgPrepare(database_api *Pg)
             SdbLogError("Table creation failed: %s", PQerrorMessage(PgCtx->DbConn));
             SdbScratchRelease(Scratch);
             PQclear(PgRes);
-            return -1;
+            return NULL;
         } else {
             SdbLogInfo("Table '%s' created successfully (or it already existed).",
                        SensorName->valuestring);
@@ -261,7 +261,7 @@ PgPrepare(database_api *Pg)
         if(NULL == Ti->ColMetadata || 0 == Ti->ColCount) {
             SdbLogError("Failed to get column metadata for table %s", Ti->TableName);
             SdbScratchRelease(Scratch);
-            return -1;
+            return NULL;
         }
 
         sensor_data_pipe *Pipe = Pg->SdPipes[SensorIdx];
@@ -281,7 +281,7 @@ PgPrepare(database_api *Pg)
             SdbLogError("Failed to prepare COPY statement: %s", PQerrorMessage(PgCtx->DbConn));
             PQclear(PgRes);
             SdbScratchRelease(Scratch);
-            return -1;
+            return NULL;
         }
 
         PQclear(PgRes);
@@ -291,14 +291,14 @@ PgPrepare(database_api *Pg)
     cJSON_Delete(SchemaConf);
     SdbScratchRelease(Scratch);
 
-    return 0;
+    return PgCtx;
 
 JSON_err:
     SdbLogError("Sensor schema JSON incorrect, cJSON error: %s", cJSON_GetErrorPtr());
     cJSON_Delete(SchemaConf);
     PQfinish(PgCtx->DbConn);
     SdbScratchRelease(Scratch);
-    return -1;
+    return NULL;
 }
 
 sdb_errno

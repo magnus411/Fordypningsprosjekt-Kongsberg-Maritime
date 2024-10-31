@@ -12,11 +12,11 @@
 // access if I use it
 #define MODBUS_PORT (54321) // (502)
 
-sdb_errno RunModbusTestServer(sdb_thread *Thread);
+sdb_errno ModbusTestRunServer(sdb_thread *Thread);
 
-sdb_errno MbInitTest(comm_protocol_api *Modbus);
-sdb_errno MbRunTest(comm_protocol_api *Modbus);
-sdb_errno MbFinalizeTest(comm_protocol_api *Modbus);
+sdb_errno MbTestApiInit(comm_protocol_api *Modbus);
+sdb_errno MbTestApiRun(comm_protocol_api *Modbus);
+sdb_errno MbTestApiFinalize(comm_protocol_api *Modbus);
 
 
 #endif

@@ -1,6 +1,7 @@
 #ifndef DATABASE_SYSTEMS_H
 #define DATABASE_SYSTEMS_H
 
+#include "src/Common/Thread.h"
 #include <src/Sdb.h>
 
 SDB_BEGIN_EXTERN_C
@@ -35,6 +36,8 @@ struct database_api
     sdb_errno (*Run)(database_api *Db);
     sdb_errno (*Finalize)(database_api *Db);
 
+    sdb_thread_control *ModuleControl;
+
     // NOTE(ingar): For now, the db system can define a macro that casts the context to their own
     // context type. I don't know of a better solution atm
     u64                SensorCount;
@@ -46,9 +49,9 @@ struct database_api
     sdb_arena Arena;
 };
 
-typedef sdb_errno (*dbs_init_api)(Db_System_Type DbsType, u64 SensorCount, sensor_data_pipe **Pipes,
-                                  sdb_arena *Arena, u64 ArenaSize, i64 DbmTId, database_api *Dbs);
-
+typedef sdb_errno (*dbs_init_api)(Db_System_Type DbsType, sdb_thread_control *ModuleControl,
+                                  u64 SensorCount, sensor_data_pipe **Pipes, sdb_arena *Arena,
+                                  u64 ArenaSize, i64 DbmTId, database_api *Dbs);
 typedef struct
 {
     sdb_barrier *ModulesBarrier;
@@ -61,7 +64,6 @@ typedef struct
 
     sdb_thread_control Control;
 
-    u64       ArenaSize;
     u64       DbsArenaSize;
     sdb_arena Arena;
 
@@ -70,8 +72,9 @@ typedef struct
 
 bool DbsDatabaseIsAvailable(Db_System_Type DbsId);
 
-sdb_errno DbsInitApi(Db_System_Type DbsType, u64 SensorCount, sensor_data_pipe **Pipes,
-                     sdb_arena *Arena, u64 ArenaSize, i64 DbmTId, database_api *Dbs);
+sdb_errno DbsInitApi(Db_System_Type DbsType, sdb_thread_control *ModuleControl, u64 SensorCount,
+                     sensor_data_pipe **Pipes, sdb_arena *Arena, u64 ArenaSize, i64 DbmTId,
+                     database_api *Dbs);
 
 db_module_ctx *DbModuleInit(sdb_barrier *ModulesBarrier, Db_System_Type Type, dbs_init_api ApiInit,
                             sensor_data_pipe **Pipes, u64 SensorCount, u64 ModuleArenaSize,

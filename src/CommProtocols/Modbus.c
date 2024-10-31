@@ -1,6 +1,3 @@
-#include "src/Common/Thread.h"
-#include "src/Common/Time.h"
-#include "tests/TestConstants.h"
 #include <pthread.h>
 #include <stdio.h>
 #include <sys/types.h>
@@ -15,9 +12,7 @@ SDB_THREAD_ARENAS_REGISTER(Modbus, 2);
 #include <src/Common/CircularBuffer.h>
 #include <src/Common/SensorDataPipe.h>
 #include <src/Common/Socket.h>
-
-#define MODBUS_TCP_HEADER_LEN 7
-#define MAX_MODBUS_TCP_FRAME  260
+#include <src/Common/Thread.h>
 
 /**
  *
@@ -78,9 +73,10 @@ MbReceiveTcpFrame(int Sockfd, u8 *Frame, size_t BufferSize)
  * ----------------------------------------------------------------------------------------
  */
 const u8 *
-MbParseFrame(const u8 *Frame, u16 *UnitId, u16 *FunctionCode, u16 *DataLength)
+MbParseTcpFrame(const u8 *Frame, u16 *UnitId, u16 *FunctionCode, u16 *DataLength)
 {
-    // u16 TransactionId = (Buffer[0] << 8) | Buffer[1]; // TODO(ingar): Why are these not used?
+    // TODO(ingar): Why are these not used?
+    // u16 TransactionId = (Buffer[0] << 8) | Buffer[1];
     // u16 ProtocolId    = (Buffer[2] << 8) | Buffer[3];
     // u16 Length        = (Buffer[4] << 8) | Buffer[5];
     *UnitId       = Frame[6];
@@ -89,53 +85,50 @@ MbParseFrame(const u8 *Frame, u16 *UnitId, u16 *FunctionCode, u16 *DataLength)
 
     // Function code 0x03 is read multiple holding registers
     if(*FunctionCode != 0x03) {
-        SdbLogError("Unsupported function code");
+        SdbLogError("Unsupported function code 0x03 found in frame");
         return NULL;
     }
-
-    SdbLogDebug("Modbus data length: %u", *DataLength);
 
     if(*DataLength > MAX_DATA_LENGTH) {
         SdbLogWarning("Byte count exceeds maximum data length. Skipping this frame.\n");
         return NULL;
     }
 
+    SdbLogDebug("Modbus frame data length: %u", *DataLength);
+
     return &Frame[9];
 }
 
-sdb_errno
-MbPrepare(comm_protocol_api *Mb)
+modbus_ctx *
+MbPrepareCtx(comm_protocol_api *Mb)
 {
-    modbus_ctx   *MbCtx = MB_CTX(Mb);
-    mb_init_args *Args  = Mb->OptArgs;
+    mb_init_args *Args = Mb->OptArgs;
 
     if(Args->PortCount != Args->IpCount) {
         SdbLogError("Mismatch in port count (%lu) and ip count (%lu)", Args->PortCount,
                     Args->IpCount);
-        return -EINVAL;
-    } else {
-        MbCtx->ConnCount = Args->PortCount;
+        return NULL;
     }
 
-    MbCtx->Ports   = SdbPushArray(&Mb->Arena, int, MbCtx->ConnCount);
-    MbCtx->Ips     = SdbPushArray(&Mb->Arena, sdb_string, MbCtx->ConnCount);
-    MbCtx->SockFds = SdbPushArray(&Mb->Arena, int, MbCtx->ConnCount);
+    modbus_ctx *MbCtx = SdbPushStruct(&Mb->Arena, modbus_ctx);
+    MbCtx->ConnCount  = Args->PortCount;
+    mb_conn *Conns    = SdbPushArray(&Mb->Arena, mb_conn, MbCtx->ConnCount);
+    MbCtx->Conns      = Conns;
 
     for(u64 i = 0; i < MbCtx->ConnCount; ++i) {
-        MbCtx->Ports[i]   = Args->Ports[i];
-        MbCtx->Ips[i]     = SdbStringDuplicate(&Mb->Arena, Args->Ips[i]);
-        MbCtx->SockFds[i] = CreateSocket(MbCtx->Ips[i], MbCtx->Ports[i]);
-        if(MbCtx->SockFds[i] == -1) {
+        Conns[i].Port   = Args->Ports[i];
+        Conns[i].Ip     = SdbStringDuplicate(&Mb->Arena, Args->Ips[i]);
+        Conns[i].SockFd = SocketCreate(Conns[i].Ip, Conns[i].Port);
+        if(Conns[i].SockFd == -1) {
             SdbLogError("Failed to create socket for sensor index %lu", i);
-            return -1;
+            return NULL;
         } else {
-            SdbLogDebug("Modbus thread %lu successfully connected to server %s:%d", i,
-                        MbCtx->Ips[i], MbCtx->Ports[i]);
+            SdbLogDebug("Modbus thread %lu successfully connected to server %s:%d", i, Conns[i].Ip,
+                        Conns[i].Port);
         }
     }
 
-
-    return 0;
+    return MbCtx;
 }
 
 sdb_errno

@@ -13,8 +13,9 @@ SDB_LOG_REGISTER(CommProtocolsTest);
 
 
 sdb_errno
-CpInitApiTest(Comm_Protocol_Type Type, u64 SensorCount, sensor_data_pipe **SdPipes,
-              sdb_arena *Arena, u64 ArenaSize, i64 CommTId, comm_protocol_api *CpApi)
+CpTestApiInit(Comm_Protocol_Type Type, sdb_thread_control *ModuleControl, u64 SensorCount,
+              sensor_data_pipe **SdPipes, sdb_arena *Arena, u64 ArenaSize, i64 CommTId,
+              comm_protocol_api *CpApi)
 {
     if(!CpProtocolIsAvailable(Type)) {
         SdbLogWarning("%s is unavailable", CpTypeToName(Type));
@@ -22,16 +23,17 @@ CpInitApiTest(Comm_Protocol_Type Type, u64 SensorCount, sensor_data_pipe **SdPip
     }
 
     SdbMemset(CpApi, 0, sizeof(*CpApi));
-    CpApi->SensorCount = SensorCount;
-    CpApi->SdPipes     = SdPipes;
+    CpApi->ModuleControl = ModuleControl;
+    CpApi->SensorCount   = SensorCount;
+    CpApi->SdPipes       = SdPipes;
     SdbArenaBootstrap(Arena, &CpApi->Arena, ArenaSize);
 
     switch(Type) {
         case Comm_Protocol_Modbus_TCP:
             {
-                CpApi->Init     = MbInitTest;
-                CpApi->Run      = MbRunTest;
-                CpApi->Finalize = MbFinalizeTest;
+                CpApi->Init     = MbTestApiInit;
+                CpApi->Run      = MbTestApiRun;
+                CpApi->Finalize = MbTestApiFinalize;
 
                 mb_init_args *Args = SdbPushStruct(&CpApi->Arena, mb_init_args);
                 Args->IpCount      = 1;

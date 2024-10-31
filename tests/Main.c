@@ -55,6 +55,8 @@ SignalHandler(sdb_thread *Thread)
 int
 main(int ArgCount, char **ArgV)
 {
+    // TODO(ingar): It might be more prudent for the api's to malloc memory directly if main isn't
+    // going to use any anyways
     sdb_arena SdbArena;
     u64       SdbArenaSize = SdbMebiByte(32);
     u8       *SdbArenaMem  = malloc(SdbArenaSize);
@@ -94,12 +96,12 @@ main(int ArgCount, char **ArgV)
     // starting to read from the pipe
 
 
-    db_module_ctx *DbmCtx = DbModuleInit(&ModulesBarrier, Dbs_Postgres, DbsInitApiTest, SdPipes,
+    db_module_ctx *DbmCtx = DbModuleInit(&ModulesBarrier, Dbs_Postgres, DbsTestApiInit, SdPipes,
                                          SensorCount, SdbMebiByte(9), SdbMebiByte(8), &SdbArena);
 
     comm_module_ctx *CommCtx
-        = CommModuleInit(&ModulesBarrier, Comm_Protocol_Modbus_TCP, CpInitApiTest, SdPipes,
-                         SensorCount, SdbMebiByte(9), SdbMebiByte(8), &SdbArena);
+        = CommModulePrepare(&ModulesBarrier, Comm_Protocol_Modbus_TCP, CpTestApiInit, SdPipes,
+                            SensorCount, SdbMebiByte(9), SdbMebiByte(8), &SdbArena);
 
 
     sigset_t SigSet;
@@ -111,7 +113,7 @@ main(int ArgCount, char **ArgV)
 
 
     sdb_thread DbmThread, CommThread, ModbusServerThread;
-    SdbThreadCreate(&ModbusServerThread, RunModbusTestServer, &ModulesBarrier);
+    SdbThreadCreate(&ModbusServerThread, ModbusTestRunServer, &ModulesBarrier);
     SdbThreadCreate(&DbmThread, DbModuleRun, DbmCtx);
     SdbThreadCreate(&CommThread, CommModuleRun, CommCtx);
 

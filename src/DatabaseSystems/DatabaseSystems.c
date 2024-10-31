@@ -27,8 +27,9 @@ DbsDatabaseIsAvailable(Db_System_Type DbsId)
 }
 
 sdb_errno
-DbsInitApi(Db_System_Type Type, u64 SensorCount, sensor_data_pipe **Pipes, sdb_arena *Arena,
-           u64 ArenaSize, i64 DbmTId, database_api *DbsApi)
+DbsInitApi(Db_System_Type Type, sdb_thread_control *ModuleControl, u64 SensorCount,
+           sensor_data_pipe **Pipes, sdb_arena *Arena, u64 ArenaSize, i64 DbmTId,
+           database_api *DbsApi)
 {
     if(!DbsDatabaseIsAvailable(Type)) {
         SdbLogWarning("%s is unavailable", DbsTypeToName(Type));
@@ -36,8 +37,9 @@ DbsInitApi(Db_System_Type Type, u64 SensorCount, sensor_data_pipe **Pipes, sdb_a
     }
 
     SdbMemset(DbsApi, 0, sizeof(*DbsApi));
-    DbsApi->SensorCount = SensorCount;
-    DbsApi->SdPipes     = Pipes;
+    DbsApi->ModuleControl = ModuleControl;
+    DbsApi->SensorCount   = SensorCount;
+    DbsApi->SdPipes       = Pipes;
     SdbArenaBootstrap(Arena, &DbsApi->Arena, ArenaSize);
 
     switch(Type) {
@@ -71,10 +73,9 @@ DbModuleInit(sdb_barrier *ModulesBarrier, Db_System_Type Type, dbs_init_api ApiI
     DbmCtx->InitApi        = ApiInit;
     DbmCtx->SdPipes        = Pipes;
     DbmCtx->SensorCount    = SensorCount;
-    DbmCtx->ArenaSize      = ModuleArenaSize;
     DbmCtx->DbsArenaSize   = DbsArenaSize;
 
-    SdbArenaBootstrap(Arena, &DbmCtx->Arena, DbmCtx->ArenaSize);
+    SdbArenaBootstrap(Arena, &DbmCtx->Arena, ModuleArenaSize);
     SdbTCtlInit(&DbmCtx->Control);
 
     return DbmCtx;
@@ -88,8 +89,9 @@ DbModuleRun(sdb_thread *Thread)
     database_api   ThreadDb;
 
 
-    if((Ret = DbmCtx->InitApi(DbmCtx->DbsType, DbmCtx->SensorCount, DbmCtx->SdPipes, &DbmCtx->Arena,
-                              DbmCtx->DbsArenaSize, Thread->pid, &ThreadDb))
+    if((Ret
+        = DbmCtx->InitApi(DbmCtx->DbsType, &DbmCtx->Control, DbmCtx->SensorCount, DbmCtx->SdPipes,
+                          &DbmCtx->Arena, DbmCtx->DbsArenaSize, Thread->pid, &ThreadDb))
        == -SDBE_DBS_UNAVAIL) {
         SdbLogWarning("Thread %ld: Attempting to run %s, but its API is unavailable", Thread->pid,
                       DbsTypeToName(DbmCtx->DbsType));
@@ -103,8 +105,6 @@ DbModuleRun(sdb_thread *Thread)
                     Attempts, Ret);
     }
 
-    SdbBarrierWait(DbmCtx->ModulesBarrier);
-
     if(Attempts >= DB_INIT_ATTEMPT_THRESHOLD) {
         SdbLogError("Thread %ld: Database init attempt threshold exceeded", Thread->pid);
         goto exit;
@@ -112,14 +112,13 @@ DbModuleRun(sdb_thread *Thread)
         SdbLogInfo("Thread %ld: Database successfully initialized", Thread->pid);
     }
 
+    SdbBarrierWait(DbmCtx->ModulesBarrier);
 
     if((Ret = ThreadDb.Run(&ThreadDb)) == 0) {
         SdbLogInfo("Thread %ld: Database has stopped and returned success", Thread->pid);
     } else {
         SdbLogError("Thread %ld: Database has stopped and returned an error: %d", Thread->pid, Ret);
     }
-
-    SdbTCtlWaitForSignal(&DbmCtx->Control);
 
     if((Ret = ThreadDb.Finalize(&ThreadDb)) == 0) {
         SdbLogInfo("Thread %ld: Database successfully finalized", Thread->pid);

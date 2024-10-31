@@ -87,12 +87,10 @@ void             DiagnoseConnectionAndTable(PGconn *DbConn, const char *TableNam
 void             PrintPGresult(const PGresult *Result);
 pg_col_metadata *GetTableMetadata(PGconn *DbConn, sdb_string TableName, int *ColCount,
                                   sdb_arena *A);
-void             InsertSensorData(database_api *Pg);
-void             PgInitThreadArenas(void);
-sdb_errno        PgPrepareTablesAndStatements(database_api *Pg);
-sdb_errno        PgInitThreadContexts(database_api *Pg);
-sdb_errno        PgPrepare(database_api *Pg);
-sdb_errno        PgMainLoop(database_api *Pg);
+
+void          PgInitThreadArenas(void);
+postgres_ctx *PgPrepareCtx(database_api *Pg);
+sdb_errno     PgInsertData(PGconn *Conn, pg_table_info *Ti, sensor_data_pipe *Pipe);
 
 SDB_END_EXTERN_C
 
