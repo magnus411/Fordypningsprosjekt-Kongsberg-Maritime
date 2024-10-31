@@ -13,8 +13,9 @@ SDB_LOG_LEVEL ?= -DSDB_LOG_LEVEL=3
 SDB_DEBUG = -DSDB_MEM_TRACE=1 -DSDB_PRINTF_DEBUG_ENABLE=1 -DSDB_ASSERT=0
 DB_SYSTEMS = -DDATABASE_SYSTEM_POSTGRES=1
 COMM_PROTOCOLS = -DCOMM_PROTOCOL_MODBUS=1 -DCOMM_PROTOCOL_MQTT=1
+SANITIZERS = -fsanitize=address
 
-DEBUG_FLAGS = -g -O0 -Wall -Wno-unused-function -Wno-cpp -DDEBUG -fsanitize=address
+DEBUG_FLAGS = -g -O0 -Wall -Wno-unused-function -Wno-cpp -DDEBUG
 RELWDB_FLAGS = -O2 -g -DNDEBUG -Wno-unused-function -Wno-cpp
 RELEASE_FLAGS = -O2 -march=native -Wextra -pedantic -Wno-unused-function -Wno-cpp -DNDEBUG
 
