@@ -659,7 +659,7 @@ SdbArenaBootstrap(sdb_arena *Arena, sdb_arena *NewArena_, u64 Size)
     }
     u8 *NewArenaMem = SdbPushArray(Arena, u8, Size);
 
-    if(NULL == NewArena && NULL == NewArenaMem) {
+    if(NULL == NewArena || NULL == NewArenaMem) {
         return NULL;
     }
 
