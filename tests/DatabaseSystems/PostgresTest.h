@@ -6,8 +6,8 @@
 
 #include <src/Common/CircularBuffer.h>
 #include <src/Common/SensorDataPipe.h>
+#include <src/DatabaseSystems/DatabaseSystems.h>
 #include <src/Libs/cJSON/cJSON.h>
-#include <src/Modules/DatabaseModule.h>
 
 typedef struct __attribute__((packed))
 {

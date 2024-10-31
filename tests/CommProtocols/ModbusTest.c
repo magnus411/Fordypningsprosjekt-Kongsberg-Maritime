@@ -7,6 +7,7 @@
 #include <src/Sdb.h>
 
 SDB_LOG_REGISTER(TestModbus);
+SDB_THREAD_ARENAS_EXTERN(Modbus);
 
 #include <src/CommProtocols/Modbus.h>
 #include <src/Common/CircularBuffer.h>
@@ -20,7 +21,7 @@ SDB_LOG_REGISTER(TestModbus);
 #define MAX_MODBUS_PDU_SIZE   253
 #define MAX_MODBUS_TCP_FRAME  260
 #define BACKLOG               5
-#define PACKET_HZ             10
+#define PACKET_FREQ           10
 
 
 #define READ_HOLDING_REGISTERS 0x03
@@ -101,7 +102,7 @@ SendModbusData(int NewFd, u16 UnitId)
 sdb_errno
 RunModbusTestServer(sdb_thread *Thread)
 {
-    SdbLogInfo("Running Modbus Test Server over Unix Sockets ...");
+    SdbLogInfo("Running Modbus Test Server");
 
     srand(time(NULL));
 
@@ -162,50 +163,54 @@ RunModbusTestServer(sdb_thread *Thread)
         SdbLogDebug("Successfully sent Modbus data to client %s:%d", ClientIp,
                     ntohs(ClientAddr.sin_port));
 
-        SdbSleep(SDB_TIME_S(1 / PACKET_HZ));
+        SdbSleep(SDB_TIME_S(1.0 / PACKET_FREQ));
     }
-
+    SdbLogDebug("All data sent, stopping server");
     close(SockFd);
     return 0;
 }
 
 
 sdb_errno
-ModbusInitTest(comm_protocol_api *Modbus)
+MbInitTest(comm_protocol_api *Mb)
 {
-    modbus_ctx *Ctx = SdbPushStruct(&Modbus->Arena, modbus_ctx);
-    Ctx->PORT       = MODBUS_PORT;
-    strncpy(Ctx->Ip, (char *)Modbus->OptArgs, 10);
-    Modbus->Ctx = Ctx;
+    MbThreadArenasInit();
+    SdbThreadArenasInitExtern(Modbus);
+    sdb_arena *Scratch1 = SdbArenaBootstrap(&Mb->Arena, NULL, SdbKibiByte(512));
+    sdb_arena *Scratch2 = SdbArenaBootstrap(&Mb->Arena, NULL, SdbKibiByte(512));
+    SdbThreadArenasAdd(Scratch1);
+    SdbThreadArenasAdd(Scratch2);
 
-    return 0;
-}
+    modbus_ctx *MbCtx     = SdbPushStruct(&Mb->Arena, modbus_ctx);
+    MbCtx->Threads        = SdbPushArray(&Mb->Arena, sdb_thread, Mb->SensorCount);
+    MbCtx->ThreadControls = SdbPushArray(&Mb->Arena, sdb_thread_control, Mb->SensorCount);
+    MbCtx->ThreadContexts = SdbPushArray(&Mb->Arena, mb_thread_ctx *, Mb->SensorCount);
+    Mb->Ctx               = MbCtx;
 
-sdb_errno
-ModbusRunTest(comm_protocol_api *Modbus)
-{
-    modbus_ctx *Ctx    = Modbus->Ctx;
-    int         SockFd = CreateSocket(Ctx->Ip, Ctx->PORT); // TODO(ingar): Move to init
-    if(SockFd == -1) {
-        SdbLogError("Failed to create socket");
+    u64 InitializedCount = 0;
+    for(u64 t = 0; t < Mb->SensorCount; ++t) {
+        if(SdbTCtlInit(&MbCtx->ThreadControls[t]) != 0) {
+            // Cleanup previously initialized controls
+            for(u64 i = 0; i < InitializedCount; ++i) {
+                SdbTCtlDeinit(&MbCtx->ThreadControls[i]);
+            }
+            return -1;
+        }
+        InitializedCount++;
+    }
+
+    if(MbPrepareThreads(Mb) != 0) {
         return -1;
     }
 
-    u8 Buf[MAX_MODBUS_TCP_FRAME];
-    for(u64 i = 0; i < MODBUS_PACKET_COUNT; ++i) {
-        ssize_t NumBytes = RecivedModbusTCPFrame(SockFd, Buf, sizeof(Buf));
-        if(NumBytes > 0) {
-            queue_item Item;
-            ParseModbusTCPFrame(Buf, NumBytes, &Item);
-            SdPipeInsert(&Modbus->SdPipe, i % 4, &Item, sizeof(queue_item));
-        } else if(NumBytes == 0) {
-            SdbLogDebug("Connection closed by server");
-            close(SockFd); // TODO(ingar): Move to finalize
-            return -1;
-        } else {
-            SdbLogError("Error during read operattion. Closing connection");
-            close(SockFd);
-            return -1;
+    for(u64 t = 0; t < Mb->SensorCount; ++t) {
+        sdb_thread    *Thread    = &MbCtx->Threads[t];
+        mb_thread_ctx *ThreadCtx = MbCtx->ThreadContexts[t];
+
+        sdb_errno TRet = SdbThreadCreate(Thread, MbSensorThread, ThreadCtx);
+        if(TRet != 0) {
+            SdbLogError("Failed to create Postgres main thread for sensor idx %lu", t);
+            return TRet;
         }
     }
 
@@ -213,7 +218,51 @@ ModbusRunTest(comm_protocol_api *Modbus)
 }
 
 sdb_errno
-ModbusFinalizeTest(comm_protocol_api *Modbus)
+MbRunTest(comm_protocol_api *Mb)
 {
     return 0;
+}
+
+sdb_errno
+MbFinalizeTest(comm_protocol_api *Mb)
+{
+    modbus_ctx *MbCtx = MB_CTX(Mb);
+    sdb_errno   Ret   = 0;
+
+    // Signal all threads to stop first
+    for(u64 t = 0; t < Mb->SensorCount; ++t) {
+        SdbTCtlSignalStop(&MbCtx->ThreadControls[t]);
+    }
+    /*
+    // Close all sockets
+    for(u64 t = 0; t < Mb->SensorCount; ++t) {
+        if (MbCtx->ThreadContexts[t]->SockFd != -1) {
+            close(MbCtx->ThreadContexts[t]->SockFd);
+            MbCtx->ThreadContexts[t]->SockFd = -1;
+        }
+    }
+    */
+    // Wait for threads to stop and cleanup
+    for(u64 t = 0; t < Mb->SensorCount; ++t) {
+        sdb_errno CtlRet = SdbTCtlWaitForStop(&MbCtx->ThreadControls[t]);
+        if(CtlRet != 0) {
+            SdbLogError("Thread %lu failed to stop", t);
+            Ret = CtlRet;
+        }
+
+        sdb_errno TRet = SdbThreadJoin(&MbCtx->Threads[t]);
+        if(TRet != 0) {
+            SdbLogError("Thread %lu failed to join", t);
+            Ret = Ret ? Ret : TRet;
+        }
+
+        // Cleanup thread control
+        sdb_errno DeinitRet = SdbTCtlDeinit(&MbCtx->ThreadControls[t]);
+        if(DeinitRet != 0) {
+            SdbLogError("Failed to deinit thread control %lu", t);
+            Ret = Ret ? Ret : DeinitRet;
+        }
+    }
+
+    return Ret;
 }

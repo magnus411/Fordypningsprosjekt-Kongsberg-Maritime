@@ -7,7 +7,7 @@
 #include <src/DatabaseSystems/DatabaseSystems.h>
 #include <src/Libs/cJSON/cJSON.h>
 
-sdb_errno DbsInitApiTest(Db_System_Type DbsType, sensor_data_pipe *SdPipe, sdb_arena *Arena,
-                         u64 ArenaSize, i64 DbmTId, database_api *Dbs);
+sdb_errno DbsInitApiTest(Db_System_Type DbsType, u64 SensorCount, sensor_data_pipe **Pipes,
+                         sdb_arena *Arena, u64 ArenaSize, i64 DbmTId, database_api *Dbs);
 
 #endif

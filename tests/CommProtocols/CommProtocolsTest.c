@@ -3,6 +3,8 @@
 SDB_LOG_REGISTER(CommProtocolsTest);
 
 #include <src/CommProtocols/CommProtocols.h>
+#include <src/CommProtocols/MQTT.h>
+#include <src/CommProtocols/Modbus.h>
 #include <src/Common/SensorDataPipe.h>
 
 #include <tests/CommProtocols/CommProtocolsTest.h>
@@ -11,8 +13,8 @@ SDB_LOG_REGISTER(CommProtocolsTest);
 
 
 sdb_errno
-CpInitApiTest(Comm_Protocol_Type Type, sensor_data_pipe *SdPipe, sdb_arena *Arena, u64 ArenaSize,
-              i64 CommTId, comm_protocol_api *CpApi)
+CpInitApiTest(Comm_Protocol_Type Type, u64 SensorCount, sensor_data_pipe **SdPipes,
+              sdb_arena *Arena, u64 ArenaSize, i64 CommTId, comm_protocol_api *CpApi)
 {
     if(!CpProtocolIsAvailable(Type)) {
         SdbLogWarning("%s is unavailable", CpTypeToName(Type));
@@ -20,23 +22,30 @@ CpInitApiTest(Comm_Protocol_Type Type, sensor_data_pipe *SdPipe, sdb_arena *Aren
     }
 
     SdbMemset(CpApi, 0, sizeof(*CpApi));
-    SdbMemcpy(&CpApi->SdPipe, SdPipe, sizeof(*SdPipe));
+    CpApi->SensorCount = SensorCount;
+    CpApi->SdPipes     = SdPipes;
     SdbArenaBootstrap(Arena, &CpApi->Arena, ArenaSize);
 
     switch(Type) {
         case Comm_Protocol_Modbus_TCP:
             {
-                CpApi->Init     = ModbusInitTest;
-                CpApi->Run      = ModbusRunTest;
-                CpApi->Finalize = ModbusFinalizeTest;
-                CpApi->OptArgs  = SdbStrdup("127.0.0.1", Arena);
+                CpApi->Init     = MbInitTest;
+                CpApi->Run      = MbRunTest;
+                CpApi->Finalize = MbFinalizeTest;
+
+                mb_init_args *Args = SdbPushStruct(&CpApi->Arena, mb_init_args);
+                Args->Ips          = SdbPushArray(&CpApi->Arena, sdb_string, 1);
+                Args->Ips[0]       = SdbStringMake(&CpApi->Arena, "127.0.0.1");
+                Args->Ports        = SdbPushArray(&CpApi->Arena, int, 1);
+                Args->Ports[0]     = MODBUS_PORT;
+                CpApi->OptArgs     = Args;
             }
             break;
         case Comm_Protocol_MQTT:
             {
-                CpApi->Init     = MqttInitTest;
-                CpApi->Run      = MqttRunTest;
-                CpApi->Finalize = MqttFinalizeTest;
+                CpApi->Init     = MqttInit;
+                CpApi->Run      = MqttRun;
+                CpApi->Finalize = MqttFinalize;
                 CpApi->OptArgs  = (void *)CommTId;
             }
             break;

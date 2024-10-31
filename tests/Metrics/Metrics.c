@@ -2,7 +2,6 @@
 #include <src/Common/Metrics.h>
 #include <src/Common/SensorDataPipe.h>
 #include <src/DatabaseSystems/DatabaseSystems.h>
-#include <src/Modules/DatabaseModule.h>
 
 #define SD_PIPE_BUF_COUNT 4
 

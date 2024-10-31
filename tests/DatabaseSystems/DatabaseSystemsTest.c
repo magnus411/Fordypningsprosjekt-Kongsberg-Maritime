@@ -1,15 +1,14 @@
 #include <src/Sdb.h>
-SDB_LOG_REGISTER(DbSystems);
+SDB_LOG_REGISTER(DbSystemsTest);
 
 #include <src/Common/SensorDataPipe.h>
 #include <src/DatabaseSystems/DatabaseSystems.h>
-#include <src/Modules/DatabaseModule.h>
 
 #include <tests/DatabaseSystems/PostgresTest.h>
 
 sdb_errno
-DbsInitApiTest(Db_System_Type Type, sensor_data_pipe *SdPipe, sdb_arena *Arena, u64 ArenaSize,
-               i64 DbmTId, database_api *DbsApi)
+DbsInitApiTest(Db_System_Type Type, u64 SensorCount, sensor_data_pipe **Pipes, sdb_arena *Arena,
+               u64 ArenaSize, i64 DbmTId, database_api *DbsApi)
 {
     if(!DbsDatabaseIsAvailable(Type)) {
         SdbLogWarning("%s is unavailable", DbsTypeToName(Type));
@@ -17,7 +16,8 @@ DbsInitApiTest(Db_System_Type Type, sensor_data_pipe *SdPipe, sdb_arena *Arena, 
     }
 
     SdbMemset(DbsApi, 0, sizeof(*DbsApi));
-    SdbMemcpy(&DbsApi->SdPipe, SdPipe, sizeof(*SdPipe));
+    DbsApi->SensorCount = SensorCount;
+    DbsApi->SdPipes     = Pipes;
     SdbArenaBootstrap(Arena, &DbsApi->Arena, ArenaSize);
 
     switch(Type) {

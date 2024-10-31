@@ -10,8 +10,8 @@ SDB_BEGIN_EXTERN_C
 #include <src/Common/CircularBuffer.h>
 #include <src/Common/SensorDataPipe.h>
 #include <src/Common/Thread.h>
+#include <src/DatabaseSystems/DatabaseSystems.h>
 #include <src/Libs/cJSON/cJSON.h>
-#include <src/Modules/DatabaseModule.h>
 
 #define POSTGRES_CONF_FS_PATH "./configs/postgres-conf"
 
@@ -76,16 +76,19 @@ typedef struct
 
 typedef struct
 {
-    PGconn   *DbConn;
-    sdb_mutex ConnLock;
+    PGconn             *DbConn;
+    sensor_data_pipe   *Pipe;
+    sdb_thread_control *Control;
+    pg_table_info       TableInfo;
+    // TODO(ingar): Might need to add an arena to use for scratches
 
-    pg_table_info *TablesInfo;
-    u64            TablesCount;
+} pg_thread_ctx;
 
-    // TODO(ingar): We're probably just gonna use the pipe. Fill up a buffer, signal to db insert,
-    // and switch to another buffer for writing while the previous is written to db
-    size_t InsertBufSize;
-    u8    *InsertBuf;
+typedef struct
+{
+    sdb_thread         *Threads;
+    sdb_thread_control *ThreadControls;
+    pg_thread_ctx     **ThreadContexts;
 
 } postgres_ctx;
 
@@ -97,7 +100,10 @@ pg_col_metadata *GetTableMetadata(PGconn *DbConn, sdb_string TableName, int *Col
                                   sdb_arena *A);
 void             InsertSensorData(database_api *Pg);
 void             PgInitThreadArenas(void);
-sdb_errno        PgPrepareTablesAndStatements(database_api *Pg, cJSON *SchemaConf);
+sdb_errno        PgPrepareTablesAndStatements(database_api *Pg);
+sdb_errno        PgInitThreadContexts(database_api *Pg);
+sdb_errno        PgPrepareThreads(database_api *Pg);
+sdb_errno        PgSensorThread(sdb_thread *Thread);
 
 SDB_END_EXTERN_C
 

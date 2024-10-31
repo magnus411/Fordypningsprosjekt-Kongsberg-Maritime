@@ -1,4 +1,6 @@
+#include <signal.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define SDB_H_IMPLEMENTATION
 #include <src/Sdb.h>
@@ -8,15 +10,47 @@ SDB_LOG_REGISTER(MainTests);
 
 #include <src/Common/SensorDataPipe.h>
 #include <src/Common/Thread.h>
+#include <src/Common/Time.h>
+#include <src/DatabaseSystems/DatabaseInitializer.h>
 #include <src/DatabaseSystems/DatabaseSystems.h>
-#include <src/Modules/CommModule.h>
-#include <src/Modules/DatabaseModule.h>
+#include <src/Libs/cJSON/cJSON.h>
 
 #include <tests/CommProtocols/CommProtocolsTest.h>
 #include <tests/CommProtocols/ModbusTest.h>
 #include <tests/DatabaseSystems/DatabaseSystemsTest.h>
 
 #define SD_PIPE_BUF_COUNT 4
+
+static volatile sig_atomic_t GlobalShutdown = 0;
+static sdb_mutex             ShutdownMutex;
+static sdb_cond              ShutdownCond;
+static sdb_thread            SignalHandlerThread;
+
+
+sdb_errno
+SignalHandler(sdb_thread *Thread)
+{
+    sigset_t *SigSet = Thread->Args;
+    int       Signal;
+
+    while(!GlobalShutdown) {
+        if(sigwait(SigSet, &Signal) == 0) {
+            switch(Signal) {
+                case SIGINT:
+                case SIGTERM:
+                    SdbLogInfo("Received shutdown signal %s", strsignal(Signal));
+                    GlobalShutdown = 1;
+                    SdbCondSignal(&ShutdownCond);
+                    break;
+                default:
+                    SdbLogInfo("Received unhandled signal %d %s", Signal, strsignal(Signal));
+                    break;
+            }
+        }
+    }
+
+    return 0;
+}
 
 int
 main(int ArgCount, char **ArgV)
@@ -31,57 +65,78 @@ main(int ArgCount, char **ArgV)
         SdbArenaInit(&SdbArena, SdbArenaMem, SdbArenaSize);
     }
 
+    u64               SensorCount = 0;
+    sdb_scratch_arena Scratch     = SdbScratchBegin(&SdbArena);
+    cJSON *SchemaConf = DbInitGetConfFromFile("./configs/sensor_schemas.json", Scratch.Arena);
+    cJSON *SensorSchemaArray = cJSON_GetObjectItem(SchemaConf, "sensors");
+    if(SensorSchemaArray == NULL || !cJSON_IsArray(SensorSchemaArray)) {
+        SdbLogError("Schema JSON file is malformed");
+        exit(EXIT_FAILURE);
+    } else {
+        SensorCount = cJSON_GetArraySize(SensorSchemaArray);
+        cJSON_Delete(SchemaConf);
+        SdbScratchRelease(Scratch);
+    }
 
-    size_t BufSizes[SD_PIPE_BUF_COUNT]
-        = { SdbKibiByte(32), SdbKibiByte(32), SdbKibiByte(32), SdbKibiByte(32) };
-    sensor_data_pipe *SdPipe      = SdbPushStruct(&SdbArena, sensor_data_pipe);
-    sdb_errno         PipeInitRet = SdPipeInit(SdPipe, SD_PIPE_BUF_COUNT, BufSizes, &SdbArena);
-    if(PipeInitRet != 0) {
-        SdbLogError("Failed to init sensor data pipe");
+
+    sensor_data_pipe **SdPipes
+        = SdPipesInit(SensorCount, SD_PIPE_BUF_COUNT, SdbKibiByte(32), &SdbArena);
+    if(SdPipes == NULL) {
+        SdbLogError("Failed to init sensor data pipes");
         exit(EXIT_FAILURE);
     }
 
 
-    const u32   ThreadCount = 3;
+    const u32   ThreadCount = 2;
     sdb_barrier ModulesBarrier;
     SdbBarrierInit(&ModulesBarrier, ThreadCount);
-    // NOTE(ingar): This is used to ensure that all modules have been initialized before starting to
-    // read from the pipe
+    // NOTE(ingar): This is used to ensure that all modules have been initialized before
+    // starting to read from the pipe
 
 
-    db_module_ctx *DbmCtx  = SdbPushStruct(&SdbArena, db_module_ctx);
-    DbmCtx->ModulesBarrier = &ModulesBarrier;
-    DbmCtx->DbsType        = Dbs_Postgres;
-    DbmCtx->InitApi        = DbsInitApiTest;
-    DbmCtx->ArenaSize      = SdbMebiByte(9);
-    DbmCtx->DbsArenaSize   = SdbMebiByte(8);
+    db_module_ctx *DbmCtx = DbModuleInit(&ModulesBarrier, Dbs_Postgres, DbsInitApiTest, SdPipes,
+                                         SensorCount, SdbMebiByte(9), SdbMebiByte(8), &SdbArena);
 
-    SdbArenaBootstrap(&SdbArena, &DbmCtx->Arena, DbmCtx->ArenaSize);
-    SdbMemcpy(&DbmCtx->SdPipe, SdPipe, sizeof(*SdPipe));
+    comm_module_ctx *CommCtx
+        = CommModuleInit(&ModulesBarrier, Comm_Protocol_Modbus_TCP, CpInitApiTest, SdPipes,
+                         SensorCount, SdbMebiByte(9), SdbMebiByte(8), &SdbArena);
 
 
-    comm_module_ctx *CommCtx = SdbPushStruct(&SdbArena, comm_module_ctx);
-    CommCtx->ModulesBarrier  = &ModulesBarrier;
-    CommCtx->CpType          = Comm_Protocol_Modbus_TCP;
-    CommCtx->InitApi         = CpInitApiTest;
-    CommCtx->ArenaSize       = SdbMebiByte(9);
-    CommCtx->CpArenaSize     = SdbMebiByte(8);
-
-    SdbArenaBootstrap(&SdbArena, &CommCtx->Arena, CommCtx->ArenaSize);
-    SdbMemcpy(&CommCtx->SdPipe, SdPipe, sizeof(*SdPipe));
+    sigset_t SigSet;
+    sigemptyset(&SigSet);
+    sigaddset(&SigSet, SIGINT);
+    sigaddset(&SigSet, SIGTERM);
+    pthread_sigmask(SIG_BLOCK, &SigSet, NULL);
+    SdbThreadCreate(&SignalHandlerThread, SignalHandler, &SigSet);
 
 
     sdb_thread DbmThread, CommThread, ModbusServerThread;
     SdbThreadCreate(&ModbusServerThread, RunModbusTestServer, &ModulesBarrier);
-    SdbThreadCreate(&DbmThread, DbModuleRun, DbmCtx);
+    // SdbThreadCreate(&DbmThread, DbModuleRun, DbmCtx);
     SdbThreadCreate(&CommThread, CommModuleRun, CommCtx);
 
+
+    SdbMutexInit(&ShutdownMutex);
+    SdbCondInit(&ShutdownCond);
+
+    SdbMutexLock(&ShutdownMutex, SDB_TIMEOUT_MAX);
+    while(!GlobalShutdown) {
+        SdbCondWait(&ShutdownCond, &ShutdownMutex, SDB_TIMEOUT_MAX);
+    }
+    SdbMutexUnlock(&ShutdownMutex);
+
+    // SdbTCtlSignalStop(&DbmCtx->Control);
+    SdbTCtlSignalStop(&CommCtx->Control);
+
+    // SdbTCtlWaitForStop(&DbmCtx->Control);
+    SdbTCtlWaitForStop(&CommCtx->Control);
+
     sdb_errno ModbusRet = SdbThreadJoin(&ModbusServerThread);
-    sdb_errno DbmRet    = SdbThreadJoin(&DbmThread);
+    sdb_errno DbmRet    = 0; // SdbThreadJoin(&DbmThread);
     sdb_errno CommRet   = SdbThreadJoin(&CommThread);
 
-
     if(DbmRet == 0 && CommRet == 0 && ModbusRet == 0) {
+        SdbLogInfo("All threads finished with success!");
         exit(EXIT_SUCCESS);
     } else {
         exit(EXIT_FAILURE);

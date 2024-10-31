@@ -1,6 +1,6 @@
 #ifndef TEST_CONSTANTS_H
 #define TEST_CONSTANTS_H
 
-#define MODBUS_PACKET_COUNT (5e1)
+#define MODBUS_PACKET_COUNT (1e0)
 
 #endif

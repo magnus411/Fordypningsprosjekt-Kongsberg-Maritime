@@ -5,6 +5,7 @@
 #include <stdlib.h>
 #include <string.h>
 
+#if 0
 #include <MQTTClient.h>
 
 #include <src/Sdb.h>
@@ -43,7 +44,7 @@ MsgArrived(void *Ctx_, char *TopicName, int TopicLen, MQTTClient_message *Messag
     queue_item Item;
 
     if(ParseModbusTCPFrame(Buffer, Message->payloadlen, &Item) == 0) {
-        ssize_t BytesWritten = SdPipeInsert(Ctx->SdPipe, 0, Item.Data, Item.DataLength);
+        ssize_t BytesWritten = 0; // SdPipeInsert(Ctx->SdPipe, 0, Item.Data, Item.DataLength);
         if(BytesWritten > 0) {
             SdbLogDebug("Inserted Modbus data into buffer. Bytes written: %zd", BytesWritten);
         } else {
@@ -129,3 +130,22 @@ MqttFinalize(comm_protocol_api *Mqtt)
     SdbArenaClear(&Mqtt->Arena);
     return 0;
 }
+#else
+
+sdb_errno
+MqttFinalize(comm_protocol_api *Mqtt)
+{
+    return 0;
+}
+
+sdb_errno
+MqttRun(comm_protocol_api *Mqtt)
+{
+    return 0;
+}
+sdb_errno
+MqttInit(comm_protocol_api *Mqtt)
+{
+    return 0;
+}
+#endif

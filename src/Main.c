@@ -6,17 +6,17 @@
 
 SDB_LOG_REGISTER(MainTests);
 
+#include <src/CommProtocols/CommProtocols.h>
 #include <src/Common/SensorDataPipe.h>
 #include <src/Common/Thread.h>
 #include <src/DatabaseSystems/DatabaseSystems.h>
-#include <src/Modules/CommModule.h>
-#include <src/Modules/DatabaseModule.h>
 
 #define SD_PIPE_BUF_COUNT 4
 
 int
 main(int ArgCount, char **ArgV)
 {
+#if 0
     sdb_arena SdbArena;
     u64       SdbArenaSize = SdbMebiByte(32);
     u8       *SdbArenaMem  = malloc(SdbArenaSize);
@@ -31,7 +31,7 @@ main(int ArgCount, char **ArgV)
     size_t BufSizes[SD_PIPE_BUF_COUNT]
         = { SdbKibiByte(32), SdbKibiByte(32), SdbKibiByte(32), SdbKibiByte(32) };
     sensor_data_pipe *SdPipe      = SdbPushStruct(&SdbArena, sensor_data_pipe);
-    sdb_errno         PipeInitRet = SdPipeInit(SdPipe, SD_PIPE_BUF_COUNT, BufSizes, &SdbArena);
+    sdb_errno         PipeInitRet = SdPipesInit(SdPipe, SD_PIPE_BUF_COUNT, BufSizes, &SdbArena);
     if(PipeInitRet != 0) {
         SdbLogError("Failed to init sensor data pipe");
         exit(EXIT_FAILURE);
@@ -53,7 +53,6 @@ main(int ArgCount, char **ArgV)
     DbmCtx->DbsArenaSize   = SdbMebiByte(8);
 
     SdbArenaBootstrap(&SdbArena, &DbmCtx->Arena, DbmCtx->ArenaSize);
-    SdbMemcpy(&DbmCtx->SdPipe, SdPipe, sizeof(*SdPipe));
 
 
     comm_module_ctx *CommCtx = SdbPushStruct(&SdbArena, comm_module_ctx);
@@ -64,7 +63,6 @@ main(int ArgCount, char **ArgV)
     CommCtx->CpArenaSize     = SdbMebiByte(8);
 
     SdbArenaBootstrap(&SdbArena, &CommCtx->Arena, CommCtx->ArenaSize);
-    SdbMemcpy(&CommCtx->SdPipe, SdPipe, sizeof(*SdPipe));
 
 
     sdb_thread DbmThread, CommThread;
@@ -80,4 +78,6 @@ main(int ArgCount, char **ArgV)
     } else {
         exit(EXIT_FAILURE);
     }
+#endif
+    return 0;
 }
