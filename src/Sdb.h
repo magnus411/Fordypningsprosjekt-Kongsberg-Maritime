@@ -159,8 +159,8 @@ i64 Sdb__WriteLog__(sdb__log_module__ *Module, const char *LogLevel, const char 
 #define SDB__LOG_LEVEL_CHECK__(level) (SDB_LOG_LEVEL >= SDB_LOG_LEVEL_##level)
 
 #define SDB_LOG_REGISTER(module_name)                                                              \
-    static char              SDB_CONCAT3(Sdb__LogModule, module_name, Buffer__)[SDB_LOG_BUF_SIZE]; \
-    static sdb__log_module__ SDB_CONCAT3(Sdb__LogModule, module_name, __) __attribute__((used))    \
+    static char       SDB_CONCAT3(Sdb__LogModule, module_name, Buffer__)[SDB_LOG_BUF_SIZE];        \
+    sdb__log_module__ SDB_CONCAT3(Sdb__LogModule, module_name, __) __attribute__((used))           \
     = { .Name       = SDB_STRINGIFY(module_name),                                                  \
         .BufferSize = SDB_LOG_BUF_SIZE,                                                            \
         .Buffer     = SDB_CONCAT3(Sdb__LogModule, module_name, Buffer__),                          \
@@ -187,6 +187,7 @@ i64 Sdb__WriteLog__(sdb__log_module__ *Module, const char *LogLevel, const char 
 #define SdbLogWarning(...) SDB__LOG__(WRN, ##__VA_ARGS__)
 #define SdbLogError(...)   SDB__LOG__(ERR, ##__VA_ARGS__)
 
+#if SDB_ASSERT == 1
 #define SdbAssert(condition, fmt, ...)                                                             \
     do {                                                                                           \
         if(!(condition)) {                                                                         \
@@ -195,7 +196,9 @@ i64 Sdb__WriteLog__(sdb__log_module__ *Module, const char *LogLevel, const char 
             assert(condition);                                                                     \
         }                                                                                          \
     } while(0)
-
+#else
+#define SdbAssert(...)
+#endif
 ////////////////////////////////////////
 //               MEMORY               //
 ////////////////////////////////////////

@@ -1,6 +1,6 @@
 CC = gcc
 INCLUDES = -I.
-LIBS = -lpaho-mqtt3c -lpthread -lpq -lpthread -lm
+LIBS = -lpaho-mqtt3c -lpthread -lpq -lm
 LINTER = clang-tidy
 LINTER_FLAGS = -quiet
 
@@ -10,7 +10,7 @@ TEST_SRC = $(filter-out tests/Main.c, $(shell find tests -name "*.c"))
 TEST_MAIN = tests/Main.c
 
 SDB_LOG_LEVEL ?= -DSDB_LOG_LEVEL=3
-SDB_DEBUG = -DSDB_MEM_TRACE=1 -DSDB_PRINTF_DEBUG_ENABLE=1
+SDB_DEBUG = -DSDB_MEM_TRACE=1 -DSDB_PRINTF_DEBUG_ENABLE=1 -DSDB_ASSERT=0
 DB_SYSTEMS = -DDATABASE_SYSTEM_POSTGRES=1
 COMM_PROTOCOLS = -DCOMM_PROTOCOL_MODBUS=1 -DCOMM_PROTOCOL_MQTT=1
 
