@@ -43,7 +43,14 @@ void
 SdbTimespec(struct timespec *Timespec, sdb_timediff Delta)
 {
     Timespec->tv_sec  = SDB_TIME_TO_S(Delta);
-    Timespec->tv_nsec = SDB_TIME_TO_NS(Delta) % (uint64_t)1e9;
+    Timespec->tv_nsec = SDB_TIME_TO_NS(Delta) % (u64)1e9;
+}
+
+void
+SdbTimeval(struct timeval *Timeval, sdb_timediff Delta)
+{
+    Timeval->tv_sec  = SDB_TIME_TO_S(Delta);
+    Timeval->tv_usec = SDB_TIME_TO_US(Delta) & (u64)1e6;
 }
 
 bool
