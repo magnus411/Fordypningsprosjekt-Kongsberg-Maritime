@@ -24,13 +24,16 @@ RELEASE_FLAGS = -O2 -march=native -Wextra -pedantic -Wno-unused-function -Wno-cp
 all: debug
 
 debug: CFLAGS = $(DEBUG_FLAGS) $(SDB_LOG_LEVEL) $(SDB_DEBUG) $(DB_SYSTEMS) $(COMM_PROTOCOLS)
-debug: build_main build_tests
+debug: build_main
 
 relwdb: CFLAGS = $(RELWDB_FLAGS) $(SDB_LOG_LEVEL) $(SDB_DEBUG) $(DB_SYSTEMS) $(COMM_PROTOCOLS)
-relwdb: build_main build_tests
+relwdb: build_main
 
 release: CFLAGS = $(RELEASE_FLAGS) $(SDB_LOG_LEVEL) $(SDB_DEBUG) $(DB_SYSTEMS) $(COMM_PROTOCOLS)
-release: build_main build_tests
+release: build_main
+
+tests: CFLAGS = $(DEBUG_FLAGS) $(SDB_LOG_LEVEL) $(SDB_DEBUG) $(DB_SYSTEMS) $(COMM_PROTOCOLS)
+tests: build_tests
 
 lint: compile_commands.json
 	@echo "Running clang-tidy..."

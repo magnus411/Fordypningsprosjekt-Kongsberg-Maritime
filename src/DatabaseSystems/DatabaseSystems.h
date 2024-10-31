@@ -72,7 +72,7 @@ typedef struct
 
 bool DbsDatabaseIsAvailable(Db_System_Type DbsId);
 
-sdb_errno DbsInitApi(Db_System_Type DbsType, sdb_thread_control *ModuleControl, u64 SensorCount,
+sdb_errno DbsApiInit(Db_System_Type DbsType, sdb_thread_control *ModuleControl, u64 SensorCount,
                      sensor_data_pipe **Pipes, sdb_arena *Arena, u64 ArenaSize, i64 DbmTId,
                      database_api *Dbs);
 

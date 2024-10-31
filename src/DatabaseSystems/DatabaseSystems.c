@@ -27,7 +27,7 @@ DbsDatabaseIsAvailable(Db_System_Type DbsId)
 }
 
 sdb_errno
-DbsInitApi(Db_System_Type Type, sdb_thread_control *ModuleControl, u64 SensorCount,
+DbsApiInit(Db_System_Type Type, sdb_thread_control *ModuleControl, u64 SensorCount,
            sensor_data_pipe **Pipes, sdb_arena *Arena, u64 ArenaSize, i64 DbmTId,
            database_api *DbsApi)
 {
