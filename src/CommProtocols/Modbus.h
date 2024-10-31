@@ -40,9 +40,6 @@ ssize_t   MbReceiveTcpFrame(int Sockfd, u8 *Buffer, size_t BufferSize);
 sdb_errno MbParseTcpFrame(const u8 *Buffer, int NumBytes, queue_item *Item);
 
 sdb_errno MbPrepare(comm_protocol_api *Mb);
-sdb_errno MbInit(comm_protocol_api *Mb);
-sdb_errno MbRun(comm_protocol_api *Mb);
-sdb_errno MbFinalize(comm_protocol_api *Mb);
 sdb_errno MbMainLoop(comm_protocol_api *Mb);
 
 SDB_END_EXTERN_C
