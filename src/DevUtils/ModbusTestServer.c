@@ -6,8 +6,7 @@
 
 #include <src/Sdb.h>
 
-SDB_LOG_REGISTER(TestModbus);
-SDB_THREAD_ARENAS_EXTERN(Modbus);
+SDB_LOG_REGISTER(ModbusTestServer);
 
 #include <src/CommProtocols/Modbus.h>
 #include <src/Common/CircularBuffer.h>
@@ -134,12 +133,12 @@ RunModbusTestServer(sdb_thread *Thread)
     }
 
     SdbLogDebug("Server: waiting for connections on port %d...", Port);
-    SdbBarrierWait(Thread->Args);
 
     SinSize = sizeof(ClientAddr);
     NewFd   = accept(SockFd, (struct sockaddr *)&ClientAddr, &SinSize);
     if(NewFd == -1) {
         SdbLogError("Error accepting connection: %s (errno: %d)", strerror(errno), errno);
+        close(SockFd);
         return -1;
     }
 
@@ -151,7 +150,6 @@ RunModbusTestServer(sdb_thread *Thread)
             SdbLogError("Failed to send Modbus data to client %s:%d, closing connection", ClientIp,
                         ntohs(ClientAddr.sin_port));
 
-            close(NewFd);
             break;
         }
         SdbLogDebug("Successfully sent Modbus data to client %s:%d", ClientIp,

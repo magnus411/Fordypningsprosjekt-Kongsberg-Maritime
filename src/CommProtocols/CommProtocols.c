@@ -137,17 +137,18 @@ CommModuleRun(sdb_thread *Thread)
                     Attempts, Ret);
     }
 
+    // NOTE(ingar): Wait for all modules to be initialized
+    SdbBarrierWait(CommCtx->ModulesBarrier);
+
     if(Attempts >= CP_INIT_ATTEMPT_THRESHOLD) {
-        SdbLogError("Thread %ld: Comm protocol init attempt threshold exceeded", Thread->pid);
+        SdbLogError(
+            "Thread %ld: Comm protocol init attempt threshold exceeded. Marking thread as stopped.",
+            Thread->pid);
         goto exit;
     } else {
         SdbLogInfo("Thread %ld: Comm protocol successfully initialized. Starting main loop",
                    Thread->pid);
     }
-
-
-    // NOTE(ingar): Wait for all modules to be initialized
-    SdbBarrierWait(CommCtx->ModulesBarrier);
 
 
     if((Ret = ThreadCp.Run(&ThreadCp)) >= 0) {

@@ -105,6 +105,8 @@ DbModuleRun(sdb_thread *Thread)
                     Attempts, Ret);
     }
 
+    SdbBarrierWait(DbmCtx->ModulesBarrier);
+
     if(Attempts >= DB_INIT_ATTEMPT_THRESHOLD) {
         SdbLogError("Thread %ld: Database init attempt threshold exceeded", Thread->pid);
         goto exit;
@@ -112,7 +114,6 @@ DbModuleRun(sdb_thread *Thread)
         SdbLogInfo("Thread %ld: Database successfully initialized", Thread->pid);
     }
 
-    SdbBarrierWait(DbmCtx->ModulesBarrier);
 
     if((Ret = ThreadDb.Run(&ThreadDb)) == 0) {
         SdbLogInfo("Thread %ld: Database has stopped and returned success", Thread->pid);

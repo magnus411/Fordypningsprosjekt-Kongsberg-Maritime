@@ -88,7 +88,7 @@ main(int ArgCount, char **ArgV)
     }
 
 
-    const u32   ThreadCount = 3;
+    const u32   ThreadCount = 2;
     sdb_barrier ModulesBarrier;
     SdbBarrierInit(&ModulesBarrier, ThreadCount);
     // NOTE(ingar): This is used to ensure that all modules have been initialized before
@@ -112,7 +112,7 @@ main(int ArgCount, char **ArgV)
 
 
     sdb_thread DbmThread, CommThread, ModbusServerThread;
-    SdbThreadCreate(&ModbusServerThread, RunModbusTestServer, &ModulesBarrier);
+    SdbThreadCreate(&ModbusServerThread, RunModbusTestServer, NULL);
     SdbThreadCreate(&DbmThread, DbModuleRun, DbmCtx);
     SdbThreadCreate(&CommThread, CommModuleRun, CommCtx);
 
@@ -140,6 +140,7 @@ main(int ArgCount, char **ArgV)
         SdbLogInfo("All threads finished with success!");
         exit(EXIT_SUCCESS);
     } else {
+        SdbLogError("Threads finished with errors!");
         exit(EXIT_FAILURE);
     }
 }
