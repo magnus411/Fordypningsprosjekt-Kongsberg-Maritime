@@ -7,7 +7,7 @@ LINTER_FLAGS = -quiet
 SRC = $(filter-out src/Main.c, $(shell find src -name "*.c"))
 SRC_MAIN = src/Main.c
 TEST_SRC = $(filter-out tests/Main.c, $(shell find tests -name "*.c"))
-TEST_MAIN = tests/Main.c
+TEST_MAIN = tests/Tests.c
 
 SDB_LOG_LEVEL ?= -DSDB_LOG_LEVEL=3
 SDB_DEBUG = -DSDB_MEM_TRACE=1 -DSDB_PRINTF_DEBUG_ENABLE=1 -DSDB_ASSERT=0
