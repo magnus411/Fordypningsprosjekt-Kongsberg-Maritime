@@ -1,5 +1,0 @@
-#ifndef COMM_PROTOCOL_TEST_H
-#define COMM_PROTOCOL_TEST_H
-
-
-#endif
