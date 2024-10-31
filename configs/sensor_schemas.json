@@ -1,21 +1,15 @@
 {
-  "sensors": [
-    {
-        "name": "shaft_power",
-        "data": {
-            "packet_id": "BIGINT",
-            "time": "DOUBLE PRECISION",
-            "rpm": "DOUBLE PRECISION",
-            "torque": "DOUBLE PRECISION",
-            "power": "DOUBLE PRECISION",
-            "peak_peak_pfs": "DOUBLE PRECISION"
-        }   
-    },
-    {
-        "name": "deez",
-        "data": {
-            "nuts": "INT"
+    "sensors": [
+        {
+            "name": "shaft_power",
+            "data": {
+                "packet_id": "BIGINT",
+                "time": "DOUBLE PRECISION",
+                "rpm": "DOUBLE PRECISION",
+                "torque": "DOUBLE PRECISION",
+                "power": "DOUBLE PRECISION",
+                "peak_peak_pfs": "DOUBLE PRECISION"
+            }
         }
-    }
-  ]
+    ]
 }
