@@ -152,38 +152,46 @@ MbParseFrame(const u8 *Frame, u16 *UnitId, u16 *FunctionCode, u16 *DataLength)
 }
 
 sdb_errno
-MbPrepareThreads(comm_protocol_api *Mb)
+MbPrepare(comm_protocol_api *Mb)
 {
     modbus_ctx   *MbCtx = MB_CTX(Mb);
     mb_init_args *Args  = Mb->OptArgs;
-    for(u64 t = 0; t < Mb->SensorCount; ++t) {
-        mb_thread_ctx *MtCtx = SdbPushStruct(&Mb->Arena, mb_thread_ctx *);
 
-        MtCtx->Pipe    = Mb->SdPipes[t];
-        MtCtx->Control = &MbCtx->ThreadControls[t];
-        MtCtx->Port    = Args->Ports[t];
-        MtCtx->Ip      = SdbStringDuplicate(&Mb->Arena, Args->Ips[t]);
-        MtCtx->SockFd  = CreateSocket(MtCtx->Ip, MtCtx->Port);
+    if(Args->PortCount != Args->IpCount) {
+        SdbLogError("Mismatch in port count (%lu) and ip count (%lu)", Args->PortCount,
+                    Args->IpCount);
+        return -EINVAL;
+    } else {
+        MbCtx->ConnCount = Args->PortCount;
+    }
 
-        if(MtCtx->SockFd == -1) {
-            SdbLogError("Failed to create for sensor index %lu", t);
+    MbCtx->Ports   = SdbPushArray(&Mb->Arena, int, MbCtx->ConnCount);
+    MbCtx->Ips     = SdbPushArray(&Mb->Arena, sdb_string, MbCtx->ConnCount);
+    MbCtx->SockFds = SdbPushArray(&Mb->Arena, int, MbCtx->ConnCount);
+
+    for(u64 i = 0; i < MbCtx->ConnCount; ++i) {
+        MbCtx->Ports[i]   = Args->Ports[i];
+        MbCtx->Ips[i]     = SdbStringDuplicate(&Mb->Arena, Args->Ips[i]);
+        MbCtx->SockFds[i] = CreateSocket(MbCtx->Ips[i], MbCtx->Ports[i]);
+        if(MbCtx->SockFds[i] == -1) {
+            SdbLogError("Failed to create socket for sensor index %lu", i);
             return -1;
         } else {
-            SdbLogDebug("Modbus thread %lu successfully connected to server %s:%d", t, MtCtx->Ip,
-                        MtCtx->Port);
+            SdbLogDebug("Modbus thread %lu successfully connected to server %s:%d", i,
+                        MbCtx->Ips[i], MbCtx->Ports[i]);
         }
-
-        MbCtx->ThreadContexts[t] = MtCtx;
     }
+
 
     return 0;
 }
 
 sdb_errno
-MbSensorThread(sdb_thread *Thread)
+MbMainLoop(comm_protocol_api *Mb)
 {
     sdb_errno Ret = 0;
 
+#if 0
     mb_thread_ctx    *MtCtx  = Thread->Args;
     sensor_data_pipe *Pipe   = MtCtx->Pipe;
     int               SockFd = MtCtx->SockFd;
@@ -241,6 +249,6 @@ exit:
         SdbLogError("Thread %ld: Failed to mark thread as stopped", Thread->pid);
         return StopRet;
     }
-
+#endif
     return Ret;
 }

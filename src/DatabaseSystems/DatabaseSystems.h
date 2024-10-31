@@ -39,9 +39,11 @@ struct database_api
     // context type. I don't know of a better solution atm
     u64                SensorCount;
     sensor_data_pipe **SdPipes;
-    sdb_arena          Arena;
-    void              *Ctx;
-    void              *OptArgs;
+
+    u64       ArgSize; // TODO(ingar): So the protocol can reclaim the memory used for OptArgs
+    void     *OptArgs;
+    void     *Ctx;
+    sdb_arena Arena;
 };
 
 typedef sdb_errno (*dbs_init_api)(Db_System_Type DbsType, u64 SensorCount, sensor_data_pipe **Pipes,
@@ -59,9 +61,9 @@ typedef struct
 
     sdb_thread_control Control;
 
-    sdb_arena Arena;
     u64       ArenaSize;
     u64       DbsArenaSize;
+    sdb_arena Arena;
 
 } db_module_ctx;
 

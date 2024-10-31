@@ -37,10 +37,10 @@ struct comm_protocol_api
     u64                SensorCount;
     sensor_data_pipe **SdPipes;
 
+    u64       ArgSize; // TODO(ingar): So the protocol can reclaim the memory used for OptArgs
+    void     *OptArgs;
+    void     *Ctx;
     sdb_arena Arena;
-
-    void *Ctx;
-    void *OptArgs;
 };
 
 typedef sdb_errno (*cp_init_api)(Comm_Protocol_Type Type, u64 SensorCount,
@@ -54,19 +54,19 @@ typedef struct
     Comm_Protocol_Type CpType;
     cp_init_api        InitApi;
 
-    sensor_data_pipe **SdPipes;
-    u64                SensorCount; // NOTE(ingar): 1 pipe per sensor
+    u64                SensorCount;
+    sensor_data_pipe **SdPipes; // NOTE(ingar): 1 pipe per sensor
 
-    sdb_thread_control  Control;
-    sdb_thread_control *ChildControls;
+    sdb_thread_control Control;
 
-    sdb_arena Arena;
-    u64       ArenaSize;
     u64       CpArenaSize;
+    u64       ArenaSize;
+    sdb_arena Arena;
 
 } comm_module_ctx;
 
-bool      CpProtocolIsAvailable(Comm_Protocol_Type Type);
+bool CpProtocolIsAvailable(Comm_Protocol_Type Type);
+
 sdb_errno CpInitApi(Comm_Protocol_Type Type, u64 SensorCount, sensor_data_pipe **SdPipes,
                     sdb_arena *Arena, u64 ArenaSize, i64 CommTId, comm_protocol_api *CpApi);
 

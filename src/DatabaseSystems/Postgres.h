@@ -76,19 +76,8 @@ typedef struct
 
 typedef struct
 {
-    PGconn             *DbConn;
-    sensor_data_pipe   *Pipe;
-    sdb_thread_control *Control;
-    pg_table_info       TableInfo;
-    // TODO(ingar): Might need to add an arena to use for scratches
-
-} pg_thread_ctx;
-
-typedef struct
-{
-    sdb_thread         *Threads;
-    sdb_thread_control *ThreadControls;
-    pg_thread_ctx     **ThreadContexts;
+    PGconn         *DbConn; // TODO(ingar): One connection per table?
+    pg_table_info **TablesInfo;
 
 } postgres_ctx;
 
@@ -102,8 +91,8 @@ void             InsertSensorData(database_api *Pg);
 void             PgInitThreadArenas(void);
 sdb_errno        PgPrepareTablesAndStatements(database_api *Pg);
 sdb_errno        PgInitThreadContexts(database_api *Pg);
-sdb_errno        PgPrepareThreads(database_api *Pg);
-sdb_errno        PgSensorThread(sdb_thread *Thread);
+sdb_errno        PgPrepare(database_api *Pg);
+sdb_errno        PgMainLoop(database_api *Pg);
 
 SDB_END_EXTERN_C
 

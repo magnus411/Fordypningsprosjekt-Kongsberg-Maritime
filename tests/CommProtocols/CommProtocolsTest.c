@@ -34,8 +34,10 @@ CpInitApiTest(Comm_Protocol_Type Type, u64 SensorCount, sensor_data_pipe **SdPip
                 CpApi->Finalize = MbFinalizeTest;
 
                 mb_init_args *Args = SdbPushStruct(&CpApi->Arena, mb_init_args);
+                Args->IpCount      = 1;
                 Args->Ips          = SdbPushArray(&CpApi->Arena, sdb_string, 1);
                 Args->Ips[0]       = SdbStringMake(&CpApi->Arena, "127.0.0.1");
+                Args->PortCount    = 1;
                 Args->Ports        = SdbPushArray(&CpApi->Arena, int, 1);
                 Args->Ports[0]     = MODBUS_PORT;
                 CpApi->OptArgs     = Args;

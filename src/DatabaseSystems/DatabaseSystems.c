@@ -119,11 +119,7 @@ DbModuleRun(sdb_thread *Thread)
         SdbLogError("Thread %ld: Database has stopped and returned an error: %d", Thread->pid, Ret);
     }
 
-    SdbMutexLock(&DbmCtx->Control.Mutex, SDB_TIMEOUT_MAX);
-    while(!SdbTCtlShouldStopLocked(&DbmCtx->Control)) {
-        SdbCondWait(&DbmCtx->Control.Cond, &DbmCtx->Control.Mutex, SDB_TIMEOUT_MAX);
-    }
-    SdbMutexUnlock(&DbmCtx->Control.Mutex);
+    SdbTCtlWaitForSignal(&DbmCtx->Control);
 
     if((Ret = ThreadDb.Finalize(&ThreadDb)) == 0) {
         SdbLogInfo("Thread %ld: Database successfully finalized", Thread->pid);

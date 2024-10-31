@@ -181,37 +181,10 @@ MbInitTest(comm_protocol_api *Mb)
     SdbThreadArenasAdd(Scratch1);
     SdbThreadArenasAdd(Scratch2);
 
-    modbus_ctx *MbCtx     = SdbPushStruct(&Mb->Arena, modbus_ctx);
-    MbCtx->Threads        = SdbPushArray(&Mb->Arena, sdb_thread, Mb->SensorCount);
-    MbCtx->ThreadControls = SdbPushArray(&Mb->Arena, sdb_thread_control, Mb->SensorCount);
-    MbCtx->ThreadContexts = SdbPushArray(&Mb->Arena, mb_thread_ctx *, Mb->SensorCount);
-    Mb->Ctx               = MbCtx;
-
-    u64 InitializedCount = 0;
-    for(u64 t = 0; t < Mb->SensorCount; ++t) {
-        if(SdbTCtlInit(&MbCtx->ThreadControls[t]) != 0) {
-            // Cleanup previously initialized controls
-            for(u64 i = 0; i < InitializedCount; ++i) {
-                SdbTCtlDeinit(&MbCtx->ThreadControls[i]);
-            }
-            return -1;
-        }
-        InitializedCount++;
-    }
-
-    if(MbPrepareThreads(Mb) != 0) {
+    modbus_ctx *MbCtx = SdbPushStruct(&Mb->Arena, modbus_ctx);
+    Mb->Ctx           = MbCtx;
+    if(MbPrepare(Mb) != 0) {
         return -1;
-    }
-
-    for(u64 t = 0; t < Mb->SensorCount; ++t) {
-        sdb_thread    *Thread    = &MbCtx->Threads[t];
-        mb_thread_ctx *ThreadCtx = MbCtx->ThreadContexts[t];
-
-        sdb_errno TRet = SdbThreadCreate(Thread, MbSensorThread, ThreadCtx);
-        if(TRet != 0) {
-            SdbLogError("Failed to create Postgres main thread for sensor idx %lu", t);
-            return TRet;
-        }
     }
 
     return 0;
@@ -228,41 +201,6 @@ MbFinalizeTest(comm_protocol_api *Mb)
 {
     modbus_ctx *MbCtx = MB_CTX(Mb);
     sdb_errno   Ret   = 0;
-
-    // Signal all threads to stop first
-    for(u64 t = 0; t < Mb->SensorCount; ++t) {
-        SdbTCtlSignalStop(&MbCtx->ThreadControls[t]);
-    }
-    /*
-    // Close all sockets
-    for(u64 t = 0; t < Mb->SensorCount; ++t) {
-        if (MbCtx->ThreadContexts[t]->SockFd != -1) {
-            close(MbCtx->ThreadContexts[t]->SockFd);
-            MbCtx->ThreadContexts[t]->SockFd = -1;
-        }
-    }
-    */
-    // Wait for threads to stop and cleanup
-    for(u64 t = 0; t < Mb->SensorCount; ++t) {
-        sdb_errno CtlRet = SdbTCtlWaitForStop(&MbCtx->ThreadControls[t]);
-        if(CtlRet != 0) {
-            SdbLogError("Thread %lu failed to stop", t);
-            Ret = CtlRet;
-        }
-
-        sdb_errno TRet = SdbThreadJoin(&MbCtx->Threads[t]);
-        if(TRet != 0) {
-            SdbLogError("Thread %lu failed to join", t);
-            Ret = Ret ? Ret : TRet;
-        }
-
-        // Cleanup thread control
-        sdb_errno DeinitRet = SdbTCtlDeinit(&MbCtx->ThreadControls[t]);
-        if(DeinitRet != 0) {
-            SdbLogError("Failed to deinit thread control %lu", t);
-            Ret = Ret ? Ret : DeinitRet;
-        }
-    }
 
     return Ret;
 }

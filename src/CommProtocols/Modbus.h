@@ -11,31 +11,25 @@ SDB_BEGIN_EXTERN_C
 
 // NOTE(ingar): This is port used by modbus according to its wikipedia page
 #define MODBUS_PORT (54321) // (502)
-
+//
 typedef struct
 {
-    sensor_data_pipe *Pipe;
+    u64 ConnCount;
 
-    sdb_thread_control *Control;
-
-    int        Port;
-    int        SockFd;
-    sdb_string Ip; // NOTE(ingar): Keep string last so it's allocated contiguously with the context
-
-} mb_thread_ctx;
-
-typedef struct
-{
-    sdb_thread         *Threads;
-    sdb_thread_control *ThreadControls;
-    mb_thread_ctx     **ThreadContexts;
+    int        *SockFds;
+    int        *Ports;
+    sdb_string *Ips;
+    // NOTE(ingar): Keep string last so it's allocated contiguously with the context
 
 } modbus_ctx;
 
 typedef struct
 {
+    u64  PortCount;
+    int *Ports;
+
+    u64         IpCount;
     sdb_string *Ips;
-    int        *Ports;
 
 } mb_init_args;
 
@@ -45,11 +39,11 @@ void      MbThreadArenasInit(void);
 ssize_t   MbReceiveTcpFrame(int Sockfd, u8 *Buffer, size_t BufferSize);
 sdb_errno MbParseTcpFrame(const u8 *Buffer, int NumBytes, queue_item *Item);
 
-sdb_errno MbPrepareThreads(comm_protocol_api *Mb);
-sdb_errno MbInit(comm_protocol_api *Modbus);
-sdb_errno MbRun(comm_protocol_api *Modbus);
-sdb_errno MbFinalize(comm_protocol_api *Modbus);
-sdb_errno MbSensorThread(sdb_thread *Thread);
+sdb_errno MbPrepare(comm_protocol_api *Mb);
+sdb_errno MbInit(comm_protocol_api *Mb);
+sdb_errno MbRun(comm_protocol_api *Mb);
+sdb_errno MbFinalize(comm_protocol_api *Mb);
+sdb_errno MbMainLoop(comm_protocol_api *Mb);
 
 SDB_END_EXTERN_C
 

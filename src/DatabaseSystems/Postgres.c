@@ -158,7 +158,7 @@ GetTableMetadata(PGconn *DbConn, sdb_string TableName, int *ColCount, sdb_arena 
 
 
 sdb_errno
-PgPrepareThreads(database_api *Pg)
+PgPrepare(database_api *Pg)
 {
     postgres_ctx     *PgCtx   = PG_CTX(Pg);
     sdb_scratch_arena Scratch = SdbScratchGet(NULL, 0);
@@ -170,7 +170,17 @@ PgPrepareThreads(database_api *Pg)
         SdbScratchRelease(Scratch);
         return -1;
     }
+
     const char *ConnInfo = (const char *)ConfFile->Data;
+    PgCtx->DbConn        = PQconnectdb(ConnInfo);
+
+    if(PQstatus(PgCtx->DbConn) != CONNECTION_OK) {
+        SdbLogError("PgCtx->DbConnection to database failed. PQ error:\n%s",
+                    PQerrorMessage(PgCtx->DbConn));
+        SdbScratchRelease(Scratch);
+        PQfinish(PgCtx->DbConn);
+        return -1;
+    }
 
 
     cJSON *SchemaConf = DbInitGetConfFromFile("./configs/sensor_schemas.json", Scratch.Arena);
@@ -192,31 +202,14 @@ PgPrepareThreads(database_api *Pg)
             goto JSON_err;
         }
 
-
-        pg_thread_ctx *PtCtx = SdbPushStruct(&Pg->Arena, pg_thread_ctx);
-        PtCtx->Pipe          = Pg->SdPipes[SensorIdx];
-        PtCtx->Control       = &PgCtx->ThreadControls[SensorIdx];
-        PgCtx->ThreadContexts[SensorIdx] = PtCtx;
-
-
-        PGconn *Conn = PQconnectdb(ConnInfo);
-        if(PQstatus(Conn) != CONNECTION_OK) {
-            SdbLogError("Connection to database failed. PQ error:\n%s", PQerrorMessage(Conn));
-            SdbScratchRelease(Scratch);
-            PQfinish(Conn);
-            return -1;
-        } else {
-            PtCtx->DbConn = Conn;
-        }
-
-
         cJSON *SensorName = cJSON_GetObjectItem(SensorSchema, "name");
         if(SensorName == NULL || !cJSON_IsString(SensorName)) {
             goto JSON_err;
         }
 
-        pg_table_info *Ti = &PtCtx->TableInfo;
+        pg_table_info *Ti = PgCtx->TablesInfo[SensorIdx];
 
+        Ti            = SdbPushStruct(&Pg->Arena, pg_table_info);
         Ti->TableName = SdbStringMake(&Pg->Arena, SensorName->valuestring);
         Ti->Statement = SdbStringDuplicate(&Pg->Arena, Ti->TableName);
         SdbStringAppendC(Ti->Statement, "_copy");
@@ -250,9 +243,9 @@ PgPrepareThreads(database_api *Pg)
         SdbStringAppendC(CreationQuery, ");");
         SdbPrintfDebug("Table creation query:\n%s\n", CreationQuery);
 
-        PGresult *PgRes = PQexec(PtCtx->DbConn, CreationQuery);
+        PGresult *PgRes = PQexec(PgCtx->DbConn, CreationQuery);
         if(PQresultStatus(PgRes) != PGRES_COMMAND_OK) {
-            SdbLogError("Table creation failed: %s", PQerrorMessage(PtCtx->DbConn));
+            SdbLogError("Table creation failed: %s", PQerrorMessage(PgCtx->DbConn));
             SdbScratchRelease(Scratch);
             PQclear(PgRes);
             return -1;
@@ -264,27 +257,28 @@ PgPrepareThreads(database_api *Pg)
 
 
         Ti->ColMetadata
-            = GetTableMetadata(PtCtx->DbConn, Ti->TableName, (int *)&Ti->ColCount, &Pg->Arena);
+            = GetTableMetadata(PgCtx->DbConn, Ti->TableName, (int *)&Ti->ColCount, &Pg->Arena);
         if(NULL == Ti->ColMetadata || 0 == Ti->ColCount) {
             SdbLogError("Failed to get column metadata for table %s", Ti->TableName);
             SdbScratchRelease(Scratch);
             return -1;
         }
 
+        sensor_data_pipe *Pipe = Pg->SdPipes[SensorIdx];
 
-        PtCtx->Pipe->PacketSize = Ti->ColMetadata[Ti->ColCount - 1].Offset
-                                + Ti->ColMetadata[Ti->ColCount - 1].TypeLength;
-        PtCtx->Pipe->PacketMaxCount = PtCtx->Pipe->Buffers[0]->Cap / PtCtx->Pipe->PacketSize;
-        PtCtx->Pipe->BufferMaxFill  = PtCtx->Pipe->PacketSize * PtCtx->Pipe->PacketMaxCount;
+        Pipe->PacketSize = Ti->ColMetadata[Ti->ColCount - 1].Offset
+                         + Ti->ColMetadata[Ti->ColCount - 1].TypeLength;
+        Pipe->PacketMaxCount = Pipe->Buffers[0]->Cap / Pipe->PacketSize;
+        Pipe->BufferMaxFill  = Pipe->PacketSize * Pipe->PacketMaxCount;
 
 
         sdb_string PrepareStatement = SdbStringMake(Scratch.Arena, NULL);
         SdbStringAppendFmt(PrepareStatement, "COPY %s FROM STDIN WITH (FORMAT binary)",
                            Ti->TableName);
 
-        PgRes = PQprepare(PtCtx->DbConn, Ti->Statement, PrepareStatement, 0, NULL);
+        PgRes = PQprepare(PgCtx->DbConn, Ti->Statement, PrepareStatement, 0, NULL);
         if(PQresultStatus(PgRes) != PGRES_COMMAND_OK) {
-            SdbLogError("Failed to prepare COPY statement: %s", PQerrorMessage(PtCtx->DbConn));
+            SdbLogError("Failed to prepare COPY statement: %s", PQerrorMessage(PgCtx->DbConn));
             PQclear(PgRes);
             SdbScratchRelease(Scratch);
             return -1;
@@ -294,39 +288,38 @@ PgPrepareThreads(database_api *Pg)
         ++SensorIdx;
     }
 
+    cJSON_Delete(SchemaConf);
     SdbScratchRelease(Scratch);
 
     return 0;
 
 JSON_err:
     SdbLogError("Sensor schema JSON incorrect, cJSON error: %s", cJSON_GetErrorPtr());
+    cJSON_Delete(SchemaConf);
+    PQfinish(PgCtx->DbConn);
     SdbScratchRelease(Scratch);
     return -1;
 }
 
 sdb_errno
-PgInsertData(pg_thread_ctx *PtCtx)
+PgInsertData(PGconn *Conn, pg_table_info *Ti, sensor_data_pipe *Pipe)
 {
     PGresult *PgRes;
     sdb_errno Ret = 0;
 
-    PGconn           *Conn = PtCtx->DbConn;
-    pg_table_info     Ti   = PtCtx->TableInfo;
-    sensor_data_pipe *Pipe = PtCtx->Pipe;
-
     PgRes = PQexec(Conn, "BEGIN");
     if(PQresultStatus(PgRes) != PGRES_COMMAND_OK) {
         SdbLogError("Failed to begin transaction for insertion into table %s. Pg error: %s",
-                    Ti.TableName, PQerrorMessage(Conn));
+                    Ti->TableName, PQerrorMessage(Conn));
         PQclear(PgRes);
         return -SDBE_PG_ERROR;
     }
     PQclear(PgRes);
 
-    PgRes = PQexecPrepared(Conn, Ti.Statement, 0, NULL, NULL, NULL, 0);
+    PgRes = PQexecPrepared(Conn, Ti->Statement, 0, NULL, NULL, NULL, 0);
     if(PQresultStatus(PgRes) != PGRES_COMMAND_OK) {
         SdbLogError("Failed to execute prepared copy statement for table %s. Pg error: %s",
-                    Ti.TableName, PQerrorMessage(Conn));
+                    Ti->TableName, PQerrorMessage(Conn));
         PQclear(PgRes);
         PQexec(Conn, "ROLLBACK");
         return -SDBE_PG_ERROR;
@@ -342,7 +335,7 @@ PgInsertData(pg_thread_ctx *PtCtx)
     SdbMemcpy(CopyHeader + 15, &CopyExtenstionLength, sizeof(CopyExtenstionLength));
 
     if(PQputCopyData(Conn, CopyHeader, 19) != 1) {
-        SdbLogError("Failed to send COPY binary header for table %s. Pg error: %s", Ti.TableName,
+        SdbLogError("Failed to send COPY binary header for table %s. Pg error: %s", Ti->TableName,
                     PQerrorMessage(Conn));
         Ret = -SDBE_PG_ERROR;
         goto cleanup;
@@ -360,14 +353,14 @@ PgInsertData(pg_thread_ctx *PtCtx)
 
 cleanup:
     if(PQputCopyEnd(Conn, (Ret == 0) ? NULL : "Error during copy") != 1) {
-        SdbLogError("Failed to end COPY for table %s. Pg error: %s", Ti.TableName,
+        SdbLogError("Failed to end COPY for table %s. Pg error: %s", Ti->TableName,
                     PQerrorMessage(Conn));
         Ret = -SDBE_PG_ERROR;
     }
 
     PgRes = PQgetResult(Conn);
     if(PQresultStatus(PgRes) != PGRES_COMMAND_OK) {
-        SdbLogError("COPY command failed for table %s. Pg error: %s", Ti.TableName,
+        SdbLogError("COPY command failed for table %s. Pg error: %s", Ti->TableName,
                     PQerrorMessage(Conn));
         Ret = -SDBE_PG_ERROR;
     }
@@ -380,30 +373,30 @@ cleanup:
     }
 
     if(PQresultStatus(PgRes) != PGRES_COMMAND_OK) {
-        SdbLogError("Failed to end transaction for table %s. Pg error: %s", Ti.TableName,
+        SdbLogError("Failed to end transaction for table %s. Pg error: %s", Ti->TableName,
                     PQerrorMessage(Conn));
         Ret = -SDBE_PG_ERROR;
     }
     PQclear(PgRes);
 
     if(Ret == 0) {
-        SdbLogInfo("Committed copy transaction for table %s", Ti.TableName);
+        SdbLogInfo("Committed copy transaction for table %s", Ti->TableName);
     } else {
-        SdbLogWarning("Rolled back copy transaction for table %s", Ti.TableName);
+        SdbLogWarning("Rolled back copy transaction for table %s", Ti->TableName);
     }
 
     return Ret;
 }
 
 sdb_errno
-PgSensorThread(sdb_thread *Thread)
+PgMainLoop(database_api *Pg)
 {
     // TODO(ingar): Scratch arenas ?
     sdb_errno Ret = 0;
+#if 0
+    postgres_ctx *PgCtx = PG_CTX(Pg);
 
-    pg_thread_ctx    *PtCtx       = Thread->Args;
-    sensor_data_pipe *Pipe        = PtCtx->Pipe;
-    int               ReadEventFd = Pipe->ReadEventFd;
+    int ReadEventFd = Pipe->ReadEventFd;
     SdbLogDebug("Starting sensor thread for table %s", PtCtx->TableInfo.TableName);
 
     int EpollFd = epoll_create1(0);
@@ -423,29 +416,29 @@ PgSensorThread(sdb_thread *Thread)
     struct epoll_event Events[1];
     while(!SdbTCtlShouldStop(PtCtx->Control)) {
         static int LogCounter = 0;
-        if (++LogCounter % 1000 == 0) {
+        if(++LogCounter % 1000 == 0) {
             SdbLogDebug("Sensor thread for %s still running", PtCtx->TableInfo.TableName);
         }
 
         // TODO(ingar): Is 1000 appropriate timeout?
         int EpollRet = epoll_wait(EpollFd, Events, 1, 1000);
-        if (EpollRet == -1) {
-            if (errno == EINTR) {
+        if(EpollRet == -1) {
+            if(errno == EINTR) {
                 // Check stop condition again after interrupt
-                if (SdbTCtlShouldStop(PtCtx->Control)) {
+                if(SdbTCtlShouldStop(PtCtx->Control)) {
                     SdbLogDebug("Stop signal received for %s", PtCtx->TableInfo.TableName);
                     break;
                 }
                 continue;
             } else {
                 SdbLogError("Epoll wait returned with error for sensor %s: %s",
-                           PtCtx->TableInfo.TableName, strerror(errno));
+                            PtCtx->TableInfo.TableName, strerror(errno));
                 Ret = -errno;
                 break;
             }
-        } else if (EpollRet == 0) {
+        } else if(EpollRet == 0) {
             // Check stop condition on timeout
-            if (SdbTCtlShouldStop(PtCtx->Control)) {
+            if(SdbTCtlShouldStop(PtCtx->Control)) {
                 SdbLogDebug("Stop signal received for %s", PtCtx->TableInfo.TableName);
                 break;
             }
@@ -461,6 +454,6 @@ PgSensorThread(sdb_thread *Thread)
     SdbLogDebug("Sensor thread for %s stopping", PtCtx->TableInfo.TableName);
     close(EpollFd);
     SdbTCtlMarkStopped(PtCtx->Control);
-
+#endif
     return Ret;
 }

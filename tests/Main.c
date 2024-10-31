@@ -87,7 +87,7 @@ main(int ArgCount, char **ArgV)
     }
 
 
-    const u32   ThreadCount = 2;
+    const u32   ThreadCount = 3;
     sdb_barrier ModulesBarrier;
     SdbBarrierInit(&ModulesBarrier, ThreadCount);
     // NOTE(ingar): This is used to ensure that all modules have been initialized before
@@ -112,7 +112,7 @@ main(int ArgCount, char **ArgV)
 
     sdb_thread DbmThread, CommThread, ModbusServerThread;
     SdbThreadCreate(&ModbusServerThread, RunModbusTestServer, &ModulesBarrier);
-    // SdbThreadCreate(&DbmThread, DbModuleRun, DbmCtx);
+    SdbThreadCreate(&DbmThread, DbModuleRun, DbmCtx);
     SdbThreadCreate(&CommThread, CommModuleRun, CommCtx);
 
 
@@ -125,14 +125,14 @@ main(int ArgCount, char **ArgV)
     }
     SdbMutexUnlock(&ShutdownMutex);
 
-    // SdbTCtlSignalStop(&DbmCtx->Control);
+    SdbTCtlSignalStop(&DbmCtx->Control);
     SdbTCtlSignalStop(&CommCtx->Control);
 
-    // SdbTCtlWaitForStop(&DbmCtx->Control);
+    SdbTCtlWaitForStop(&DbmCtx->Control);
     SdbTCtlWaitForStop(&CommCtx->Control);
 
     sdb_errno ModbusRet = SdbThreadJoin(&ModbusServerThread);
-    sdb_errno DbmRet    = 0; // SdbThreadJoin(&DbmThread);
+    sdb_errno DbmRet    = SdbThreadJoin(&DbmThread);
     sdb_errno CommRet   = SdbThreadJoin(&CommThread);
 
     if(DbmRet == 0 && CommRet == 0 && ModbusRet == 0) {

@@ -60,11 +60,16 @@ CpInitApi(Comm_Protocol_Type Type, u64 SensorCount, sensor_data_pipe **SdPipes, 
                 CpApi->Finalize = MbFinalize;
 
                 mb_init_args *Args = SdbPushStruct(&CpApi->Arena, mb_init_args);
-                Args->Ips          = SdbPushArray(&CpApi->Arena, sdb_string, 1);
-                Args->Ips[0]       = SdbStringMake(&CpApi->Arena, "127.0.0.1");
-                Args->Ports        = SdbPushArray(&CpApi->Arena, int, 1);
-                Args->Ports[0]     = MODBUS_PORT;
-                CpApi->OptArgs     = Args;
+
+                Args->IpCount = 1;
+                Args->Ips     = SdbPushArray(&CpApi->Arena, sdb_string, 1);
+                Args->Ips[0]  = SdbStringMake(&CpApi->Arena, "127.0.0.1");
+
+                Args->PortCount = 1;
+                Args->Ports     = SdbPushArray(&CpApi->Arena, int, 1);
+                Args->Ports[0]  = MODBUS_PORT;
+
+                CpApi->OptArgs = Args;
             }
             break;
         case Comm_Protocol_MQTT:
@@ -93,9 +98,8 @@ CommModuleInit(sdb_barrier *ModulesBarrier, Comm_Protocol_Type Type, cp_init_api
     CommCtx->ModulesBarrier = ModulesBarrier;
     CommCtx->CpType         = Type;
     CommCtx->InitApi        = ApiInit;
-    CommCtx->SdPipes        = Pipes;
     CommCtx->SensorCount    = SensorCount;
-    CommCtx->ArenaSize      = ModuleArenaSize;
+    CommCtx->SdPipes        = Pipes;
     CommCtx->CpArenaSize    = DbsArenaSize;
 
     SdbArenaBootstrap(Arena, &CommCtx->Arena, CommCtx->ArenaSize);
@@ -136,7 +140,7 @@ CommModuleRun(sdb_thread *Thread)
         SdbLogInfo("Thread %ld: Comm protocol successfully initialized", Thread->pid);
     }
 
-
+    // TODO(ingar): Make this a loop that checks if the thread should stop and then calls api
     if((Ret = ThreadCp.Run(&ThreadCp)) >= 0) {
         SdbLogInfo("Thread %ld: Comm protocol threads have started with success", Thread->pid);
     } else {
