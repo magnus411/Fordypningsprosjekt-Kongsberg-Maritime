@@ -17,7 +17,7 @@ SDB_LOG_REGISTER(ModbusTestServer);
 #include <src/DevUtils/TestConstants.h>
 
 #define BACKLOG     5
-#define PACKET_FREQ 10
+#define PACKET_FREQ 1000
 
 typedef struct __attribute__((packed, aligned(1)))
 {
@@ -151,10 +151,12 @@ RunModbusTestServer(sdb_thread *Thread)
                         ntohs(ClientAddr.sin_port));
 
             break;
+        } else {
+            if((i % 100) == 0) {
+                SdbLogDebug("Successfully sent Modbus data to client %s:%d", ClientIp,
+                            ntohs(ClientAddr.sin_port));
+            }
         }
-        SdbLogDebug("Successfully sent Modbus data to client %s:%d", ClientIp,
-                    ntohs(ClientAddr.sin_port));
-
         SdbSleep(SDB_TIME_S(1.0 / PACKET_FREQ));
     }
     SdbLogDebug("All data sent, stopping server");

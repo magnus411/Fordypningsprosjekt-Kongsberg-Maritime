@@ -1,5 +1,3 @@
-#include "src/Common/Time.h"
-#include "tests/TestConstants.h"
 #include <arpa/inet.h>
 #include <libpq-fe.h>
 #include <stdlib.h>
@@ -26,6 +24,7 @@ SDB_THREAD_ARENAS_REGISTER(Postgres, 2);
 #include <src/DatabaseSystems/DatabaseInitializer.h>
 #include <src/DatabaseSystems/DatabaseSystems.h>
 #include <src/DatabaseSystems/Postgres.h>
+#include <src/DevUtils/TestConstants.h>
 #include <src/Libs/cJSON/cJSON.h>
 
 void
@@ -282,6 +281,8 @@ PgPrepareCtx(database_api *Pg)
             PQclear(PgRes);
             SdbScratchRelease(Scratch);
             return NULL;
+        } else {
+            SdbLogInfo("Insert statement %s prepared successfully", Ti->Statement);
         }
 
         PQclear(PgRes);
@@ -318,8 +319,8 @@ PgInsertData(PGconn *Conn, pg_table_info *Ti, sensor_data_pipe *Pipe)
 
     PgRes = PQexecPrepared(Conn, Ti->Statement, 0, NULL, NULL, NULL, 0);
     if(PQresultStatus(PgRes) != PGRES_COMMAND_OK) {
-        SdbLogError("Failed to execute prepared copy statement for table %s. Pg error: %s",
-                    Ti->TableName, PQerrorMessage(Conn));
+        SdbLogError("Failed to execute prepared copy statement for table %s. Pg error (%d): %s",
+                    Ti->TableName, PQresultStatus(PgRes), PQerrorMessage(Conn));
         PQclear(PgRes);
         PQexec(Conn, "ROLLBACK");
         return -SDBE_PG_ERROR;
@@ -385,75 +386,5 @@ cleanup:
         SdbLogWarning("Rolled back copy transaction for table %s", Ti->TableName);
     }
 
-    return Ret;
-}
-
-sdb_errno
-PgMainLoop(database_api *Pg)
-{
-    // TODO(ingar): Scratch arenas ?
-    sdb_errno Ret = 0;
-#if 0
-    postgres_ctx *PgCtx = PG_CTX(Pg);
-
-    int ReadEventFd = Pipe->ReadEventFd;
-    SdbLogDebug("Starting sensor thread for table %s", PtCtx->TableInfo.TableName);
-
-    int EpollFd = epoll_create1(0);
-    if(EpollFd == -1) {
-        SdbLogError("Failed to create epoll fd for sensor %s: %s", PtCtx->TableInfo.TableName,
-                    strerror(errno));
-        return -1;
-    }
-
-    struct epoll_event ReadEvent = { .events = EPOLLIN, .data.fd = ReadEventFd };
-    if(epoll_ctl(EpollFd, EPOLL_CTL_ADD, ReadEventFd, &ReadEvent) == -1) {
-        SdbLogError("Failed to create epoll event for sensor %s: %s", PtCtx->TableInfo.TableName,
-                    strerror(errno));
-        return -1;
-    }
-
-    struct epoll_event Events[1];
-    while(!SdbTCtlShouldStop(PtCtx->Control)) {
-        static int LogCounter = 0;
-        if(++LogCounter % 1000 == 0) {
-            SdbLogDebug("Sensor thread for %s still running", PtCtx->TableInfo.TableName);
-        }
-
-        // TODO(ingar): Is 1000 appropriate timeout?
-        int EpollRet = epoll_wait(EpollFd, Events, 1, 1000);
-        if(EpollRet == -1) {
-            if(errno == EINTR) {
-                // Check stop condition again after interrupt
-                if(SdbTCtlShouldStop(PtCtx->Control)) {
-                    SdbLogDebug("Stop signal received for %s", PtCtx->TableInfo.TableName);
-                    break;
-                }
-                continue;
-            } else {
-                SdbLogError("Epoll wait returned with error for sensor %s: %s",
-                            PtCtx->TableInfo.TableName, strerror(errno));
-                Ret = -errno;
-                break;
-            }
-        } else if(EpollRet == 0) {
-            // Check stop condition on timeout
-            if(SdbTCtlShouldStop(PtCtx->Control)) {
-                SdbLogDebug("Stop signal received for %s", PtCtx->TableInfo.TableName);
-                break;
-            }
-            continue;
-        }
-
-        Ret = PgInsertData(PtCtx);
-        if(Ret != 0) {
-            // TODO(ingar): Try again?
-        }
-    }
-
-    SdbLogDebug("Sensor thread for %s stopping", PtCtx->TableInfo.TableName);
-    close(EpollFd);
-    SdbTCtlMarkStopped(PtCtx->Control);
-#endif
     return Ret;
 }

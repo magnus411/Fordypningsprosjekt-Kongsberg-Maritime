@@ -94,8 +94,6 @@ MbParseTcpFrame(const u8 *Frame, u16 *UnitId, u16 *FunctionCode, u16 *DataLength
         return NULL;
     }
 
-    SdbLogDebug("Modbus frame data length: %u", *DataLength);
-
     return &Frame[9];
 }
 

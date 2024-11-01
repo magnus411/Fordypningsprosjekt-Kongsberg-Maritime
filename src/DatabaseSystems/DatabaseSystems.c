@@ -105,6 +105,9 @@ DbModuleRun(sdb_thread *Thread)
                     Attempts, Ret);
     }
 
+    // NOTE(ingar): Wait for all modules to be initialized. This has to be before the threshold
+    // check, otherwise the other modules will be left waiting at the barrier, hardlocking the
+    // program
     SdbBarrierWait(DbmCtx->ModulesBarrier);
 
     if(Attempts >= DB_INIT_ATTEMPT_THRESHOLD) {

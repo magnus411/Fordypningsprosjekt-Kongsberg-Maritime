@@ -92,7 +92,7 @@ main(int ArgCount, char **ArgV)
     sdb_barrier ModulesBarrier;
     SdbBarrierInit(&ModulesBarrier, ThreadCount);
     // NOTE(ingar): This is used to ensure that all modules have been initialized before
-    // starting to read from the pipe
+    // starting their main loop
 
 
     db_module_ctx *DbmCtx = DbModuleInit(&ModulesBarrier, Dbs_Postgres, DbsApiInit, SdPipes,
@@ -120,6 +120,9 @@ main(int ArgCount, char **ArgV)
     SdbMutexInit(&ShutdownMutex);
     SdbCondInit(&ShutdownCond);
 
+    // TODO(ingar): Find some way for the modules to initiate a shutdown (for development, prod will
+    // need some other recovery mechanism) if they fail
+    // TODO(ingar): Probably make global shutdown externally available
     SdbMutexLock(&ShutdownMutex, SDB_TIMEOUT_MAX);
     while(!GlobalShutdown) {
         SdbCondWait(&ShutdownCond, &ShutdownMutex, SDB_TIMEOUT_MAX);

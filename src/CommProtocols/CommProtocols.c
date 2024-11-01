@@ -137,8 +137,12 @@ CommModuleRun(sdb_thread *Thread)
                     Attempts, Ret);
     }
 
-    // NOTE(ingar): Wait for all modules to be initialized
+    // NOTE(ingar): Wait for all modules to be initialized. This has to be before the threshold
+    // check, otherwise the other modules will be left waiting at the barrier, hardlocking the
+    // program
     SdbBarrierWait(CommCtx->ModulesBarrier);
+    // TODO(ingar): Interrupt to stop program doesn't work when module fails to connect to the
+    // server
 
     if(Attempts >= CP_INIT_ATTEMPT_THRESHOLD) {
         SdbLogError(

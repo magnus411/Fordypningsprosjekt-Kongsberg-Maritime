@@ -34,57 +34,70 @@ PgRun(database_api *Pg)
     sdb_errno     Ret   = 0;
     postgres_ctx *PgCtx = PG_CTX(Pg);
 
-    PGconn             *Conn          = PgCtx->DbConn;
-    pg_table_info      *TableInfo     = PgCtx->TablesInfo[0];
+    PGconn             *Conn      = PgCtx->DbConn;
+    pg_table_info      *TableInfo = PgCtx->TablesInfo[0]; // TODO(ingar): Generalize to more tables
     sdb_thread_control *ModuleControl = Pg->ModuleControl;
     sensor_data_pipe   *Pipe          = Pg->SdPipes[0];
-
-    int ReadEventFd = Pipe->ReadEventFd;
+    int                 ReadEventFd   = Pipe->ReadEventFd;
 
     int EpollFd = epoll_create1(0);
     if(EpollFd == -1) {
-        return -1;
+        SdbLogError("Failed to create epoll: %s", strerror(errno));
+        return -errno;
     }
 
     struct epoll_event ReadEvent = { .events = EPOLLIN, .data.fd = ReadEventFd };
     if(epoll_ctl(EpollFd, EPOLL_CTL_ADD, ReadEventFd, &ReadEvent) == -1) {
-        return -1;
+        SdbLogError("Failed to start read event: %s", strerror(errno));
+        return -errno;
     }
 
-    struct epoll_event Events[1];
-    int                LogCounter    = 0;
-    u64                PgFailCounter = 0;
+    int LogCounter     = 0;
+    u64 PgFailCounter  = 0;
+    u64 TimeoutCounter = 0;
     while(!SdbTCtlShouldStop(ModuleControl)) {
-        if(++LogCounter % 1000 == 0) {
+        if(++LogCounter % 100 == 0) {
             SdbLogDebug("Postgres test loop is still running");
         }
 
         // TODO(ingar): Is 1000 appropriate timeout?
-        int EpollRet = epoll_wait(EpollFd, Events, 1, 1000);
+        struct epoll_event Events[1];
+        int                EpollRet = epoll_wait(EpollFd, Events, 1, SDB_TIME_S(1));
         if(EpollRet == -1) {
             if(errno == EINTR) {
+                SdbLogWarning("Epoll wait received interrupt");
                 continue;
             } else {
+                SdbLogError("Epoll wait failed: %s", strerror(errno));
                 Ret = -errno;
                 break;
             }
         } else if(EpollRet == 0) {
-            continue;
+            SdbLogInfo("Epoll wait timed out for the %lusthnd time", ++TimeoutCounter);
+            if(TimeoutCounter >= 5) {
+                SdbLogError("Epoll has timed out more than threshold. Stopping main loop");
+                Ret = -1;
+            } else {
+                continue;
+            }
         } else {
             sdb_errno InsertRet = PgInsertData(Conn, TableInfo, Pipe);
             if(InsertRet != 0) {
-                SdbLogError("Failed to insert data for the %lusth", ++PgFailCounter);
-                if(PgFailCounter > 5) {
+                SdbLogError("Failed to insert data for the %lusthnd", ++PgFailCounter);
+                if(PgFailCounter >= 5) {
                     SdbLogError(
                         "Postgres operations have failed more than threshod. Stopping main loop");
+                    Ret = -1;
                     break;
                 }
+            } else {
+                SdbLogDebug("Pipe data inserted successfully");
             }
         }
     }
 
     close(EpollFd);
-    SdbLogDebug("Exiting postgres test main loop");
+    SdbLogDebug("Exiting postgres main loop");
 
     return Ret;
 }

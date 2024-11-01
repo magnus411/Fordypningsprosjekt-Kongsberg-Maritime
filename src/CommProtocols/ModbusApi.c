@@ -40,10 +40,13 @@ MbRun(comm_protocol_api *Mb)
     sensor_data_pipe *Pipe = Mb->SdPipes[0]; // TODO(ingar): Simplified to only use one pipe for now
     sdb_arena        *CurBuf = Pipe->Buffers[atomic_load(&Pipe->WriteBufIdx)];
 
+    int LogCounter = 0;
     while(!SdbTCtlShouldStop(ModuleControl)) {
+        if(++LogCounter % 1000 == 0) {
+            SdbLogDebug("Postgres test loop is still running");
+        }
         SdbAssert((SdbArenaGetPos(CurBuf) <= Pipe->BufferMaxFill),
-                  "Thread %ld: Pipe buffer overflow in buffer %u", Thread->pid,
-                  atomic_load(&Pipe->WriteBufIdx));
+                  "Pipe buffer overflow in buffer %u", atomic_load(&Pipe->WriteBufIdx));
 
         if(SdbArenaGetPos(CurBuf) == Pipe->BufferMaxFill) {
             CurBuf = SdPipeGetWriteBuffer(Pipe);
