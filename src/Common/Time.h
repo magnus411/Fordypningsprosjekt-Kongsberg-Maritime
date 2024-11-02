@@ -32,6 +32,9 @@ typedef u64 sdb_timediff;
 #define SDB_TIMEOUT_MAX  (SDB_TIME_MAX)
 
 sdb_errno SdbTimeNow(struct timespec *Timespec);
+sdb_errno SdbTimeMonotonic(struct timespec *TimeStamp);
+sdb_errno SdbTimePrintSpecDiffWT(const struct timespec *StartTime, const struct timespec *EndTime,
+                                 struct timespec *Diff);
 void      SdbTimeAdd(struct timespec *Timespec, sdb_timediff Delta);
 sdb_errno SdbTimespecAbsolute(struct timespec *Timespec, sdb_timediff Delta);
 void      SdbTimespec(struct timespec *Timespec, sdb_timediff Delta);
