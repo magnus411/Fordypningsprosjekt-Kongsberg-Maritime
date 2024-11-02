@@ -4,7 +4,7 @@
             "name": "shaft_power",
             "data": {
                 "packet_id": "BIGINT",
-                "time": "DOUBLE PRECISION",
+                "time": "TIMESTAMP",
                 "rpm": "DOUBLE PRECISION",
                 "torque": "DOUBLE PRECISION",
                 "power": "DOUBLE PRECISION",
