@@ -11,9 +11,9 @@ SDB_BEGIN_EXTERN_C
 #include <src/Common/Thread.h>
 
 // TODO(ingar): Some way of tagging buffers for priorities or similar
+// TODO(ingar): We might want to add a flag for the endianness of the data
 typedef struct
 {
-    // circular_buffer *Buffers;
     size_t BufferMaxFill;  // It's unlikely that a given buffer can be filled exactly
     size_t PacketSize;     // Filled by db during init
     u64    PacketMaxCount; // --||--

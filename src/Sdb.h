@@ -81,7 +81,9 @@ enum
     SDBE_CONN_CLOSED_SUCS = 4,
     SDBE_CONN_CLOSED_ERR  = 5,
 
-    SDBE_PG_ERROR = 6,
+    SDBE_PG_ERR = 6,
+
+    SDBE_JSON_ERR = 7,
 };
 
 
