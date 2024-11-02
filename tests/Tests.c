@@ -6,17 +6,18 @@
 #include <src/Sdb.h>
 #undef SDB_H_IMPLEMENTATION
 
-SDB_LOG_REGISTER(Main);
+SDB_LOG_REGISTER(MainTests);
 
-#include <src/CommProtocols/CommProtocols.h>
 #include <src/Common/SensorDataPipe.h>
 #include <src/Common/Thread.h>
 #include <src/Common/Time.h>
 #include <src/DatabaseSystems/DatabaseInitializer.h>
 #include <src/DatabaseSystems/DatabaseSystems.h>
-#include <src/DevUtils/ModbusTestServer.h>
 #include <src/Libs/cJSON/cJSON.h>
 
+#include <tests/CommProtocols/CommProtocolsTest.h>
+#include <tests/CommProtocols/ModbusTest.h>
+#include <tests/DatabaseSystems/DatabaseSystemsTest.h>
 
 #define SD_PIPE_BUF_COUNT 4
 
@@ -92,14 +93,14 @@ main(int ArgCount, char **ArgV)
     sdb_barrier ModulesBarrier;
     SdbBarrierInit(&ModulesBarrier, ThreadCount);
     // NOTE(ingar): This is used to ensure that all modules have been initialized before
-    // starting their main loop
+    // starting to read from the pipe
 
 
-    db_module_ctx *DbmCtx = DbModuleInit(&ModulesBarrier, Dbs_Postgres, DbsApiInit, SdPipes,
+    db_module_ctx *DbmCtx = DbModuleInit(&ModulesBarrier, Dbs_Postgres, DbsTestApiInit, SdPipes,
                                          SensorCount, SdbMebiByte(9), SdbMebiByte(8), &SdbArena);
 
     comm_module_ctx *CommCtx
-        = CommModulePrepare(&ModulesBarrier, Comm_Protocol_Modbus_TCP, CpApiInit, SdPipes,
+        = CommModulePrepare(&ModulesBarrier, Comm_Protocol_Modbus_TCP, CpTestApiInit, SdPipes,
                             SensorCount, SdbMebiByte(9), SdbMebiByte(8), &SdbArena);
 
 
@@ -112,7 +113,7 @@ main(int ArgCount, char **ArgV)
 
 
     sdb_thread DbmThread, CommThread, ModbusServerThread;
-    SdbThreadCreate(&ModbusServerThread, RunModbusTestServer, &ModulesBarrier);
+    SdbThreadCreate(&ModbusServerThread, ModbusTestRunServer, &ModulesBarrier);
     SdbThreadCreate(&DbmThread, DbModuleRun, DbmCtx);
     SdbThreadCreate(&CommThread, CommModuleRun, CommCtx);
 
@@ -120,9 +121,6 @@ main(int ArgCount, char **ArgV)
     SdbMutexInit(&ShutdownMutex);
     SdbCondInit(&ShutdownCond);
 
-    // TODO(ingar): Find some way for the modules to initiate a shutdown (for development, prod will
-    // need some other recovery mechanism) if they fail
-    // TODO(ingar): Probably make global shutdown externally available
     SdbMutexLock(&ShutdownMutex, SDB_TIMEOUT_MAX);
     while(!GlobalShutdown) {
         SdbCondWait(&ShutdownCond, &ShutdownMutex, SDB_TIMEOUT_MAX);
@@ -143,7 +141,6 @@ main(int ArgCount, char **ArgV)
         SdbLogInfo("All threads finished with success!");
         exit(EXIT_SUCCESS);
     } else {
-        SdbLogError("Threads finished with errors!");
         exit(EXIT_FAILURE);
     }
 }

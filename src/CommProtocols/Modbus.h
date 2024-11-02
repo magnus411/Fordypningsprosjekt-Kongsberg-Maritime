@@ -7,26 +7,47 @@ SDB_BEGIN_EXTERN_C
 
 #include <src/CommProtocols/CommProtocols.h>
 #include <src/Common/SensorDataPipe.h>
+#include <src/Common/Thread.h>
 
-// NOTE(ingar): This is port used by modbus according to its wikipedia page
-#define MODBUS_PORT (3490) // (502)
+// NOTE(ingar): This is port (502) used by modbus according to its wikipedia page, but I can't get
+// it to work for testing, since it's in the reserved range.
+#define MODBUS_PORT                   (54321) // (502)
+#define MODBUS_TCP_HEADER_LEN         (7)
+#define MODBUS_PDU_MAX_SIZE           (253)
+#define MODBUS_TCP_FRAME_MAX_SIZE     (260)
+#define MODBUS_READ_HOLDING_REGISTERS (0x03)
 
 typedef struct
 {
-    int  PORT;
-    char Ip[10];
-    int  SockFd;
+    int        SockFd;
+    int        Port;
+    sdb_string Ip;
+
+} mb_conn;
+
+typedef struct
+{
+    u64      ConnCount;
+    mb_conn *Conns;
+    // NOTE(ingar): Keep string last so it's allocated contiguously with the context
 
 } modbus_ctx;
 
+typedef struct
+{
+    u64  PortCount;
+    int *Ports;
+
+    u64         IpCount;
+    sdb_string *Ips;
+
+} mb_init_args;
+
 #define MB_CTX(mb) ((modbus_ctx *)mb->Ctx)
 
-ssize_t   RecivedModbusTCPFrame(int Sockfd, u8 *Buffer, size_t BufferSize);
-sdb_errno ParseModbusTCPFrame(const u8 *Buffer, int NumBytes, queue_item *Item);
-
-sdb_errno ModbusInit(comm_protocol_api *Modbus);
-sdb_errno ModbusRun(comm_protocol_api *Modbus);
-sdb_errno ModbusFinalize(comm_protocol_api *Modbus);
+void        MbThreadArenasInit(void);
+const u8   *MbParseTcpFrame(const u8 *Frame, u16 *UnitId, u16 *FunctionCode, u16 *DataLength);
+modbus_ctx *MbPrepareCtx(comm_protocol_api *Mb);
 
 SDB_END_EXTERN_C
 

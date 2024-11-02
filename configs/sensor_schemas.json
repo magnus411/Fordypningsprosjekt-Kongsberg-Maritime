@@ -1,0 +1,15 @@
+{
+    "sensors": [
+        {
+            "name": "shaft_power",
+            "data": {
+                "packet_id": "BIGINT",
+                "time": "TIMESTAMP",
+                "rpm": "DOUBLE PRECISION",
+                "torque": "DOUBLE PRECISION",
+                "power": "DOUBLE PRECISION",
+                "peak_peak_pfs": "DOUBLE PRECISION"
+            }
+        }
+    ]
+}

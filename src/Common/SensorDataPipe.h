@@ -1,26 +1,39 @@
 #ifndef SENSOR_DATA_PIPE_H
 #define SENSOR_DATA_PIPE_H
 
-#include <stdio.h>
+#include <stdatomic.h>
 
 #include <src/Sdb.h>
 
 SDB_BEGIN_EXTERN_C
 
 #include <src/Common/CircularBuffer.h>
+#include <src/Common/Thread.h>
 
 // TODO(ingar): Some way of tagging buffers for priorities or similar
+// TODO(ingar): We might want to add a flag for the endianness of the data
 typedef struct
 {
-    i64              BufCount;
-    size_t          *BufSizes;
-    circular_buffer *Buffers;
+    size_t BufferMaxFill;  // It's unlikely that a given buffer can be filled exactly
+    size_t PacketSize;     // Filled by db during init
+    u64    PacketMaxCount; // --||--
+
+    atomic_uint WriteBufIdx;
+    atomic_uint ReadBufIdx;
+    atomic_uint FullBuffersCount;
+
+    int ReadEventFd;
+    int WriteEventFd;
+
+    u64         BufCount;
+    sdb_arena **Buffers;
 
 } sensor_data_pipe;
 
-sdb_errno SdPipeInit(sensor_data_pipe *SdPipe, u64 BufCount, size_t BufSizes[], sdb_arena *Arena);
-ssize_t   SdPipeInsert(sensor_data_pipe *SdPipe, u64 Buf, void *Data, size_t Size);
-ssize_t   SdPipeRead(sensor_data_pipe *SdPipe, u64 Buf, void *To, size_t Size);
+sensor_data_pipe **SdPipesInit(u64 PipeCount, u64 BufCount, size_t BufSize, sdb_arena *Arena);
+sdb_arena         *SdPipeGetWriteBuffer(sensor_data_pipe *Pipe);
+sdb_arena         *SdPipeGetReadBuffer(sensor_data_pipe *Pipe);
+void               SdPipeFlush(sensor_data_pipe *Pipe);
 
 SDB_END_EXTERN_C
 

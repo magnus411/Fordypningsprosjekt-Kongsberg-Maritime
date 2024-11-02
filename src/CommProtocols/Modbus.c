@@ -1,19 +1,18 @@
 #include <pthread.h>
 #include <stdio.h>
-#include <string.h>
 #include <sys/types.h>
 #include <unistd.h>
 
 #include <src/Sdb.h>
 SDB_LOG_REGISTER(Modbus);
+SDB_THREAD_ARENAS_REGISTER(Modbus, 2);
 
 #include <src/CommProtocols/CommProtocols.h>
 #include <src/CommProtocols/Modbus.h>
 #include <src/Common/CircularBuffer.h>
+#include <src/Common/SensorDataPipe.h>
 #include <src/Common/Socket.h>
-
-#define MODBUS_TCP_HEADER_LEN 7
-#define MAX_MODBUS_TCP_FRAME  260
+#include <src/Common/Thread.h>
 
 /**
  *
@@ -22,21 +21,27 @@ SDB_LOG_REGISTER(Modbus);
  * @link https://modbus.org/docs/Modbus_Application_Protocol_V1_1b.pdf
  */
 
+void
+MbThreadArenasInit(void)
+{
+    SdbThreadArenasInit(Modbus);
+}
+
 ssize_t
-RecivedModbusTCPFrame(int Sockfd, u8 *Buffer, size_t BufferSize)
+MbReceiveTcpFrame(int Sockfd, u8 *Frame, size_t BufferSize)
 {
     ssize_t TotalBytesRead = 0;
 
     while(TotalBytesRead < MODBUS_TCP_HEADER_LEN) {
         ssize_t BytesRead
-            = recv(Sockfd, Buffer + TotalBytesRead, MODBUS_TCP_HEADER_LEN - TotalBytesRead, 0);
+            = recv(Sockfd, Frame + TotalBytesRead, MODBUS_TCP_HEADER_LEN - TotalBytesRead, 0);
         if(BytesRead <= 0) {
             return BytesRead;
         }
         TotalBytesRead += BytesRead;
     }
 
-    u16 Length = (Buffer[4] << 8) | Buffer[5]; // Length from Modbus TCP header
+    u16 Length = (Frame[4] << 8) | Frame[5]; // Length from Modbus TCP header
 
     ssize_t TotalFrameSize = MODBUS_TCP_HEADER_LEN + Length;
 
@@ -47,7 +52,7 @@ RecivedModbusTCPFrame(int Sockfd, u8 *Buffer, size_t BufferSize)
 
     while(TotalBytesRead < TotalFrameSize) {
         ssize_t BytesRead
-            = recv(Sockfd, Buffer + TotalBytesRead, TotalFrameSize - TotalBytesRead, 0);
+            = recv(Sockfd, Frame + TotalBytesRead, TotalFrameSize - TotalBytesRead, 0);
         if(BytesRead <= 0) {
             return BytesRead;
         }
@@ -57,99 +62,69 @@ RecivedModbusTCPFrame(int Sockfd, u8 *Buffer, size_t BufferSize)
     return TotalBytesRead;
 }
 
-sdb_errno
-ParseModbusTCPFrame(const u8 *Buffer, int NumBytes, queue_item *Item)
+/**Modbus TCP frame structure:
+ *
+ * Resources:
+ * @link https://en.wikipedia.org/wiki/Modbus#Public_function_codes
+ *
+ * | Transaction ID | Protocol ID | Length | Unit ID | Function Code | DataLength | Data  |
+ * |----------------|-------------|--------|---------|---------------|----------|---------|
+ * | 2 bytes        | 2 bytes     | 2 bytes| 1 byte  | 1 byte        | 1 byte   | n bytes |
+ * ----------------------------------------------------------------------------------------
+ */
+const u8 *
+MbParseTcpFrame(const u8 *Frame, u16 *UnitId, u16 *FunctionCode, u16 *DataLength)
 {
-    if(NumBytes < MODBUS_TCP_HEADER_LEN) {
-        SdbLogError("Invalid Modbus frame, was %d bytes", NumBytes);
-        return -EINVAL;
-    }
-
-    /**Modbus TCP frame structure:
-     *
-     * Resources:
-     * @link https://en.wikipedia.org/wiki/Modbus#Public_function_codes
-     *
-     * | Transaction ID | Protocol ID | Length | Unit ID | Function Code | DataLength | Data  |
-     * |----------------|-------------|--------|---------|---------------|----------|---------|
-     * | 2 bytes        | 2 bytes     | 2 bytes| 1 byte  | 1 byte        | 1 byte   | n bytes |
-     * ----------------------------------------------------------------------------------------
-     */
-    // u16 TransactionId = (Buffer[0] << 8) | Buffer[1]; // TODO(ingar): Why are these not used?
+    // TODO(ingar): Why are these not used?
+    // u16 TransactionId = (Buffer[0] << 8) | Buffer[1];
     // u16 ProtocolId    = (Buffer[2] << 8) | Buffer[3];
     // u16 Length        = (Buffer[4] << 8) | Buffer[5];
-    u16 UnitId       = Buffer[6];
-    u16 FunctionCode = Buffer[7];
-    u16 DataLength   = Buffer[8];
-    Item->UnitId     = UnitId;
-    Item->Protocol   = FunctionCode;
+    *UnitId       = Frame[6];
+    *FunctionCode = Frame[7];
+    *DataLength   = Frame[8];
 
     // Function code 0x03 is read multiple holding registers
-    if(FunctionCode != 0x03) {
-        SdbLogError("Unsupported function code");
-        return -1;
+    if(*FunctionCode != 0x03) {
+        SdbLogError("Unsupported function code 0x03 found in frame");
+        return NULL;
     }
 
-    SdbLogDebug("Modbus data length: %u", DataLength);
-
-    if(DataLength > MAX_DATA_LENGTH) {
+    if(*DataLength > MAX_DATA_LENGTH) {
         SdbLogWarning("Byte count exceeds maximum data length. Skipping this frame.\n");
-        return -1;
+        return NULL;
     }
 
-    SdbMemcpy(Item->Data, &Buffer[9], DataLength);
-    Item->DataLength = DataLength;
-
-    return 0;
+    return &Frame[9];
 }
 
-sdb_errno
-ModbusInit(comm_protocol_api *Modbus)
+modbus_ctx *
+MbPrepareCtx(comm_protocol_api *Mb)
 {
-    modbus_ctx *Ctx = SdbPushStruct(&Modbus->Arena, modbus_ctx);
-    Ctx->PORT       = MODBUS_PORT;
-    strncpy(Ctx->Ip, (char *)Modbus->OptArgs, 10);
-    Ctx->SockFd = CreateSocket(Ctx->Ip, Ctx->PORT);
+    mb_init_args *Args = Mb->OptArgs;
 
-    if(Ctx->SockFd == -1) {
-        SdbLogError("Failed to create socket");
-        return -1;
+    if(Args->PortCount != Args->IpCount) {
+        SdbLogError("Mismatch in port count (%lu) and ip count (%lu)", Args->PortCount,
+                    Args->IpCount);
+        return NULL;
     }
 
-    Modbus->Ctx = Ctx;
+    modbus_ctx *MbCtx = SdbPushStruct(&Mb->Arena, modbus_ctx);
+    MbCtx->ConnCount  = Args->PortCount;
+    mb_conn *Conns    = SdbPushArray(&Mb->Arena, mb_conn, MbCtx->ConnCount);
+    MbCtx->Conns      = Conns;
 
-    return 0;
-}
-
-sdb_errno
-ModbusRun(comm_protocol_api *Modbus)
-{
-    modbus_ctx *Ctx = Modbus->Ctx;
-    u8          Buf[MAX_MODBUS_TCP_FRAME];
-    while(true) {
-        ssize_t NumBytes = RecivedModbusTCPFrame(Ctx->SockFd, Buf, sizeof(Buf));
-        if(NumBytes > 0) {
-            queue_item Item;
-            ParseModbusTCPFrame(Buf, NumBytes, &Item);
-            AddSample(&InputThroughput, NumBytes);
-
-            SdPipeInsert(&Modbus->SdPipe, 0, &Item, sizeof(queue_item));
-        } else if(NumBytes == 0) {
-            SdbLogDebug("Connection closed by server");
-            return SDBE_CONN_CLOSED_SUCS;
+    for(u64 i = 0; i < MbCtx->ConnCount; ++i) {
+        Conns[i].Port   = Args->Ports[i];
+        Conns[i].Ip     = SdbStringDuplicate(&Mb->Arena, Args->Ips[i]);
+        Conns[i].SockFd = SocketCreate(Conns[i].Ip, Conns[i].Port);
+        if(Conns[i].SockFd == -1) {
+            SdbLogError("Failed to create socket for sensor index %lu", i);
+            return NULL;
         } else {
-            SdbLogError("Error during read operattion. Closing connection");
-            return -SDBE_CONN_CLOSED_ERR;
+            SdbLogDebug("Modbus thread %lu successfully connected to server %s:%d", i, Conns[i].Ip,
+                        Conns[i].Port);
         }
     }
 
-    return 0;
-}
-
-sdb_errno
-ModbusFinalize(comm_protocol_api *Modbus)
-{
-    close(MB_CTX(Modbus)->SockFd);
-    SdbArenaClear(&Modbus->Arena);
-    return 0;
+    return MbCtx;
 }

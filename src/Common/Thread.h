@@ -56,6 +56,17 @@ typedef struct sdb_thread
 
 } sdb_thread;
 
+typedef struct
+{
+    sdb_mutex Mutex;
+    sdb_cond  Cond;
+    bool      ShouldStop;
+    bool      HasStopped;
+    bool      WaitingForSignalStop;
+    bool      WaitingForMarkStopped;
+
+} sdb_thread_control;
+
 sdb_errno   SdbThreadCreate(sdb_thread *Thread, sdb_thread_task Task, void *Args);
 sdb_errno   SdbThreadCheckSignal(sdb_thread *Thread, sdb_timediff MaxTimeout);
 sdb_errno   SdbThreadJoin(sdb_thread *Thread);
@@ -63,6 +74,17 @@ sdb_errno   SdbThreadPause(sdb_thread *Thread, sdb_timediff MaxTimeout);
 sdb_errno   SdbThreadContinue(sdb_thread *Thread, sdb_timediff MaxTimeout);
 sdb_errno   SdbThreadKill(sdb_thread *Thread, sdb_timediff MaxTimeout);
 sdb_thread *SdbThreadGetCurrent(void);
+
+// TODO(ingar): Error handling
+sdb_errno SdbTCtlInit(sdb_thread_control *Control);
+sdb_errno SdbTCtlDeinit(sdb_thread_control *Control);
+bool      SdbTCtlShouldStop(sdb_thread_control *Control);
+bool      SdbTCtlShouldStopLocked(sdb_thread_control *Control);
+bool      SdbTCtlHasStoppedLocked(sdb_thread_control *Control);
+sdb_errno SdbTCtlSignalStop(sdb_thread_control *Control);
+sdb_errno SdbTCtlWaitForSignal(sdb_thread_control *Control);
+sdb_errno SdbTCtlMarkStopped(sdb_thread_control *Control);
+sdb_errno SdbTCtlWaitForStop(sdb_thread_control *Control);
 
 SDB_END_EXTERN_C
 

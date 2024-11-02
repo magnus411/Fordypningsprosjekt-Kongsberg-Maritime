@@ -6,7 +6,7 @@
 
 #include <src/Sdb.h>
 
-SDB_LOG_REGISTER(TestModbus);
+SDB_LOG_REGISTER(ModbusTestServer);
 
 #include <src/CommProtocols/Modbus.h>
 #include <src/Common/CircularBuffer.h>
@@ -14,49 +14,35 @@ SDB_LOG_REGISTER(TestModbus);
 #include <src/Common/Thread.h>
 #include <src/Common/Time.h>
 #include <src/DatabaseSystems/Postgres.h>
-#include <tests/TestConstants.h>
+#include <src/DevUtils/TestConstants.h>
 
-#define MODBUS_TCP_HEADER_LEN 7
-#define MAX_MODBUS_PDU_SIZE   253
-#define MAX_MODBUS_TCP_FRAME  260
-#define BACKLOG               5
-#define PACKET_HZ           10
+#define BACKLOG     5
+#define PACKET_FREQ 1e5
 
-
-
-#define READ_HOLDING_REGISTERS 0x03
-
-typedef struct __attribute__((packed))
+typedef struct __attribute__((packed, aligned(1)))
 {
-    pg_int4   ID;
-    pg_float8 TIME;
+    pg_int8 PacketId;
+    time_t  Time; // NOTE(ingar): The insert function assumes a time_t comes in and converts it to a
+                  // pg_timestamp
     pg_float8 Rpm;
     pg_float8 Torque;
     pg_float8 Power;
-    pg_float8 Peak_Peak_PFS;
-} power_shaft_data;
+    pg_float8 PeakPeakPfs;
+
+} shaft_power_data;
 
 static void
-GeneratePowerShaftData(power_shaft_data *Data, int ID)
+GeneratePowerShaftData(shaft_power_data *Data)
 {
-    time_t CurrentTime = time(NULL);
-    struct tm *TmInfo = localtime(&CurrentTime);
+    time_t     CurrentTime = time(NULL);
+    static i64 Id          = 0;
 
-    if (rand() % 10 < 2) {
-        Data->ID = ID;
-        Data->TIME = (pg_float8)difftime(CurrentTime, 0);
-        Data->Rpm = 0;
-        Data->Torque = 0;
-        Data->Power = 0;
-        Data->Peak_Peak_PFS = 0;
-    } else {
-        Data->ID = ID;
-        Data->TIME = (pg_float8)difftime(CurrentTime, 0);
-        Data->Rpm = ((rand() % 100) + 30.0) * sin(ID * 0.1);  // RPM with variation
-        Data->Torque = ((rand() % 600) + 100.0) * 0.8;  // Torque (Nm)
-        Data->Power = Data->Rpm * Data->Torque / 9.5488;  // Derived power (kW)
-        Data->Peak_Peak_PFS = ((rand() % 50) + 25.0) * cos(ID * 0.1);  // PFS variation
-    }
+    Data->PacketId    = Id++;
+    Data->Time        = CurrentTime;
+    Data->Rpm         = ((rand() % 100) + 30.0) * sin(Id * 0.1); // RPM with variation
+    Data->Torque      = ((rand() % 600) + 100.0) * 0.8;          // Torque (Nm)
+    Data->Power       = Data->Rpm * Data->Torque / 9.5488;       // Derived power (kW)
+    Data->PeakPeakPfs = ((rand() % 50) + 25.0) * cos(Id * 0.1);  // PFS variation
 }
 
 static void
@@ -76,20 +62,20 @@ GenerateModbusTcpFrame(u8 *Buffer, u16 TransactionId, u16 ProtocolId, u16 Length
 }
 
 sdb_errno
-SendModbusData(int NewFd, u16 UnitId, int ID)
+SendModbusData(int NewFd, u16 UnitId)
 {
-    u8 ModbusFrame[MODBUS_TCP_HEADER_LEN + MAX_MODBUS_PDU_SIZE];
+    u8 ModbusFrame[MODBUS_TCP_FRAME_MAX_SIZE];
 
     u16 TransactionId = 1;
     u16 ProtocolId    = 0;
-    u8  FunctionCode  = READ_HOLDING_REGISTERS;
+    u8  FunctionCode  = MODBUS_READ_HOLDING_REGISTERS;
 
-    power_shaft_data Data = { 0 };
+    shaft_power_data Data = { 0 };
 
     u16 DataLength = sizeof(Data);
     u16 Length     = DataLength + 3;
 
-    GeneratePowerShaftData(&Data, ID);
+    GeneratePowerShaftData(&Data);
     GenerateModbusTcpFrame(ModbusFrame, TransactionId, ProtocolId, Length, UnitId, FunctionCode,
                            (u8 *)&Data, DataLength);
 
@@ -102,7 +88,7 @@ SendModbusData(int NewFd, u16 UnitId, int ID)
 sdb_errno
 RunModbusTestServer(sdb_thread *Thread)
 {
-    SdbLogInfo("Running Modbus Test Server over Unix Sockets ...");
+    SdbLogInfo("Running Modbus Test Server");
 
     srand(time(NULL));
 
@@ -140,85 +126,35 @@ RunModbusTestServer(sdb_thread *Thread)
     }
 
     SdbLogDebug("Server: waiting for connections on port %d...", Port);
-    SdbBarrierWait(Thread->Args);
 
     SinSize = sizeof(ClientAddr);
     NewFd   = accept(SockFd, (struct sockaddr *)&ClientAddr, &SinSize);
     if(NewFd == -1) {
         SdbLogError("Error accepting connection: %s (errno: %d)", strerror(errno), errno);
+        close(SockFd);
         return -1;
     }
 
     inet_ntop(ClientAddr.sin_family, &(ClientAddr.sin_addr), ClientIp, sizeof(ClientIp));
     SdbLogInfo("Server: accepted connection from %s:%d", ClientIp, ntohs(ClientAddr.sin_port));
 
-    i64 Counter = 0;
-    while(Counter++ < MODBUS_PACKET_COUNT) {
-        if(SendModbusData(NewFd, UnitId, Counter) == -1) {
+    SdbBarrierWait(Thread->Args);
+    for(u64 i = 0; i < MODBUS_PACKET_COUNT; ++i) {
+        if(SendModbusData(NewFd, UnitId) == -1) {
             SdbLogError("Failed to send Modbus data to client %s:%d, closing connection", ClientIp,
                         ntohs(ClientAddr.sin_port));
 
-            close(NewFd);
             break;
-        }
-        SdbLogDebug("Successfully sent Modbus data to client %s:%d", ClientIp,
-                    ntohs(ClientAddr.sin_port));
-
-        SdbSleep(SDB_TIME_S(1/PACKET_HZ));
-    }
-
-    close(SockFd);
-    return 0;
-}
-
-
-sdb_errno
-ModbusInitTest(comm_protocol_api *Modbus)
-{
-    modbus_ctx *Ctx = SdbPushStruct(&Modbus->Arena, modbus_ctx);
-    Ctx->PORT       = MODBUS_PORT;
-    strncpy(Ctx->Ip, (char *)Modbus->OptArgs, 10);
-    Modbus->Ctx = Ctx;
-
-    return 0;
-}
-
-// TODO(ingar): Remove when tests are properly up and running
-#include <tests/TestConstants.h>
-sdb_errno
-ModbusRunTest(comm_protocol_api *Modbus)
-{
-    modbus_ctx *Ctx    = Modbus->Ctx;
-    int         SockFd = CreateSocket(Ctx->Ip, Ctx->PORT); // TODO(ingar): Move to init
-    if(SockFd == -1) {
-        SdbLogError("Failed to create socket");
-        return -1;
-    }
-
-    u8  Buf[MAX_MODBUS_TCP_FRAME];
-    u64 Counter = 0;
-    while(Counter++ < MODBUS_PACKET_COUNT) {
-        ssize_t NumBytes = RecivedModbusTCPFrame(SockFd, Buf, sizeof(Buf));
-        if(NumBytes > 0) {
-            queue_item Item;
-            ParseModbusTCPFrame(Buf, NumBytes, &Item);
-            SdPipeInsert(&Modbus->SdPipe, Counter % 4, &Item, sizeof(queue_item));
-        } else if(NumBytes == 0) {
-            SdbLogDebug("Connection closed by server");
-            close(SockFd); // TODO(ingar): Move to finalize
-            return -1;
         } else {
-            SdbLogError("Error during read operattion. Closing connection");
-            close(SockFd);
-            return -1;
+            if((i % (u64)(MODBUS_PACKET_COUNT / 5)) == 0) {
+                SdbLogDebug("Successfully sent Modbus data to client %s:%d", ClientIp,
+                            ntohs(ClientAddr.sin_port));
+            }
         }
+        SdbSleep(SDB_TIME_S(1.0 / PACKET_FREQ));
     }
-
-    return 0;
-}
-
-sdb_errno
-ModbusFinalizeTest(comm_protocol_api *Modbus)
-{
+    SdbLogDebug("All data sent, stopping server");
+    close(NewFd);
+    close(SockFd);
     return 0;
 }

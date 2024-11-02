@@ -9,7 +9,7 @@ SDB_LOG_REGISTER(Socket);
 #include <src/Common/Socket.h>
 
 int
-CreateSocket(const char *IpAddress, int Port)
+SocketCreate(const char *IpAddress, int Port)
 {
     int                SockFd;
     struct sockaddr_in ServerAddr;
@@ -37,4 +37,48 @@ CreateSocket(const char *IpAddress, int Port)
     }
 
     return SockFd;
+}
+
+// Returns:
+//   >0: number of bytes received
+//    0: server closed connection
+//   -1: error occurred
+//   -2: timeout occurred
+int
+SocketRecvWithTimeout(int SockFd, void *Buffer, size_t Length, sdb_timediff TimeoutDiff)
+{
+    fd_set         ReadFds;
+    struct timeval Timeout;
+
+    // Setup for select()
+    FD_ZERO(&ReadFds);
+    FD_SET(SockFd, &ReadFds);
+
+    SdbTimeval(&Timeout, TimeoutDiff);
+    // Wait for data or timeout
+    int SelectResult = select(SockFd + 1, &ReadFds, NULL, NULL, &Timeout);
+
+    if(SelectResult == -1) {
+        // Select error
+        SdbLogError("Select failed: %s", strerror(errno));
+        return -1;
+    } else if(SelectResult == 0) {
+        // Timeout
+        SdbLogError("Receive timeout after %lu milliseconds", SDB_TIME_TO_MS(TimeoutDiff));
+        return -2;
+    }
+
+    // Data is available, perform the recv
+    int RecvResult = recv(SockFd, Buffer, Length, 0);
+
+    if(RecvResult == 0) {
+        // Server closed connection
+        SdbLogError("Server closed connection");
+        return 0;
+    } else if(RecvResult == -1) {
+        SdbLogError("Recv failed: %s", strerror(errno));
+        return -1;
+    }
+
+    return RecvResult;
 }

@@ -162,7 +162,11 @@ SdbCondSignal(sdb_cond *Cond)
 sdb_errno
 SdbCondBroadcast(sdb_cond *Cond)
 {
+    SdbLogDebug("Broadcasting on condition variable %p", (void *)Cond);
     sdb_errno Ret = -pthread_cond_broadcast(Cond);
+    if(Ret != 0) {
+        SdbLogError("Broadcast failed with error: %s", strerror(-Ret));
+    }
     return Ret;
 }
 
@@ -347,4 +351,110 @@ sdb_thread *
 SdbThreadGetCurrent(void)
 {
     return CurrentThread;
+}
+
+sdb_errno
+SdbTCtlInit(sdb_thread_control *Control)
+{
+    Control->HasStopped           = false;
+    Control->ShouldStop           = false;
+    Control->WaitingForSignalStop = false;
+
+    // Initialize in order, checking each step
+    sdb_errno MutRet = SdbMutexInit(&Control->Mutex);
+    if(MutRet != 0) {
+        return MutRet;
+    }
+
+    sdb_errno CondRet = SdbCondInit(&Control->Cond);
+    if(CondRet != 0) {
+        SdbMutexDeinit(&Control->Mutex); // Clean up mutex if cond init fails
+        return CondRet;
+    }
+
+    return 0;
+}
+
+sdb_errno
+SdbTCtlDeinit(sdb_thread_control *Control)
+{
+    sdb_errno CondRet = SdbCondDeinit(&Control->Cond);
+    sdb_errno MutRet  = SdbMutexDeinit(&Control->Mutex);
+    return (CondRet != 0) ? CondRet : MutRet;
+}
+
+bool
+SdbTCtlShouldStop(sdb_thread_control *Control)
+{
+    bool ShouldStop;
+    SdbMutexLock(&Control->Mutex, SDB_TIMEOUT_MAX);
+    ShouldStop = Control->ShouldStop;
+    SdbMutexUnlock(&Control->Mutex);
+    return ShouldStop;
+}
+
+bool
+SdbTCtlShouldStopLocked(sdb_thread_control *Control)
+{
+    return Control->ShouldStop;
+}
+
+bool
+SdbTCtlHasStoppedLocked(sdb_thread_control *Control)
+{
+    return Control->HasStopped;
+}
+
+sdb_errno
+SdbTCtlSignalStop(sdb_thread_control *Control)
+{
+    SdbMutexLock(&Control->Mutex, SDB_TIMEOUT_MAX);
+    Control->ShouldStop = true;
+    if(Control->WaitingForSignalStop) {
+        SdbCondBroadcast(&Control->Cond);
+    }
+    SdbMutexUnlock(&Control->Mutex);
+    return 0;
+}
+
+sdb_errno
+SdbTCtlWaitForSignal(sdb_thread_control *Control)
+{
+    SdbMutexLock(&Control->Mutex, SDB_TIMEOUT_MAX);
+    while(!SdbTCtlShouldStopLocked(Control)) {
+        Control->WaitingForSignalStop = true;
+        SdbCondWait(&Control->Cond, &Control->Mutex, SDB_TIMEOUT_MAX);
+    }
+    SdbMutexUnlock(&Control->Mutex);
+
+    return 0;
+}
+
+sdb_errno
+SdbTCtlMarkStopped(sdb_thread_control *Control)
+{
+    sdb_errno Ret = SdbMutexLock(&Control->Mutex, SDB_TIMEOUT_MAX);
+    if(Ret != 0) {
+        SdbLogError("Failed to lock mutex in MarkStopped: %d", Ret);
+    }
+    Control->HasStopped = true;
+    if(Control->WaitingForMarkStopped) {
+        SdbCondBroadcast(&Control->Cond);
+    }
+    SdbMutexUnlock(&Control->Mutex);
+
+    return 0;
+}
+
+sdb_errno
+SdbTCtlWaitForStop(sdb_thread_control *Control)
+{
+    SdbMutexLock(&Control->Mutex, SDB_TIMEOUT_MAX);
+    while(!SdbTCtlHasStoppedLocked(Control)) {
+        Control->WaitingForMarkStopped = true;
+        SdbCondWait(&Control->Cond, &Control->Mutex, SDB_TIMEOUT_MAX);
+    }
+    SdbMutexUnlock(&Control->Mutex);
+
+    return 0;
 }

@@ -20,6 +20,7 @@ SDB_LOG_REGISTER(MQTTTest);
 // TODO(ingar): Is this right? Is there only ever one token?
 volatile MQTTClient_deliveryToken DeliveredToken;
 
+#if 0
 static void
 GeneratePowerShaftData_(u8 *DataBuffer)
 {
@@ -217,3 +218,23 @@ MQTTSubscriber(const char *Address, const char *ClientId, const char *Topic)
     return 0;
 }
 */
+
+#else
+sdb_errno
+MqttInitTest(comm_protocol_api *Mqtt)
+{
+    return 0;
+}
+sdb_errno
+MqttFinalizeTest(comm_protocol_api *Mqtt)
+{
+    return 0;
+}
+
+sdb_errno
+MqttRunTest(comm_protocol_api *Mqtt)
+{
+    return 0;
+}
+
+#endif

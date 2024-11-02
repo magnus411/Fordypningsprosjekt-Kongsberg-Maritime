@@ -80,6 +80,10 @@ enum
 
     SDBE_CONN_CLOSED_SUCS = 4,
     SDBE_CONN_CLOSED_ERR  = 5,
+
+    SDBE_PG_ERR = 6,
+
+    SDBE_JSON_ERR = 7,
 };
 
 
@@ -157,8 +161,8 @@ i64 Sdb__WriteLog__(sdb__log_module__ *Module, const char *LogLevel, const char 
 #define SDB__LOG_LEVEL_CHECK__(level) (SDB_LOG_LEVEL >= SDB_LOG_LEVEL_##level)
 
 #define SDB_LOG_REGISTER(module_name)                                                              \
-    static char              SDB_CONCAT3(Sdb__LogModule, module_name, Buffer__)[SDB_LOG_BUF_SIZE]; \
-    static sdb__log_module__ SDB_CONCAT3(Sdb__LogModule, module_name, __) __attribute__((used))    \
+    static char       SDB_CONCAT3(Sdb__LogModule, module_name, Buffer__)[SDB_LOG_BUF_SIZE];        \
+    sdb__log_module__ SDB_CONCAT3(Sdb__LogModule, module_name, __) __attribute__((used))           \
     = { .Name       = SDB_STRINGIFY(module_name),                                                  \
         .BufferSize = SDB_LOG_BUF_SIZE,                                                            \
         .Buffer     = SDB_CONCAT3(Sdb__LogModule, module_name, Buffer__),                          \
@@ -185,6 +189,7 @@ i64 Sdb__WriteLog__(sdb__log_module__ *Module, const char *LogLevel, const char 
 #define SdbLogWarning(...) SDB__LOG__(WRN, ##__VA_ARGS__)
 #define SdbLogError(...)   SDB__LOG__(ERR, ##__VA_ARGS__)
 
+#if SDB_ASSERT == 1
 #define SdbAssert(condition, fmt, ...)                                                             \
     do {                                                                                           \
         if(!(condition)) {                                                                         \
@@ -193,7 +198,9 @@ i64 Sdb__WriteLog__(sdb__log_module__ *Module, const char *LogLevel, const char 
             assert(condition);                                                                     \
         }                                                                                          \
     } while(0)
-
+#else
+#define SdbAssert(...)
+#endif
 ////////////////////////////////////////
 //               MEMORY               //
 ////////////////////////////////////////
@@ -232,19 +239,29 @@ typedef struct
 #define SDB_THREAD_ARENAS_REGISTER(thread_name, count)                                             \
     static __thread sdb_arena *SDB_CONCAT3(Sdb__ThreadArenas, thread_name, Buffer__)[count]        \
         __attribute__((used));                                                                     \
-    static __thread sdb__thread_arenas__ SDB_CONCAT3(Sdb__ThreadArenas, thread_name, __)           \
+    __thread sdb__thread_arenas__ SDB_CONCAT3(Sdb__ThreadArenas, thread_name, __)                  \
         __attribute__((used))                                                                      \
         = { .Arenas = NULL, .Count = 0, .MaxCount = count };                                       \
     static __thread sdb__thread_arenas__ *Sdb__ThreadArenasInstance__ __attribute__((used))
 
-// WARN: Must be used at runtime, not compile time. This is because you cannot take the address of a
-// __thread varible in static initialization, since the address will differ per thread.
+#define SDB_THREAD_ARENAS_EXTERN(thread_name)                                                      \
+    extern __thread sdb__thread_arenas__  SDB_CONCAT3(Sdb__ThreadArenas, thread_name, __);         \
+    static __thread sdb__thread_arenas__ *Sdb__ThreadArenasInstance__ __attribute__((used))
+
+// WARN: Must be used at runtime, not compile time. This is because you cannot take the address
+// of a __thread varible in static initialization, since the address will differ per thread.
 void Sdb__ThreadArenasInit__(sdb_arena *TABuf[], sdb__thread_arenas__ *TAs,
                              sdb__thread_arenas__ **TAInstance);
 #define SdbThreadArenasInit(thread_name)                                                           \
     Sdb__ThreadArenasInit__(SDB_CONCAT3(Sdb__ThreadArenas, thread_name, Buffer__),                 \
                             &SDB_CONCAT3(Sdb__ThreadArenas, thread_name, __),                      \
                             &Sdb__ThreadArenasInstance__)
+
+void Sdb__ThreadArenasInitExtern__(sdb__thread_arenas__ *TAs, sdb__thread_arenas__ **TAInstance);
+#define SdbThreadArenasInitExtern(thread_name)                                                     \
+    Sdb__ThreadArenasInitExtern__(&SDB_CONCAT3(Sdb__ThreadArenas, thread_name, __),                \
+                                  &Sdb__ThreadArenasInstance__)
+
 
 sdb_errno Sdb__ThreadArenasAdd__(sdb_arena *Arena, sdb__thread_arenas__ *TAInstance);
 #define SdbThreadArenasAdd(arena) Sdb__ThreadArenasAdd__(arena, Sdb__ThreadArenasInstance__)
@@ -371,7 +388,8 @@ void       SdbStringBackspace(sdb_string String, u64 N);
 
 sdb_string SdbStringAppend(sdb_string String, sdb_string Other);
 sdb_string SdbStringAppendC(sdb_string String, const char *Other);
-sdb_string SdbStringAppendFmt(sdb_string String, const char *Fmt, ...);
+sdb_string SdbStringAppendFmt(sdb_string String, const char *Fmt, ...)
+    __attribute__((format(printf, 2, 3)));
 
 bool SdbStringsAreEqual(sdb_string Lhs, sdb_string Rhs);
 
@@ -643,7 +661,7 @@ SdbArenaBootstrap(sdb_arena *Arena, sdb_arena *NewArena_, u64 Size)
     }
     u8 *NewArenaMem = SdbPushArray(Arena, u8, Size);
 
-    if(NULL == NewArena && NULL == NewArenaMem) {
+    if(NULL == NewArena || NULL == NewArenaMem) {
         return NULL;
     }
 
@@ -745,6 +763,12 @@ Sdb__ThreadArenasInit__(sdb_arena *TABuf[], sdb__thread_arenas__ *TAs,
     *TAInstance = TAs;
 }
 
+void
+Sdb__ThreadArenasInitExtern__(sdb__thread_arenas__ *TAs, sdb__thread_arenas__ **TAInstance)
+{
+    *TAInstance = TAs;
+}
+
 sdb_errno
 Sdb__ThreadArenasAdd__(sdb_arena *Arena, sdb__thread_arenas__ *TAInstance)
 {
@@ -768,18 +792,22 @@ SdbScratchBegin(sdb_arena *Arena)
 sdb_scratch_arena
 Sdb__ScratchGet__(sdb_arena **Conflicts, u64 ConflictCount, sdb__thread_arenas__ *TAs)
 {
-    sdb_arena *Arena = TAs->Arenas[0];
+    sdb_arena *Arena = NULL;
     if(ConflictCount > 0) {
         for(u64 i = 0; i < TAs->Count; ++i) {
             for(u64 j = 0; j < ConflictCount; ++j) {
                 if(TAs->Arenas[i] != Conflicts[j]) {
                     Arena = TAs->Arenas[i];
+                    goto exit;
                 }
             }
         }
+    } else {
+        Arena = TAs->Arenas[0];
     }
 
-    return SdbScratchBegin(Arena);
+exit:
+    return (Arena == NULL) ? (sdb_scratch_arena){ 0 } : SdbScratchBegin(Arena);
 }
 
 void
@@ -956,10 +984,6 @@ SdbStringBackspace(sdb_string String, u64 N)
 sdb_string
 SdbStringMakeSpace(sdb_string String, u64 AddLen)
 {
-#ifdef DEBUG
-    // NOTE(ingar): Only here to be able to see the header in the debugger
-    sdb_string_header *__Header__ = SDB_STRING_HEADER(String);
-#endif
     u64 Available = SdbStringAvailableSpace(String);
     if(Available < AddLen) {
         sdb_arena *A        = SDB_STRING_HEADER(String)->Arena;
@@ -977,10 +1001,6 @@ SdbStringMakeSpace(sdb_string String, u64 AddLen)
 sdb_string
 Sdb__StringAppend__(sdb_string String, const void *Other, u64 OtherLen)
 {
-#ifdef DEBUG
-    // NOTE(ingar): Only here to be able to see the header in the debugger
-    sdb_string_header *__Header__ = SDB_STRING_HEADER(String);
-#endif
     String = SdbStringMakeSpace(String, OtherLen);
     if(String == NULL) {
         return NULL;
@@ -1012,7 +1032,7 @@ SdbStringAppendFmt(sdb_string String, const char *Fmt, ...)
     char    Buf[1024] = { 0 };
     va_list Va;
     va_start(Va, Fmt);
-    u64 FmtLen = snprintf(Buf, SdbArrayLen(Buf), Fmt, Va); // TODO(ingar): stb_sprintf?
+    u64 FmtLen = vsnprintf(Buf, SdbArrayLen(Buf) - 1, Fmt, Va); // TODO(ingar): stb_sprintf?
     va_end(Va);
     return Sdb__StringAppend__(String, Buf, FmtLen);
 }
