@@ -17,39 +17,32 @@ SDB_LOG_REGISTER(ModbusTestServer);
 #include <src/DevUtils/TestConstants.h>
 
 #define BACKLOG     5
-#define PACKET_FREQ 1000
+#define PACKET_FREQ 1e5
 
 typedef struct __attribute__((packed, aligned(1)))
 {
-    pg_int8   PacketId;
-    pg_float8 Time;
+    pg_int8 PacketId;
+    time_t  Time; // NOTE(ingar): The insert function assumes a time_t comes in and converts it to a
+                  // pg_timestamp
     pg_float8 Rpm;
     pg_float8 Torque;
     pg_float8 Power;
     pg_float8 PeakPeakPfs;
+
 } shaft_power_data;
 
 static void
 GeneratePowerShaftData(shaft_power_data *Data)
 {
-    time_t CurrentTime = time(NULL);
-    localtime(&CurrentTime);
-    static i64 Id = 0;
-    if(rand() % 10 < 2) {
-        Data->PacketId    = Id++;
-        Data->Time        = (pg_float8)difftime(CurrentTime, 0);
-        Data->Rpm         = 0;
-        Data->Torque      = 0;
-        Data->Power       = 0;
-        Data->PeakPeakPfs = 0;
-    } else {
-        Data->PacketId    = Id++;
-        Data->Time        = (pg_float8)difftime(CurrentTime, 0);
-        Data->Rpm         = ((rand() % 100) + 30.0) * sin(Id * 0.1); // RPM with variation
-        Data->Torque      = ((rand() % 600) + 100.0) * 0.8;          // Torque (Nm)
-        Data->Power       = Data->Rpm * Data->Torque / 9.5488;       // Derived power (kW)
-        Data->PeakPeakPfs = ((rand() % 50) + 25.0) * cos(Id * 0.1);  // PFS variation
-    }
+    time_t     CurrentTime = time(NULL);
+    static i64 Id          = 0;
+
+    Data->PacketId    = Id++;
+    Data->Time        = CurrentTime;
+    Data->Rpm         = ((rand() % 100) + 30.0) * sin(Id * 0.1); // RPM with variation
+    Data->Torque      = ((rand() % 600) + 100.0) * 0.8;          // Torque (Nm)
+    Data->Power       = Data->Rpm * Data->Torque / 9.5488;       // Derived power (kW)
+    Data->PeakPeakPfs = ((rand() % 50) + 25.0) * cos(Id * 0.1);  // PFS variation
 }
 
 static void
@@ -145,6 +138,7 @@ RunModbusTestServer(sdb_thread *Thread)
     inet_ntop(ClientAddr.sin_family, &(ClientAddr.sin_addr), ClientIp, sizeof(ClientIp));
     SdbLogInfo("Server: accepted connection from %s:%d", ClientIp, ntohs(ClientAddr.sin_port));
 
+    SdbBarrierWait(Thread->Args);
     for(u64 i = 0; i < MODBUS_PACKET_COUNT; ++i) {
         if(SendModbusData(NewFd, UnitId) == -1) {
             SdbLogError("Failed to send Modbus data to client %s:%d, closing connection", ClientIp,
@@ -152,7 +146,7 @@ RunModbusTestServer(sdb_thread *Thread)
 
             break;
         } else {
-            if((i % 100) == 0) {
+            if((i % (u64)(MODBUS_PACKET_COUNT / 5)) == 0) {
                 SdbLogDebug("Successfully sent Modbus data to client %s:%d", ClientIp,
                             ntohs(ClientAddr.sin_port));
             }

@@ -1,3 +1,4 @@
+#include "src/Common/Time.h"
 #include <sys/epoll.h>
 
 #include <src/Sdb.h>
@@ -52,14 +53,12 @@ PgRun(database_api *Pg)
         return -errno;
     }
 
-    int LogCounter     = 0;
-    u64 PgFailCounter  = 0;
-    u64 TimeoutCounter = 0;
-    while(!SdbTCtlShouldStop(ModuleControl)) {
-        if(++LogCounter % 100 == 0) {
-            SdbLogDebug("Postgres test loop is still running");
-        }
+    u64             PgFailCounter  = 0;
+    u64             TimeoutCounter = 0;
+    struct timespec LoopStart;
+    SdbTimeMonotonic(&LoopStart);
 
+    while(!SdbTCtlShouldStop(ModuleControl)) {
         // TODO(ingar): Is 1000 appropriate timeout?
         struct epoll_event Events[1];
         int                EpollRet = epoll_wait(EpollFd, Events, 1, SDB_TIME_S(1));
@@ -81,7 +80,20 @@ PgRun(database_api *Pg)
                 continue;
             }
         } else {
+            struct timespec CopyStart, CopyEnd, TimeDiff;
+
+            SdbTimeMonotonic(&CopyStart);
             sdb_errno InsertRet = PgInsertData(Conn, TableInfo, Pipe);
+            SdbTimeMonotonic(&CopyEnd);
+
+            SdbTimePrintSpecDiffWT(&CopyStart, &CopyEnd, &TimeDiff);
+            SdbPrintfDebug("Time for single copy: %ld.%09ld seconds\n", TimeDiff.tv_sec,
+                           TimeDiff.tv_nsec);
+
+            SdbTimePrintSpecDiffWT(&LoopStart, &CopyEnd, &TimeDiff);
+            SdbPrintfDebug("Time since loop start: %ld.%09ld seconds\n", TimeDiff.tv_sec,
+                           TimeDiff.tv_nsec);
+
             if(InsertRet != 0) {
                 SdbLogError("Failed to insert data for the %lusthnd", ++PgFailCounter);
                 if(PgFailCounter >= 5) {

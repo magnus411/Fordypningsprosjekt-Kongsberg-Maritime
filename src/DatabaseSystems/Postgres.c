@@ -27,10 +27,44 @@ SDB_THREAD_ARENAS_REGISTER(Postgres, 2);
 #include <src/DevUtils/TestConstants.h>
 #include <src/Libs/cJSON/cJSON.h>
 
+// TODO(ingar): Remove after testing
+typedef struct __attribute__((packed, aligned(1)))
+{
+    pg_int8 PacketId;
+    time_t  Time; // NOTE(ingar): The insert function assumes a time_t comes in and converts it to a
+                  // pg_timestamp
+    pg_float8 Rpm;
+    pg_float8 Torque;
+    pg_float8 Power;
+    pg_float8 PeakPeakPfs;
+
+} shaft_power_data;
+
 void
 PgInitThreadArenas(void)
 {
     SdbThreadArenasInit(Postgres);
+}
+
+pg_timestamp
+UnixToPgTimestamp(time_t UnixTime)
+{
+    return ((UnixTime * USECS_PER_SECOND)
+            + ((UNIX_EPOCH_JDATE - POSTGRES_EPOCH_JDATE) * USECS_PER_DAY));
+}
+
+pg_timestamp
+TimevalToPgTimestamp(struct timeval Tv)
+{
+    return ((Tv.tv_sec * USECS_PER_SECOND) + Tv.tv_usec
+            + ((UNIX_EPOCH_JDATE - POSTGRES_EPOCH_JDATE) * USECS_PER_DAY));
+}
+
+pg_timestamp
+TimespecToPgTimestamp(struct timespec Ts)
+{
+    return ((Ts.tv_sec * USECS_PER_SECOND) + (Ts.tv_nsec / NSECS_PER_USEC)
+            + ((UNIX_EPOCH_JDATE - POSTGRES_EPOCH_JDATE) * USECS_PER_DAY));
 }
 
 void
@@ -106,7 +140,8 @@ PrintPGresult(const PGresult *Result)
 
 
 pg_col_metadata *
-GetTableMetadata(PGconn *DbConn, sdb_string TableName, int *ColCount, sdb_arena *A)
+GetTableMetadata(PGconn *DbConn, sdb_string TableName, i16 *ColCount, i16 *ColCountNoAutoIncrements,
+                 size_t *RowSize, sdb_arena *A)
 {
     sdb_arena        *Conflicts[1] = { A };
     sdb_scratch_arena Scratch      = SdbScratchGet(Conflicts, 1);
@@ -135,19 +170,29 @@ GetTableMetadata(PGconn *DbConn, sdb_string TableName, int *ColCount, sdb_arena 
     }
 
 
-    for(int RowIndex = 0; RowIndex < RowCount; ++RowIndex) {
+    *ColCountNoAutoIncrements = 0;
+    i32 Offset                = 0;
+    for(u64 RowIndex = 0; RowIndex < RowCount; ++RowIndex) {
         pg_col_metadata *CurrentMetadata = &MetadataArray[RowIndex];
 
-        CurrentMetadata->ColumnName   = SdbStringMake(A, PQgetvalue(Result, RowIndex, 0));
-        CurrentMetadata->TypeOid      = (pg_oid)atoi(PQgetvalue(Result, RowIndex, 1));
-        CurrentMetadata->TypeLength   = (i16)atoi(PQgetvalue(Result, RowIndex, 2));
-        CurrentMetadata->TypeModifier = (i32)atoi(PQgetvalue(Result, RowIndex, 3));
-        if(RowIndex > 0) {
-            pg_col_metadata PrevMetadata = MetadataArray[RowIndex - 1];
-            CurrentMetadata->Offset      = PrevMetadata.Offset + PrevMetadata.TypeLength;
-        } else {
-            CurrentMetadata->Offset = 0;
+        CurrentMetadata->ColumnName      = SdbStringMake(A, PQgetvalue(Result, RowIndex, 0));
+        CurrentMetadata->TypeOid         = (pg_oid)atoi(PQgetvalue(Result, RowIndex, 1));
+        CurrentMetadata->TypeLength      = (i32)atoi(PQgetvalue(Result, RowIndex, 2));
+        CurrentMetadata->TypeModifier    = (i32)atoi(PQgetvalue(Result, RowIndex, 3));
+        CurrentMetadata->IsPrimaryKey    = (PQgetvalue(Result, RowIndex, 4)[0] == 't');
+        CurrentMetadata->IsAutoIncrement = (PQgetvalue(Result, RowIndex, 5)[0] == 't');
+
+        if(CurrentMetadata->IsAutoIncrement) {
+            // NOTE(ingar): The assumption is that auto-incrementing values will not appear in the
+            // incoming data
+            CurrentMetadata->Offset = -1;
+            continue;
         }
+
+        CurrentMetadata->Offset = Offset;
+        Offset += CurrentMetadata->TypeLength;
+        *RowSize += CurrentMetadata->TypeLength;
+        *ColCountNoAutoIncrements += 1;
     }
 
     PQclear(Result);
@@ -159,6 +204,7 @@ GetTableMetadata(PGconn *DbConn, sdb_string TableName, int *ColCount, sdb_arena 
 postgres_ctx *
 PgPrepareCtx(database_api *Pg)
 {
+    sdb_errno         Errno   = 0;
     sdb_scratch_arena Scratch = SdbScratchGet(NULL, 0);
 
     // TODO(ingar): Make pg config a json file??
@@ -177,20 +223,21 @@ PgPrepareCtx(database_api *Pg)
     if(PQstatus(PgCtx->DbConn) != CONNECTION_OK) {
         SdbLogError("PgCtx->DbConnection to database failed. PQ error:\n%s",
                     PQerrorMessage(PgCtx->DbConn));
-        SdbScratchRelease(Scratch);
-        PQfinish(PgCtx->DbConn);
-        return NULL;
+        Errno = -SDBE_PG_ERR;
+        goto cleanup;
     }
 
 
     cJSON *SchemaConf = DbInitGetConfFromFile("./configs/sensor_schemas.json", Scratch.Arena);
     if(!cJSON_IsObject(SchemaConf)) {
-        goto JSON_err;
+        Errno = -SDBE_JSON_ERR;
+        goto cleanup;
     }
 
     cJSON *SensorSchemaArray = cJSON_GetObjectItem(SchemaConf, "sensors");
     if(SensorSchemaArray == NULL || !cJSON_IsArray(SensorSchemaArray)) {
-        goto JSON_err;
+        Errno = -SDBE_JSON_ERR;
+        goto cleanup;
     }
 
 
@@ -199,19 +246,19 @@ PgPrepareCtx(database_api *Pg)
     cJSON_ArrayForEach(SensorSchema, SensorSchemaArray)
     {
         if(!cJSON_IsObject(SensorSchema)) {
-            goto JSON_err;
+            Errno = -SDBE_JSON_ERR;
+            goto cleanup;
         }
 
         cJSON *SensorName = cJSON_GetObjectItem(SensorSchema, "name");
         if(SensorName == NULL || !cJSON_IsString(SensorName)) {
-            goto JSON_err;
+            Errno = -SDBE_JSON_ERR;
+            goto cleanup;
         }
 
 
-        pg_table_info *Ti = SdbPushStruct(&Pg->Arena, pg_table_info);
-        Ti->TableName     = SdbStringMake(&Pg->Arena, SensorName->valuestring);
-        Ti->Statement     = SdbStringDuplicate(&Pg->Arena, Ti->TableName);
-        SdbStringAppendC(Ti->Statement, "_copy");
+        pg_table_info *Ti            = SdbPushStruct(&Pg->Arena, pg_table_info);
+        Ti->TableName                = SdbStringMake(&Pg->Arena, SensorName->valuestring);
         PgCtx->TablesInfo[SensorIdx] = Ti;
 
         sdb_string CreationQuery = SdbStringMake(Scratch.Arena, "CREATE TABLE IF NOT EXISTS ");
@@ -220,16 +267,16 @@ PgPrepareCtx(database_api *Pg)
 
         cJSON *SensorData = cJSON_GetObjectItem(SensorSchema, "data");
         if(SensorData == NULL || !cJSON_IsObject(SensorData)) {
-            SdbScratchRelease(Scratch);
-            goto JSON_err;
+            Errno = -SDBE_JSON_ERR;
+            goto cleanup;
         }
 
         cJSON *DataAttribute = NULL;
         cJSON_ArrayForEach(DataAttribute, SensorData)
         {
             if(!cJSON_IsString(DataAttribute)) {
-                SdbScratchRelease(Scratch);
-                goto JSON_err;
+                Errno = -SDBE_JSON_ERR;
+                goto cleanup;
             }
 
             SdbStringAppendC(CreationQuery, DataAttribute->string);
@@ -245,9 +292,9 @@ PgPrepareCtx(database_api *Pg)
         PGresult *PgRes = PQexec(PgCtx->DbConn, CreationQuery);
         if(PQresultStatus(PgRes) != PGRES_COMMAND_OK) {
             SdbLogError("Table creation failed: %s", PQerrorMessage(PgCtx->DbConn));
-            SdbScratchRelease(Scratch);
+            Errno = -SDBE_PG_ERR;
             PQclear(PgRes);
-            return NULL;
+            goto cleanup;
         } else {
             SdbLogInfo("Table '%s' created successfully (or it already existed).",
                        SensorName->valuestring);
@@ -255,51 +302,91 @@ PgPrepareCtx(database_api *Pg)
         }
 
 
-        Ti->ColMetadata
-            = GetTableMetadata(PgCtx->DbConn, Ti->TableName, (int *)&Ti->ColCount, &Pg->Arena);
+        Ti->ColMetadata = GetTableMetadata(PgCtx->DbConn, Ti->TableName, &Ti->ColCount,
+                                           &Ti->ColCountNoAutoIncrements, &Ti->RowSize, &Pg->Arena);
+
         if(NULL == Ti->ColMetadata || 0 == Ti->ColCount) {
             SdbLogError("Failed to get column metadata for table %s", Ti->TableName);
-            SdbScratchRelease(Scratch);
-            return NULL;
+            Errno = -SDBE_PG_ERR;
+            goto cleanup;
         }
+
+        Ti->CopyCommand = SdbStringMake(&Pg->Arena, "COPY ");
+        SdbStringAppend(Ti->CopyCommand, Ti->TableName);
+        SdbStringAppendC(Ti->CopyCommand, "(");
+        for(u64 c = 0; c < Ti->ColCount; ++c) {
+            pg_col_metadata ColMd = Ti->ColMetadata[c];
+            if(!ColMd.IsAutoIncrement) {
+                SdbStringAppend(Ti->CopyCommand, ColMd.ColumnName);
+                SdbStringAppendC(Ti->CopyCommand, ", ");
+            }
+        }
+        SdbStringBackspace(Ti->CopyCommand, 2);
+        SdbStringAppendC(Ti->CopyCommand, ") FROM STDIN WITH (FORMAT binary)");
 
         sensor_data_pipe *Pipe = Pg->SdPipes[SensorIdx];
+        Pipe->PacketSize       = Ti->RowSize;
+        Pipe->PacketMaxCount   = Pipe->Buffers[0]->Cap / Pipe->PacketSize;
+        Pipe->BufferMaxFill    = Pipe->PacketSize * Pipe->PacketMaxCount;
 
-        Pipe->PacketSize = Ti->ColMetadata[Ti->ColCount - 1].Offset
-                         + Ti->ColMetadata[Ti->ColCount - 1].TypeLength;
-        Pipe->PacketMaxCount = Pipe->Buffers[0]->Cap / Pipe->PacketSize;
-        Pipe->BufferMaxFill  = Pipe->PacketSize * Pipe->PacketMaxCount;
-
-
-        sdb_string PrepareStatement = SdbStringMake(Scratch.Arena, NULL);
-        SdbStringAppendFmt(PrepareStatement, "COPY %s FROM STDIN WITH (FORMAT binary)",
-                           Ti->TableName);
-
-        PgRes = PQprepare(PgCtx->DbConn, Ti->Statement, PrepareStatement, 0, NULL);
-        if(PQresultStatus(PgRes) != PGRES_COMMAND_OK) {
-            SdbLogError("Failed to prepare COPY statement: %s", PQerrorMessage(PgCtx->DbConn));
-            PQclear(PgRes);
-            SdbScratchRelease(Scratch);
-            return NULL;
-        } else {
-            SdbLogInfo("Insert statement %s prepared successfully", Ti->Statement);
-        }
-
-        PQclear(PgRes);
         ++SensorIdx;
     }
 
-    cJSON_Delete(SchemaConf);
-    SdbScratchRelease(Scratch);
+cleanup:
+    if(Errno == -SDBE_JSON_ERR) {
+        SdbLogError("Encountered JSON error from sensor schema, cJSON error: %s",
+                    cJSON_GetErrorPtr());
+    }
+    if(SchemaConf != NULL) {
+        cJSON_Delete(SchemaConf);
+    }
+    if(Errno != 0) {
+        PQfinish(PgCtx->DbConn);
+    }
 
-    return PgCtx;
-
-JSON_err:
-    SdbLogError("Sensor schema JSON incorrect, cJSON error: %s", cJSON_GetErrorPtr());
-    cJSON_Delete(SchemaConf);
-    PQfinish(PgCtx->DbConn);
     SdbScratchRelease(Scratch);
-    return NULL;
+    return (Errno == 0) ? PgCtx : NULL;
+}
+
+static size_t
+Write2(char *To, const char *From)
+{
+    u16 Val;
+    SdbMemcpy(&Val, From, sizeof(Val));
+    Val = htobe16(Val);
+    SdbMemcpy(To, &Val, sizeof(Val));
+    return sizeof(Val);
+}
+
+static size_t
+Write4(char *To, const char *From)
+{
+    u32 Val;
+    SdbMemcpy(&Val, From, sizeof(Val));
+    Val = htobe32(Val);
+    SdbMemcpy(To, &Val, sizeof(Val));
+    return sizeof(Val);
+}
+
+static size_t
+Write8(char *To, const char *From)
+{
+    u64 Val;
+    SdbMemcpy(&Val, From, sizeof(Val));
+    Val = htobe64(Val);
+    SdbMemcpy(To, &Val, sizeof(Val));
+    return sizeof(Val);
+}
+
+static size_t
+WriteTimestamp(char *To, const char *From)
+{
+    time_t UTime;
+    SdbMemcpy(&UTime, From, sizeof(UTime));
+    pg_timestamp Val = UnixToPgTimestamp(UTime);
+    Val              = htobe64(Val);
+    SdbMemcpy(To, &Val, sizeof(Val));
+    return sizeof(Val);
 }
 
 sdb_errno
@@ -313,24 +400,25 @@ PgInsertData(PGconn *Conn, pg_table_info *Ti, sensor_data_pipe *Pipe)
         SdbLogError("Failed to begin transaction for insertion into table %s. Pg error: %s",
                     Ti->TableName, PQerrorMessage(Conn));
         PQclear(PgRes);
-        return -SDBE_PG_ERROR;
+        return -SDBE_PG_ERR;
     }
     PQclear(PgRes);
 
-    PgRes = PQexecPrepared(Conn, Ti->Statement, 0, NULL, NULL, NULL, 0);
-    if(PQresultStatus(PgRes) != PGRES_COMMAND_OK) {
-        SdbLogError("Failed to execute prepared copy statement for table %s. Pg error (%d): %s",
-                    Ti->TableName, PQresultStatus(PgRes), PQerrorMessage(Conn));
+
+    PgRes = PQexec(Conn, Ti->CopyCommand);
+    if(PQresultStatus(PgRes) != PGRES_COPY_IN) {
+        SdbLogError("Failed to start COPY operation for table %s. Pg error: %s", Ti->TableName,
+                    PQerrorMessage(Conn));
         PQclear(PgRes);
         PQexec(Conn, "ROLLBACK");
-        return -SDBE_PG_ERROR;
+        return -SDBE_PG_ERR;
     }
     PQclear(PgRes);
 
 
     char     CopyHeader[19]       = "PGCOPY\n\377\r\n\0";
-    uint32_t CopyFlags            = 0;
-    uint32_t CopyExtenstionLength = 0;
+    uint32_t CopyFlags            = htonl(0);
+    uint32_t CopyExtenstionLength = htonl(0);
 
     SdbMemcpy(CopyHeader + 11, &CopyFlags, sizeof(CopyFlags));
     SdbMemcpy(CopyHeader + 15, &CopyExtenstionLength, sizeof(CopyExtenstionLength));
@@ -338,17 +426,94 @@ PgInsertData(PGconn *Conn, pg_table_info *Ti, sensor_data_pipe *Pipe)
     if(PQputCopyData(Conn, CopyHeader, 19) != 1) {
         SdbLogError("Failed to send COPY binary header for table %s. Pg error: %s", Ti->TableName,
                     PQerrorMessage(Conn));
-        Ret = -SDBE_PG_ERROR;
+        Ret = -SDBE_PG_ERR;
         goto cleanup;
     }
 
 
     sdb_arena *Buf = NULL;
     while((Buf = SdPipeGetReadBuffer(Pipe)) != NULL) {
-        if(PQputCopyData(Conn, (const char *)Buf->Mem, Buf->Cur) != 1) {
-            Ret = -1;
+        u64 RowsInBuffer = Buf->Cur / Ti->RowSize;
+        // TODO(ingar): Remove after testing
+        static u64 TotalRowsInserted = 0;
+        SdbLogDebug("Inserting %lu rows into table %s. Total inserted is %lu", RowsInBuffer,
+                    Ti->TableName, TotalRowsInserted);
+        TotalRowsInserted += RowsInBuffer;
+
+        size_t PgHeaderSize
+            = sizeof(Ti->ColCount) + (RowsInBuffer * sizeof(Ti->ColMetadata[0].TypeLength));
+        size_t NtwrkConvBufSize = PgHeaderSize + (RowsInBuffer * Ti->RowSize);
+
+        sdb_scratch_arena NtwrkBufArena = SdbScratchGet(NULL, 0);
+        char *NtwrkConvBuf = SdbPushArrayZero(NtwrkBufArena.Arena, char, NtwrkConvBufSize);
+        if(NtwrkConvBuf == NULL) {
+            SdbLogError("Scratch arena has insufficient space for network conversion buffer (need "
+                        "%zd bytes). Re-evaluate arena buffer size",
+                        NtwrkConvBufSize);
+            SdbScratchRelease(NtwrkBufArena);
             goto cleanup;
         }
+
+        const char *PipeBufStart = (const char *)Buf->Mem;
+        size_t      ConvOffset   = 0;
+        for(u64 RowsProcessed = 0; RowsProcessed < RowsInBuffer; ++RowsProcessed) {
+            const char *CurrRow = PipeBufStart + (RowsProcessed * Ti->RowSize);
+
+            i16 NtwrkFieldCount = htons(Ti->ColCountNoAutoIncrements);
+            SdbMemcpy(NtwrkConvBuf + ConvOffset, &NtwrkFieldCount, sizeof(NtwrkFieldCount));
+            ConvOffset += sizeof(NtwrkFieldCount);
+
+            for(u64 c = 0; c < Ti->ColCount; ++c) {
+                pg_col_metadata ColMd = Ti->ColMetadata[c];
+
+                if(ColMd.IsAutoIncrement) {
+                    continue;
+                }
+
+                i32 NtwrkTypeLen = htobe32(ColMd.TypeLength);
+                SdbMemcpy(NtwrkConvBuf + ConvOffset, &NtwrkTypeLen, sizeof(NtwrkTypeLen));
+                ConvOffset += sizeof(NtwrkTypeLen);
+
+                // WARN: The type length migh not necessarily be the same as the type written to the
+                // network conversion buffer, so we might need to add handling of that
+                const char *ColData = CurrRow + ColMd.Offset;
+                switch(ColMd.TypeOid) {
+                    case PG_INT8:
+                    case PG_FLOAT8:
+                        ConvOffset += Write8(NtwrkConvBuf + ConvOffset, ColData);
+                        break;
+                    case PG_INT4:
+                    case PG_FLOAT4:
+                        ConvOffset += Write4(NtwrkConvBuf + ConvOffset, ColData);
+                        break;
+                    case PG_INT2:
+                        ConvOffset += Write2(NtwrkConvBuf + ConvOffset, ColData);
+                        break;
+                    case PG_TIMESTAMP:
+                        // NOTE(ingar): Support for incoming timestamps of different types
+                        // (timeval, timespec, time_t, other) is probably outside the scope of
+                        // this project, since I think it will be quite tricky.
+                        // I think it's best if we just set it to be time_t, since it's a single
+                        // value (unlike timeval and timespec)
+                        ConvOffset += WriteTimestamp(NtwrkConvBuf + ConvOffset, ColData);
+                        break;
+                    default:
+                        SdbLogWarning("Encountered unhandled or invalid PG oid %d", ColMd.TypeOid);
+                        break;
+                }
+            }
+        }
+
+        if(PQputCopyData(Conn, NtwrkConvBuf, ConvOffset) != 1) {
+            SdbLogError("Unable to copy converted data for table %s. Pg error: %s", Ti->TableName,
+                        PQerrorMessage(Conn));
+
+            Ret = -SDBE_PG_ERR;
+            SdbScratchRelease(NtwrkBufArena);
+            goto cleanup;
+        }
+
+        SdbScratchRelease(NtwrkBufArena);
     }
 
 
@@ -356,14 +521,14 @@ cleanup:
     if(PQputCopyEnd(Conn, (Ret == 0) ? NULL : "Error during copy") != 1) {
         SdbLogError("Failed to end COPY for table %s. Pg error: %s", Ti->TableName,
                     PQerrorMessage(Conn));
-        Ret = -SDBE_PG_ERROR;
+        Ret = -SDBE_PG_ERR;
     }
 
     PgRes = PQgetResult(Conn);
     if(PQresultStatus(PgRes) != PGRES_COMMAND_OK) {
         SdbLogError("COPY command failed for table %s. Pg error: %s", Ti->TableName,
                     PQerrorMessage(Conn));
-        Ret = -SDBE_PG_ERROR;
+        Ret = -SDBE_PG_ERR;
     }
     PQclear(PgRes);
 
@@ -376,7 +541,7 @@ cleanup:
     if(PQresultStatus(PgRes) != PGRES_COMMAND_OK) {
         SdbLogError("Failed to end transaction for table %s. Pg error: %s", Ti->TableName,
                     PQerrorMessage(Conn));
-        Ret = -SDBE_PG_ERROR;
+        Ret = -SDBE_PG_ERR;
     }
     PQclear(PgRes);
 
