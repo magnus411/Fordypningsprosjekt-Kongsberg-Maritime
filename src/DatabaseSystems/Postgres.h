@@ -237,10 +237,10 @@ pg_col_metadata *GetTableMetadata(PGconn *DbConn, sdb_string TableName, i16 *Col
                                   i16 *ColCountNoAutoIncrements, size_t *RowSize, sdb_arena *A);
 void             PgInitThreadArenas(void);
 postgres_ctx    *PgPrepareCtx(database_api *Pg);
-sdb_errno        PgInsertData(PGconn *Conn, pg_table_info *Ti, sensor_data_pipe *Pipe);
 pg_timestamp     UnixToPgTimestamp(time_t UnixTime);
 pg_timestamp     TimevalToPgTimestamp(struct timeval Tv);
 pg_timestamp     TimespecToPgTimestamp(struct timespec Ts);
+sdb_errno        PgInsertData(PGconn *Conn, pg_table_info *Ti, const char *Data, u64 ItemCount);
 
 SDB_END_EXTERN_C
 

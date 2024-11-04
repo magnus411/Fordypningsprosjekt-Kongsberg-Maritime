@@ -83,27 +83,36 @@ PgRun(database_api *Pg)
             struct timespec CopyStart, CopyEnd, TimeDiff;
 
             SdbTimeMonotonic(&CopyStart);
-            sdb_errno InsertRet = PgInsertData(Conn, TableInfo, Pipe);
-            SdbTimeMonotonic(&CopyEnd);
 
-            SdbTimePrintSpecDiffWT(&CopyStart, &CopyEnd, &TimeDiff);
-            SdbPrintfDebug("Time for single copy: %ld.%09ld seconds\n", TimeDiff.tv_sec,
-                           TimeDiff.tv_nsec);
+            sdb_arena *Buf = NULL;
+            while((Buf = SdPipeGetReadBuffer(Pipe)) != NULL) {
+                SdbAssert(Buf->Cur % Pipe->PacketSize == 0,
+                          "Pipe does not contain a multiple of the packet size");
 
-            SdbTimePrintSpecDiffWT(&LoopStart, &CopyEnd, &TimeDiff);
-            SdbPrintfDebug("Time since loop start: %ld.%09ld seconds\n", TimeDiff.tv_sec,
-                           TimeDiff.tv_nsec);
+                u64       ItemCount = Buf->Cur / Pipe->PacketSize;
+                sdb_errno InsertRet
+                    = PgInsertData(Conn, TableInfo, (const char *)Buf->Mem, ItemCount);
+                SdbTimeMonotonic(&CopyEnd);
 
-            if(InsertRet != 0) {
-                SdbLogError("Failed to insert data for the %lusthnd", ++PgFailCounter);
-                if(PgFailCounter >= 5) {
-                    SdbLogError(
-                        "Postgres operations have failed more than threshod. Stopping main loop");
-                    Ret = -1;
-                    break;
+                SdbTimePrintSpecDiffWT(&CopyStart, &CopyEnd, &TimeDiff);
+                SdbPrintfDebug("Time for single copy: %ld.%09ld seconds\n", TimeDiff.tv_sec,
+                               TimeDiff.tv_nsec);
+
+                SdbTimePrintSpecDiffWT(&LoopStart, &CopyEnd, &TimeDiff);
+                SdbPrintfDebug("Time since loop start: %ld.%09ld seconds\n", TimeDiff.tv_sec,
+                               TimeDiff.tv_nsec);
+
+                if(InsertRet != 0) {
+                    SdbLogError("Failed to insert data for the %lusthnd", ++PgFailCounter);
+                    if(PgFailCounter >= 5) {
+                        SdbLogError("Postgres operations have failed more than threshod. Stopping "
+                                    "main loop");
+                        Ret = -1;
+                        break;
+                    }
+                } else {
+                    SdbLogDebug("Pipe data inserted successfully");
                 }
-            } else {
-                SdbLogDebug("Pipe data inserted successfully");
             }
         }
     }
