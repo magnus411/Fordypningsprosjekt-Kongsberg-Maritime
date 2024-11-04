@@ -49,8 +49,9 @@ PgInitThreadArenas(void)
 pg_timestamp
 UnixToPgTimestamp(time_t UnixTime)
 {
-    return ((UnixTime * USECS_PER_SECOND)
+    pg_timestamp Timestamp = ((UnixTime * USECS_PER_SECOND)
             + ((UNIX_EPOCH_JDATE - POSTGRES_EPOCH_JDATE) * USECS_PER_DAY));
+    return Timestamp;
 }
 
 pg_timestamp

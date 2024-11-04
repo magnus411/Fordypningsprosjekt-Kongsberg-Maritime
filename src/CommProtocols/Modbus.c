@@ -75,7 +75,7 @@ MbReceiveTcpFrame(int Sockfd, u8 *Frame, size_t BufferSize)
 const u8 *
 MbParseTcpFrame(const u8 *Frame, u16 *UnitId, u16 *FunctionCode, u16 *DataLength)
 {
-    // TODO(ingar): Why are these not used?
+    // TODO(ingar): These are not used atm but could be usefule in the future
     // u16 TransactionId = (Buffer[0] << 8) | Buffer[1];
     // u16 ProtocolId    = (Buffer[2] << 8) | Buffer[3];
     // u16 Length        = (Buffer[4] << 8) | Buffer[5];
@@ -84,10 +84,10 @@ MbParseTcpFrame(const u8 *Frame, u16 *UnitId, u16 *FunctionCode, u16 *DataLength
     *DataLength   = Frame[8];
 
     // Function code 0x03 is read multiple holding registers
-    if(*FunctionCode != 0x03) {
-        SdbLogError("Unsupported function code 0x03 found in frame");
-        return NULL;
-    }
+    //    if(*FunctionCode == 0x03) {
+    //        SdbLogError("Unsupported function code 0x03 found in frame");
+    //        return NULL;
+    //    }
 
     if(*DataLength > MAX_DATA_LENGTH) {
         SdbLogWarning("Byte count exceeds maximum data length. Skipping this frame.\n");
