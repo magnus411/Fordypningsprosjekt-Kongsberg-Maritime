@@ -58,7 +58,7 @@ GenerateModbusTcpFrame(u8 *Buffer, u16 TransactionId, u16 ProtocolId, u16 Length
     Buffer[6] = UnitId;
     Buffer[7] = FunctionCode;
     Buffer[8] = DataLength;
-    memcpy(&Buffer[9], Data, DataLength);
+    SdbMemcpy(&Buffer[9], Data, DataLength);
 }
 
 sdb_errno
@@ -67,8 +67,8 @@ SendModbusData(int NewFd, u16 UnitId)
     u8 ModbusFrame[MODBUS_TCP_FRAME_MAX_SIZE];
 
     u16 TransactionId = 1;
-    u16 ProtocolId    = 0;
-    u8  FunctionCode  = MODBUS_READ_HOLDING_REGISTERS;
+    u16 ProtocolId    = 1;
+    u8  FunctionCode  = 1;
 
     shaft_power_data Data = { 0 };
 

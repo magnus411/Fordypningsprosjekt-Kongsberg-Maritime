@@ -46,7 +46,7 @@ typedef struct
 #define MB_CTX(mb) ((modbus_ctx *)mb->Ctx)
 
 void        MbThreadArenasInit(void);
-const u8   *MbParseTcpFrame(const u8 *Frame, u16 *UnitId, u16 *FunctionCode, u16 *DataLength);
+const u8   *MbParseTcpFrame(const u8 *Frame, u16 *UnitId, u16 *DataLength);
 modbus_ctx *MbPrepareCtx(comm_protocol_api *Mb);
 
 SDB_END_EXTERN_C

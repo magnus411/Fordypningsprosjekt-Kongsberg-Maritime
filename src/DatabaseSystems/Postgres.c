@@ -416,9 +416,9 @@ PgInsertData(PGconn *Conn, pg_table_info *Ti, const char *Data, u64 ItemCount)
     PQclear(PgRes);
 
 
-    char     CopyHeader[19]       = "PGCOPY\n\377\r\n\0";
-    uint32_t CopyFlags            = htonl(0);
-    uint32_t CopyExtenstionLength = htonl(0);
+    char CopyHeader[19]       = "PGCOPY\n\377\r\n\0";
+    u32  CopyFlags            = htonl(0);
+    u32  CopyExtenstionLength = htonl(0);
 
     SdbMemcpy(CopyHeader + 11, &CopyFlags, sizeof(CopyFlags));
     SdbMemcpy(CopyHeader + 15, &CopyExtenstionLength, sizeof(CopyExtenstionLength));

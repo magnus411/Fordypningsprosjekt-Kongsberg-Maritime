@@ -82,14 +82,18 @@ PgRun(database_api *Pg)
         } else {
             struct timespec CopyStart, CopyEnd, TimeDiff;
 
-            SdbTimeMonotonic(&CopyStart);
 
             sdb_arena *Buf = NULL;
             while((Buf = SdPipeGetReadBuffer(Pipe)) != NULL) {
                 SdbAssert(Buf->Cur % Pipe->PacketSize == 0,
                           "Pipe does not contain a multiple of the packet size");
+                static u64 TotalInsertedItems = 0;
+                u64        ItemCount          = Buf->Cur / Pipe->PacketSize;
+                SdbLogDebug("Inserting %lu items into db. Total is %lu", ItemCount,
+                            TotalInsertedItems);
+                TotalInsertedItems += ItemCount;
 
-                u64       ItemCount = Buf->Cur / Pipe->PacketSize;
+                SdbTimeMonotonic(&CopyStart);
                 sdb_errno InsertRet
                     = PgInsertData(Conn, TableInfo, (const char *)Buf->Mem, ItemCount);
                 SdbTimeMonotonic(&CopyEnd);
