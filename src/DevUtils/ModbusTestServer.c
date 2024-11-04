@@ -89,10 +89,9 @@ SendModbusData(int NewFd)
     static shaft_power_data SpData
         = { .PacketId = 1, .Time = 783883485000000, .Rpm = 1, .Torque = 1, .Power = 1, .PeakPeakPfs = 1 };
 
-#if 0
-    GenerateShaftPowerData(&SpData);
-    //GenerateModbusTcpFram(...);
-#endif
+    u16 TransactionId = 1;
+    u16 ProtocolId    = 1;
+    u8  FunctionCode  = 1;
 
     ModbusFrame[8] = DataLength;
     SdbMemcpy(&ModbusFrame[9], &SpData, DataLength);

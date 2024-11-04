@@ -391,7 +391,7 @@ WriteTimestamp(char *To, const char *From)
 }
 
 sdb_errno
-PgInsertData(PGconn *Conn, pg_table_info *Ti, sensor_data_pipe *Pipe)
+PgInsertData(PGconn *Conn, pg_table_info *Ti, const char *Data, u64 ItemCount)
 {
     PGresult *PgRes;
     sdb_errno Ret = 0;
@@ -417,9 +417,9 @@ PgInsertData(PGconn *Conn, pg_table_info *Ti, sensor_data_pipe *Pipe)
     PQclear(PgRes);
 
 
-    char     CopyHeader[19]       = "PGCOPY\n\377\r\n\0";
-    uint32_t CopyFlags            = htonl(0);
-    uint32_t CopyExtenstionLength = htonl(0);
+    char CopyHeader[19]       = "PGCOPY\n\377\r\n\0";
+    u32  CopyFlags            = htonl(0);
+    u32  CopyExtenstionLength = htonl(0);
 
     SdbMemcpy(CopyHeader + 11, &CopyFlags, sizeof(CopyFlags));
     SdbMemcpy(CopyHeader + 15, &CopyExtenstionLength, sizeof(CopyExtenstionLength));
@@ -431,91 +431,79 @@ PgInsertData(PGconn *Conn, pg_table_info *Ti, sensor_data_pipe *Pipe)
         goto cleanup;
     }
 
+    size_t PgHeaderSize
+        = sizeof(Ti->ColCount) + (ItemCount * sizeof(Ti->ColMetadata[0].TypeLength));
+    size_t NtwrkConvBufSize = PgHeaderSize + (ItemCount * Ti->RowSize);
 
-    sdb_arena *Buf = NULL;
-    while((Buf = SdPipeGetReadBuffer(Pipe)) != NULL) {
-        u64 RowsInBuffer = Buf->Cur / Ti->RowSize;
-        // TODO(ingar): Remove after testing
-        static u64 TotalRowsInserted = 0;
-        SdbLogDebug("Inserting %lu rows into table %s. Total inserted is %lu", RowsInBuffer,
-                    Ti->TableName, TotalRowsInserted);
-        TotalRowsInserted += RowsInBuffer;
+    sdb_scratch_arena NtwrkBufArena = SdbScratchGet(NULL, 0);
+    char             *NtwrkConvBuf  = SdbPushArrayZero(NtwrkBufArena.Arena, char, NtwrkConvBufSize);
+    if(NtwrkConvBuf == NULL) {
+        SdbLogError("Scratch arena has insufficient space for network conversion buffer (need "
+                    "%zd bytes). Re-evaluate arena buffer size",
+                    NtwrkConvBufSize);
+        SdbScratchRelease(NtwrkBufArena);
+        goto cleanup;
+    }
 
-        size_t PgHeaderSize
-            = sizeof(Ti->ColCount) + (RowsInBuffer * sizeof(Ti->ColMetadata[0].TypeLength));
-        size_t NtwrkConvBufSize = PgHeaderSize + (RowsInBuffer * Ti->RowSize);
+    size_t ConvOffset = 0;
+    for(u64 RowsProcessed = 0; RowsProcessed < ItemCount; ++RowsProcessed) {
+        const char *CurrRow = (const char *)Data + (RowsProcessed * Ti->RowSize);
 
-        sdb_scratch_arena NtwrkBufArena = SdbScratchGet(NULL, 0);
-        char *NtwrkConvBuf = SdbPushArrayZero(NtwrkBufArena.Arena, char, NtwrkConvBufSize);
-        if(NtwrkConvBuf == NULL) {
-            SdbLogError("Scratch arena has insufficient space for network conversion buffer (need "
-                        "%zd bytes). Re-evaluate arena buffer size",
-                        NtwrkConvBufSize);
-            SdbScratchRelease(NtwrkBufArena);
-            goto cleanup;
-        }
+        i16 NtwrkFieldCount = htons(Ti->ColCountNoAutoIncrements);
+        SdbMemcpy(NtwrkConvBuf + ConvOffset, &NtwrkFieldCount, sizeof(NtwrkFieldCount));
+        ConvOffset += sizeof(NtwrkFieldCount);
 
-        const char *PipeBufStart = (const char *)Buf->Mem;
-        size_t      ConvOffset   = 0;
-        for(u64 RowsProcessed = 0; RowsProcessed < RowsInBuffer; ++RowsProcessed) {
-            const char *CurrRow = PipeBufStart + (RowsProcessed * Ti->RowSize);
+        for(u64 c = 0; c < Ti->ColCount; ++c) {
+            pg_col_metadata ColMd = Ti->ColMetadata[c];
 
-            i16 NtwrkFieldCount = htons(Ti->ColCountNoAutoIncrements);
-            SdbMemcpy(NtwrkConvBuf + ConvOffset, &NtwrkFieldCount, sizeof(NtwrkFieldCount));
-            ConvOffset += sizeof(NtwrkFieldCount);
+            if(ColMd.IsAutoIncrement) {
+                continue;
+            }
 
-            for(u64 c = 0; c < Ti->ColCount; ++c) {
-                pg_col_metadata ColMd = Ti->ColMetadata[c];
+            i32 NtwrkTypeLen = htobe32(ColMd.TypeLength);
+            SdbMemcpy(NtwrkConvBuf + ConvOffset, &NtwrkTypeLen, sizeof(NtwrkTypeLen));
+            ConvOffset += sizeof(NtwrkTypeLen);
 
-                if(ColMd.IsAutoIncrement) {
-                    continue;
-                }
-
-                i32 NtwrkTypeLen = htobe32(ColMd.TypeLength);
-                SdbMemcpy(NtwrkConvBuf + ConvOffset, &NtwrkTypeLen, sizeof(NtwrkTypeLen));
-                ConvOffset += sizeof(NtwrkTypeLen);
-
-                // WARN: The type length migh not necessarily be the same as the type written to the
-                // network conversion buffer, so we might need to add handling of that
-                const char *ColData = CurrRow + ColMd.Offset;
-                switch(ColMd.TypeOid) {
-                    case PG_INT8:
-                    case PG_FLOAT8:
-                        ConvOffset += Write8(NtwrkConvBuf + ConvOffset, ColData);
-                        break;
-                    case PG_INT4:
-                    case PG_FLOAT4:
-                        ConvOffset += Write4(NtwrkConvBuf + ConvOffset, ColData);
-                        break;
-                    case PG_INT2:
-                        ConvOffset += Write2(NtwrkConvBuf + ConvOffset, ColData);
-                        break;
-                    case PG_TIMESTAMP:
-                        // NOTE(ingar): Support for incoming timestamps of different types
-                        // (timeval, timespec, time_t, other) is probably outside the scope of
-                        // this project, since I think it will be quite tricky.
-                        // I think it's best if we just set it to be time_t, since it's a single
-                        // value (unlike timeval and timespec)
-                        ConvOffset += WriteTimestamp(NtwrkConvBuf + ConvOffset, ColData);
-                        break;
-                    default:
-                        SdbLogWarning("Encountered unhandled or invalid PG oid %d", ColMd.TypeOid);
-                        break;
-                }
+            // WARN: The type length migh not necessarily be the same as the type written to the
+            // network conversion buffer, so we might need to add handling of that
+            const char *ColData = CurrRow + ColMd.Offset;
+            switch(ColMd.TypeOid) {
+                case PG_INT8:
+                case PG_FLOAT8:
+                    ConvOffset += Write8(NtwrkConvBuf + ConvOffset, ColData);
+                    break;
+                case PG_INT4:
+                case PG_FLOAT4:
+                    ConvOffset += Write4(NtwrkConvBuf + ConvOffset, ColData);
+                    break;
+                case PG_INT2:
+                    ConvOffset += Write2(NtwrkConvBuf + ConvOffset, ColData);
+                    break;
+                case PG_TIMESTAMP:
+                    // NOTE(ingar): Support for incoming timestamps of different types
+                    // (timeval, timespec, time_t, other) is probably outside the scope of
+                    // this project, since I think it will be quite tricky.
+                    // I think it's best if we just set it to be time_t, since it's a single
+                    // value (unlike timeval and timespec)
+                    ConvOffset += WriteTimestamp(NtwrkConvBuf + ConvOffset, ColData);
+                    break;
+                default:
+                    SdbLogWarning("Encountered unhandled or invalid PG oid %d", ColMd.TypeOid);
+                    break;
             }
         }
-
-        if(PQputCopyData(Conn, NtwrkConvBuf, ConvOffset) != 1) {
-            SdbLogError("Unable to copy converted data for table %s. Pg error: %s", Ti->TableName,
-                        PQerrorMessage(Conn));
-
-            Ret = -SDBE_PG_ERR;
-            SdbScratchRelease(NtwrkBufArena);
-            goto cleanup;
-        }
-
-        SdbScratchRelease(NtwrkBufArena);
     }
+
+    if(PQputCopyData(Conn, NtwrkConvBuf, ConvOffset) != 1) {
+        SdbLogError("Unable to copy converted data for table %s. Pg error: %s", Ti->TableName,
+                    PQerrorMessage(Conn));
+
+        Ret = -SDBE_PG_ERR;
+        SdbScratchRelease(NtwrkBufArena);
+        goto cleanup;
+    }
+
+    SdbScratchRelease(NtwrkBufArena);
 
 
 cleanup:

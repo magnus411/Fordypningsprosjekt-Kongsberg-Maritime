@@ -68,8 +68,8 @@ MbRun(comm_protocol_api *Mb)
                 break;
             default: // Data received
                 {
-                    u16       UnitId, FunctionCode, DataLength;
-                    const u8 *Data = MbParseTcpFrame(Frame, &UnitId, &FunctionCode, &DataLength);
+                    u16       UnitId, DataLength;
+                    const u8 *Data = MbParseTcpFrame(Frame, &UnitId, &DataLength);
 
                     SdbAssert(DataLength == Pipe->PacketSize,
                               "Modbus packet size did not match expected, was %u expected %zd",
