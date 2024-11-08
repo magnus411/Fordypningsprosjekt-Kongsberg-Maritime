@@ -8,6 +8,7 @@
 // afterwards,
 #include <assert.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <float.h>
 #include <math.h>
 #include <pthread.h>
@@ -16,12 +17,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
 
 #if !defined(__cplusplus)
 #include <stdbool.h>
-#endif // C/C++
+#endif
 
 ////////////////////////////////////////
 //              DEFINES               //
@@ -421,6 +424,127 @@ typedef struct
 sdb_file_data *SdbLoadFileIntoMemory(const char *Filename, sdb_arena *Arena);
 bool SdbWriteBufferToFile(void *Buffer, u64 ElementSize, u64 ElementCount, const char *Filename);
 bool SdbWrite_sdb_file_data_ToFile(sdb_file_data *FileData, const char *Filename);
+
+typedef struct
+{
+    void      *Data;     // Mapped memory region
+    size_t     Size;     // Size of mapping
+    int        Fd;       // File descriptor (kept open if requested)
+    sdb_string Filename; // Copy of filename for cleanup
+    int        Flags;    // Saved flags for cleanup
+} sdb_mmap;
+
+/**
+ * @brief Creates a memory mapping with optional file backing
+ *
+ * This function provides a convenient wrapper around mmap() with integrated file handling.
+ * It can create both file-backed and anonymous mappings, with various protection and
+ * sharing options.
+ *
+ * @param Map      Pointer to the sdb_mmap that will be filled
+ * @param MAddr    Desired mapping address (NULL for system choice)
+ * @param MSize    Size of the mapping in bytes
+ * @param MProt    Memory protection flags (can be combined with |):
+ *                 - PROT_NONE  : No access permitted
+ *                 - PROT_READ  : Pages can be read
+ *                 - PROT_WRITE : Pages can be written
+ *                 - PROT_EXEC  : Pages can be executed
+ *
+ * @param MFlags   Mapping flags (can be combined with |):
+ *                 - MAP_SHARED    : Updates visible to other processes
+ *                 - MAP_PRIVATE   : Creates copy-on-write mapping
+ *                 - MAP_FIXED     : Use exact address (not recommended)
+ *                 - MAP_ANONYMOUS : Create anonymous mapping (no file backing)
+ *                 - MAP_LOCKED    : Lock pages into memory
+ *                 - MAP_POPULATE  : Populate page tables
+ *                 - MAP_NORESERVE : No swap space reservation
+ *                 - MAP_HUGETLB   : Use huge pages
+ *
+ * @param MFd      File descriptor for mapping:
+ *                 - >= 0 : Use this file descriptor
+ *                 - -1   : Used with MAP_ANONYMOUS
+ *                 - < -1 : Open file using FileName, OFlags, and OMode
+ *
+ * @param MOffset  Offset into file (must be page-aligned)
+ *
+ * @param FileName Path to file (used only if MFd < -1)
+ *
+ * @param OFlags   File open flags (used only if MFd < -1), can combine with |:
+ *                 Required - one of:
+ *                 - O_RDONLY  : Read only
+ *                 - O_WRONLY  : Write only
+ *                 - O_RDWR    : Read and write
+ *
+ *                 Optional:
+ *                 - O_APPEND    : Append to file
+ *                 - O_CREAT     : Create if not exists
+ *                 - O_EXCL      : With O_CREAT: fail if exists
+ *                 - O_TRUNC     : Truncate to MSize (WARN: Will shrink the file if the file's size
+ * is > MSize)
+ *                 - O_DIRECT    : Direct I/O
+ *                 - O_SYNC      : Synchronous I/O
+ *                 - O_NOFOLLOW  : Don't follow symlinks
+ *                 - O_CLOEXEC   : Close on exec
+ *                 - O_TMPFILE   : Create unnamed temporary file
+ *
+ * @param OMode    File creation mode (used only if OFlags includes O_CREAT):
+ *                 Typical values (in octal):
+ *                 - 0644 : User: rw-, Group: r--, Other: r--
+ *                 - 0666 : User: rw-, Group: rw-, Other: rw-
+ *                 - 0600 : User: rw-, Group: ---, Other: ---
+ *                 - 0755 : User: rwx, Group: r-x, Other: r-x
+ *
+ *                 Individual bits:
+ *                 - S_IRUSR (0400) : User read
+ *                 - S_IWUSR (0200) : User write
+ *                 - S_IXUSR (0100) : User execute
+ *                 - S_IRGRP (0040) : Group read
+ *                 - S_IWGRP (0020) : Group write
+ *                 - S_IXGRP (0010) : Group execute
+ *                 - S_IROTH (0004) : Other read
+ *                 - S_IWOTH (0002) : Other write
+ *                 - S_IXOTH (0001) : Other execute
+ *
+ *                 Special bits:
+ *                 - S_ISUID (04000) : Set UID bit
+ *                 - S_ISGID (02000) : Set GID bit
+ *                 - S_ISVTX (01000) : Sticky bit
+ *
+ * @return sdb_errno:
+ *         - 0 on success
+ *         - Negative errno value on failure:
+ *           - -EACCES  : Permission denied
+ *           - -EEXIST  : File exists (with O_CREAT | O_EXCL)
+ *           - -EINVAL  : Invalid arguments
+ *           - -ENFILE  : System file table full
+ *           - -ENOMEM  : Out of memory
+ *           - -ENOENT  : File not found
+ *
+ * @note
+ * - The Map structure must be allocated by the caller
+ * - FileName string must remain valid throughout the mapping's lifetime
+ * - File descriptor handling:
+ *   - MAP_SHARED: fd kept open
+ *   - MAP_PRIVATE: fd closed after mapping
+ *   - MAP_ANONYMOUS: fd closed/ignored
+ * - The actual mapping size will be rounded up to the system page size
+ * - MProt permissions must be compatible with OFlags
+ * - The actual protection may be more restrictive than MProt due to file permissions
+ * - MAP_FIXED is dangerous and should be avoided
+ * - File permissions are masked by the process umask
+ * - Some combinations may not be supported on all systems
+ */
+sdb_errno Sdb__MemMap__(sdb_mmap *Map, void *MAddr, size_t MSize, int MProt, int MFlags, int MFd,
+                        off_t MOffset, sdb_string FileName, int OFlags, mode_t OMode,
+                        sdb__log_module__ *Module);
+
+#define SdbMemMap(map, maddr, msize, mprot, mflags, mfd, moffset, filename, oflags, omode)         \
+    Sdb__MemMap__(map, maddr, msize, mprot, mflags, mfd, moffset, filename, oflags, omode,         \
+                  Sdb__LogInstance__)
+
+void SdbMemUnmap(sdb_mmap *Map);
+int  SdbMemMapSync(sdb_mmap *Map);
+int  SdbMemMapAdvise(sdb_mmap *Map, int Advice);
 
 ////////////////////////////////////////
 //            "TOKENIZER"             //
@@ -1097,6 +1221,103 @@ SdbSeedRandPCG(uint32_t Seed)
 /////////////////////////////////////////
 //              FILE IO                //
 /////////////////////////////////////////
+
+void
+SdbMemUnmap(sdb_mmap *Map)
+{
+    if(Map->Data != NULL && Map->Data != MAP_FAILED) {
+        munmap(Map->Data, Map->Size);
+    }
+
+    if(Map->Fd >= 0) {
+        close(Map->Fd);
+    }
+}
+
+sdb_errno
+Sdb__MemMap__(sdb_mmap *Map, void *MAddr, size_t MSize, int MProt, int MFlags, int MFd,
+              off_t MOffset, sdb_string FileName, int OFlags, mode_t OMode,
+              sdb__log_module__ *Module)
+{
+    Map->Size = MSize;
+    Map->Fd   = -1;
+
+    if(MFd < -1) {
+        if(FileName) {
+            Map->Filename = FileName;
+            if(!Map->Filename) {
+                Sdb__WriteLog__(Module, "ERR", "Failed to copy filename: %s", strerror(errno));
+                goto error;
+            }
+        }
+
+        Map->Fd = open(FileName, OFlags, OMode);
+        if(Map->Fd == -1) {
+            Sdb__WriteLog__(Module, "ERR", "Error opening file %s: %s", FileName, strerror(errno));
+            goto error;
+        }
+    } else {
+        Map->Fd = MFd;
+    }
+
+    if(OFlags & O_TRUNC || (MFlags & MAP_SHARED && MProt & PROT_WRITE)) {
+        if(ftruncate(Map->Fd, MSize) == -1) {
+            Sdb__WriteLog__(Module, "ERR", "Error setting file size: %s", strerror(errno));
+            goto error;
+        }
+
+        if(lseek(Map->Fd, 0, SEEK_SET) == -1) {
+            Sdb__WriteLog__(Module, "ERR", "Error resetting file pointer: %s", strerror(errno));
+            goto error;
+        }
+    }
+
+    if(MFlags & MAP_ANONYMOUS) {
+        if(Map->Fd != -1) {
+            close(Map->Fd);
+            Map->Fd = -1;
+        }
+    }
+
+    Map->Data = mmap(MAddr, MSize, MProt, MFlags, Map->Fd, MOffset);
+    if(Map->Data == MAP_FAILED) {
+        Sdb__WriteLog__(Module, "ERR", "Error mapping memory: %s", strerror(errno));
+        goto error;
+    }
+
+    if(MFlags & MAP_PRIVATE) {
+        if(Map->Fd != -1) {
+            close(Map->Fd);
+            Map->Fd = -1;
+        }
+    }
+
+    if(MFlags & MAP_LOCKED) {
+        if(mlock(Map->Data, MSize) == -1) {
+            Sdb__WriteLog__(Module, "WARN", "Failed to lock pages in memory: %s", strerror(errno));
+        }
+    }
+
+    return 0;
+
+error:
+    SdbMemUnmap(Map);
+    return -errno;
+}
+
+int
+SdbMemMapSync(sdb_mmap *Map)
+{
+    int Ret = msync(Map->Data, Map->Size, MS_SYNC);
+    return Ret;
+}
+
+int
+SdbMemMapAdvise(sdb_mmap *Map, int Advice)
+{
+    int Ret = madvise(Map->Data, Map->Size, Advice);
+    return Ret;
+}
 
 sdb_file_data *
 SdbLoadFileIntoMemory(const char *Filename, sdb_arena *Arena)
