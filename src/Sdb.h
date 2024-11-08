@@ -723,7 +723,7 @@ SdbArenaGetPos(sdb_arena *Arena)
 void *
 SdbArenaSeek(sdb_arena *Arena, u64 Pos)
 {
-    if(0 <= Pos && Pos <= Arena->Cap) {
+    if(Pos <= Arena->Cap) {
         Arena->Cur = Pos;
         return Arena->Mem + Arena->Cur;
     }

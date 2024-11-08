@@ -19,7 +19,7 @@ DEBUG_FLAGS = -g -O0 -Wall -Wno-unused-function -Wno-cpp -DDEBUG
 RELWDB_FLAGS = -O2 -g -DNDEBUG -Wno-unused-function -Wno-cpp
 RELEASE_FLAGS = -O2 -march=native -Wextra -pedantic -Wno-unused-function -Wno-cpp -DNDEBUG
 
-.PHONY: all debug relwdb release clean lint compile_commands.json
+.PHONY: all debug relwdb release datagenerator clean lint compile_commands.json
 
 all: debug
 
@@ -34,6 +34,9 @@ release: build_main
 
 tests: CFLAGS = $(DEBUG_FLAGS) $(SDB_LOG_LEVEL) $(SDB_DEBUG) $(DB_SYSTEMS) $(COMM_PROTOCOLS)
 tests: build_tests
+
+data_generator: CFLAGS = $(RELEASE_FLAGS) $(SDB_LOG_LEVEL) $(SDB_DEBUG) $(DB_SYSTEMS) $(COMM_PROTOCOLS)
+data_generator: build_data_generator
 
 lint: compile_commands.json
 	@echo "Running clang-tidy..."
@@ -66,6 +69,11 @@ build_tests:
 	@printf "\033[0;32m\nBuilding test suite\n\033[0m"
 	$(CC) $(CFLAGS) $(INCLUDES) $(TEST_SRC) $(TEST_MAIN) $(SRC) -o tests/build/TestSuite $(LIBS)
 	@printf "\033[0;32mFinished building test suite\n\033[0m"
+
+build_data_generator:
+	@mkdir -p build
+	@printf "\033[0;32m\nBuilding Test Data Generator\n\033[0m"
+	$(CC) $(CFLAGS) $(INCLUDES) src/DevUtils/TestDataGenerator.c -o build/TDG $(LIBS)
 
 clean:
 	rm -rf build tests/build

@@ -7,7 +7,9 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#define SDB_H_IMPLEMENTATION
 #include <src/Sdb.h>
+#undef SDB_H_IMPLEMENTATION
 
 SDB_LOG_REGISTER(TestDataGenerator);
 
@@ -91,12 +93,62 @@ CreateMemoryMappedFile(const char *FileName, size_t FileSize)
     return MappedData;
 }
 
-void
-GenerateTestData(void)
+int
+PrintTestDataSample()
+{
+    FILE            *file;
+    shaft_power_data data;
+    int              i;
+
+    // Open the binary file
+    file = fopen("./data/TestData.sdb", "rb");
+    if(file == NULL) {
+        perror("Error opening file");
+        return 1;
+    }
+
+    // Read and print 10 records
+    printf("Reading 10 records from file:\n");
+    printf("----------------------------------------\n");
+    printf("Record | PacketId |     Time      |  RPM   | Torque |  Power  | PeakPeakPfs\n");
+    printf("----------------------------------------\n");
+
+    for(i = 0; i < 10; i++) {
+        size_t read_result = fread(&data, sizeof(shaft_power_data), 1, file);
+
+        if(read_result != 1) {
+            if(feof(file)) {
+                printf("End of file reached after %d records\n", i);
+                break;
+            } else {
+                perror("Error reading file");
+                fclose(file);
+                return 1;
+            }
+        }
+
+        // Convert time_t to a readable string
+        char       time_str[26];
+        struct tm *tm_info = localtime(&data.Time);
+        strftime(time_str, 26, "%Y-%m-%d %H:%M:%S", tm_info);
+
+        // Print the record
+        printf("%6d | %8lu | %s | %6.2f | %6.2f | %7.2f | %10.2f\n", i + 1, data.PacketId, time_str,
+               data.Rpm, data.Torque, data.Power, data.PeakPeakPfs);
+    }
+
+    printf("----------------------------------------\n");
+
+    fclose(file);
+    return 0;
+}
+
+int
+main(void)
 {
     u64    SpdCount = 1e6;
     size_t DataSize = SpdCount * sizeof(shaft_power_data);
-    u8    *Data     = CreateMemoryMappedFile("./TestData.sdb", DataSize);
+    u8    *Data     = CreateMemoryMappedFile("./data/TestData.sdb", DataSize);
 
     for(u64 i = 0; i < SpdCount; ++i) {
         shaft_power_data SpData = { 0 };
@@ -107,4 +159,8 @@ GenerateTestData(void)
     if(munmap(Data, DataSize) == -1) {
         fprintf(stderr, "Error unmapping file: %s\n", strerror(errno));
     }
+
+    PrintTestDataSample();
+
+    return 0;
 }
