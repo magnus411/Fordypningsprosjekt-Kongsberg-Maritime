@@ -41,9 +41,8 @@ struct comm_protocol_api
     u64                SensorCount;
     sensor_data_pipe **SdPipes;
 
-    u64       ArgSize; // TODO(ingar): So the protocol can reclaim the memory used for OptArgs
-    void     *OptArgs;
-    void     *Ctx;
+    void *Ctx;
+
     sdb_arena Arena;
 };
 

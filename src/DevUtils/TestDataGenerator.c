@@ -7,6 +7,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#if 0
 #define SDB_H_IMPLEMENTATION
 #include <src/Sdb.h>
 #undef SDB_H_IMPLEMENTATION
@@ -19,17 +20,8 @@ SDB_LOG_REGISTER(TestDataGenerator);
 #include <src/Common/Time.h>
 #include <src/DatabaseSystems/Postgres.h>
 
-typedef struct __attribute__((packed, aligned(1)))
-{
-    pg_int8 PacketId;
-    time_t  Time; // NOTE(ingar): The insert function assumes a time_t comes in and converts it to a
-                  // pg_timestamp
-    pg_float8 Rpm;
-    pg_float8 Torque;
-    pg_float8 Power;
-    pg_float8 PeakPeakPfs;
+#include <src/DevUtils/TestConstants.h>
 
-} shaft_power_data;
 
 static void
 FillShaftPowerData(shaft_power_data *Data)
@@ -61,47 +53,15 @@ MakeModbusTcpFrame(u8 *Buffer, u16 TransactionId, u16 ProtocolId, u16 Length, u8
     SdbMemcpy(&Buffer[9], Data, DataLength);
 }
 
-void *
-CreateMemoryMappedFile(const char *FileName, size_t FileSize)
-{
-    // Open file with create, read/write permissions
-    int FileDescriptor = open(FileName, O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
-    if(FileDescriptor == -1) {
-        fprintf(stderr, "Error opening file: %s\n", strerror(errno));
-        return NULL;
-    }
-
-    // Set the file size to desired mapping size
-    if(ftruncate(FileDescriptor, FileSize) == -1) {
-        fprintf(stderr, "Error setting file size: %s\n", strerror(errno));
-        close(FileDescriptor);
-        return NULL;
-    }
-
-    // Create the memory mapping
-    void *MappedData = mmap(NULL, FileSize, PROT_READ | PROT_WRITE, MAP_SHARED, FileDescriptor, 0);
-
-    if(MappedData == MAP_FAILED) {
-        fprintf(stderr, "Error mapping file: %s\n", strerror(errno));
-        close(FileDescriptor);
-        return NULL;
-    }
-
-    // Close the file descriptor (mapping remains valid)
-    close(FileDescriptor);
-
-    return MappedData;
-}
-
 int
-PrintTestDataSample()
+PrintTestDataSample(sdb_string Filename)
 {
     FILE            *file;
     shaft_power_data data;
     int              i;
 
     // Open the binary file
-    file = fopen("./data/TestData.sdb", "rb");
+    file = fopen(Filename, "rb");
     if(file == NULL) {
         perror("Error opening file");
         return 1;
@@ -148,19 +108,28 @@ main(void)
 {
     u64    SpdCount = 1e6;
     size_t DataSize = SpdCount * sizeof(shaft_power_data);
-    u8    *Data     = CreateMemoryMappedFile("./data/TestData.sdb", DataSize);
+    // u8    *Data     = CreateMemoryMappedFile("./data/TestData.sdb", DataSize);
+    sdb_arena A;
+    void     *Mem = malloc(128);
+    SdbArenaInit(&A, Mem, 128);
 
+    sdb_mmap   Map      = { 0 };
+    sdb_string Filename = SdbStringMake(&A, "./data/TestData.sdb");
+    SdbMemMap(&Map, NULL, DataSize, PROT_READ | PROT_WRITE, MAP_SHARED, -2, 0, Filename,
+              O_RDWR | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+
+#if 0
+    u8 *Data = Map.Data;
     for(u64 i = 0; i < SpdCount; ++i) {
         shaft_power_data SpData = { 0 };
         FillShaftPowerData(&SpData);
         SdbMemcpy(Data + (i * sizeof(SpData)), &SpData, sizeof(SpData));
     }
+#endif
 
-    if(munmap(Data, DataSize) == -1) {
-        fprintf(stderr, "Error unmapping file: %s\n", strerror(errno));
-    }
-
-    PrintTestDataSample();
+    SdbMemUnmap(&Map);
+    PrintTestDataSample(Filename);
 
     return 0;
 }
+#endif

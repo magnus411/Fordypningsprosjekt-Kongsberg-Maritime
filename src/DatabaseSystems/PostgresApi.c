@@ -14,8 +14,8 @@ PgInit(database_api *Pg)
 {
     PgInitThreadArenas();
     SdbThreadArenasInitExtern(Postgres);
-    sdb_arena *Scratch1 = SdbArenaBootstrap(&Pg->Arena, NULL, SdbKibiByte(512));
-    sdb_arena *Scratch2 = SdbArenaBootstrap(&Pg->Arena, NULL, SdbKibiByte(512));
+    sdb_arena *Scratch1 = SdbArenaBootstrap(&Pg->Arena, NULL, SdbKibiByte(100));
+    sdb_arena *Scratch2 = SdbArenaBootstrap(&Pg->Arena, NULL, SdbKibiByte(100));
     SdbThreadArenasAdd(Scratch1);
     SdbThreadArenasAdd(Scratch2);
 
@@ -47,7 +47,8 @@ PgRun(database_api *Pg)
         return -errno;
     }
 
-    struct epoll_event ReadEvent = { .events = EPOLLIN, .data.fd = ReadEventFd };
+    struct epoll_event ReadEvent
+        = { .events = EPOLLIN | EPOLLERR | EPOLLHUP, .data.fd = ReadEventFd };
     if(epoll_ctl(EpollFd, EPOLL_CTL_ADD, ReadEventFd, &ReadEvent) == -1) {
         SdbLogError("Failed to start read event: %s", strerror(errno));
         return -errno;
@@ -55,13 +56,14 @@ PgRun(database_api *Pg)
 
     u64             PgFailCounter  = 0;
     u64             TimeoutCounter = 0;
-    struct timespec LoopStart;
+    struct timespec LoopStart, CopyStart, CopyEnd, TimeDiff;
     SdbTimeMonotonic(&LoopStart);
+    static u64 TotalInsertedItems = 0;
+    printf("Item count/buf: %lu\n", Pipe->ItemMaxCount);
 
     while(!SdbTCtlShouldStop(ModuleControl)) {
-        // TODO(ingar): Is 1000 appropriate timeout?
         struct epoll_event Events[1];
-        int                EpollRet = epoll_wait(EpollFd, Events, 1, SDB_TIME_S(1));
+        int                EpollRet = epoll_wait(EpollFd, Events, 1, SDB_TIME_MS(100));
         if(EpollRet == -1) {
             if(errno == EINTR) {
                 SdbLogWarning("Epoll wait received interrupt");
@@ -75,20 +77,25 @@ PgRun(database_api *Pg)
             SdbLogInfo("Epoll wait timed out for the %lusthnd time", ++TimeoutCounter);
             if(TimeoutCounter >= 5) {
                 SdbLogError("Epoll has timed out more than threshold. Stopping main loop");
-                Ret = -1;
+                Ret = -ETIMEDOUT;
             } else {
                 continue;
             }
-        } else {
-            struct timespec CopyStart, CopyEnd, TimeDiff;
+        }
 
+        if(Events[0].events & (EPOLLERR | EPOLLHUP)) {
+            SdbLogError("Epoll error on read event fd");
+            Ret = -EIO; // Use appropriate error code
+            break;
+        }
 
+        if(Events[0].events & EPOLLIN) {
             sdb_arena *Buf = NULL;
             while((Buf = SdPipeGetReadBuffer(Pipe)) != NULL) {
                 SdbAssert(Buf->Cur % Pipe->PacketSize == 0,
                           "Pipe does not contain a multiple of the packet size");
-                static u64 TotalInsertedItems = 0;
-                u64        ItemCount          = Buf->Cur / Pipe->PacketSize;
+
+                u64 ItemCount = Buf->Cur / Pipe->PacketSize;
                 SdbLogDebug("Inserting %lu items into db. Total is %lu", ItemCount,
                             TotalInsertedItems);
                 TotalInsertedItems += ItemCount;
@@ -99,12 +106,18 @@ PgRun(database_api *Pg)
                 SdbTimeMonotonic(&CopyEnd);
 
                 SdbTimePrintSpecDiffWT(&CopyStart, &CopyEnd, &TimeDiff);
-                SdbPrintfDebug("Time for single copy: %ld.%09ld seconds\n", TimeDiff.tv_sec,
-                               TimeDiff.tv_nsec);
-
+                printf("%ld.%09ld ", TimeDiff.tv_sec, TimeDiff.tv_nsec);
                 SdbTimePrintSpecDiffWT(&LoopStart, &CopyEnd, &TimeDiff);
-                SdbPrintfDebug("Time since loop start: %ld.%09ld seconds\n", TimeDiff.tv_sec,
-                               TimeDiff.tv_nsec);
+                printf("%ld.%09ld\n", TimeDiff.tv_sec, TimeDiff.tv_nsec);
+
+                if(TotalInsertedItems >= 1e6) {
+                    break;
+                }
+
+                // printf("Time for single copy: %ld.%09ld seconds\n", TimeDiff.tv_sec,
+                //        TimeDiff.tv_nsec);
+                // printf("Time since loop start: %ld.%09ld seconds\n", TimeDiff.tv_sec,
+                //       TimeDiff.tv_nsec);
 
                 if(InsertRet != 0) {
                     SdbLogError("Failed to insert data for the %lusthnd", ++PgFailCounter);
@@ -120,6 +133,8 @@ PgRun(database_api *Pg)
             }
         }
     }
+
+    printf("%ld.%09ld\n", TimeDiff.tv_sec, TimeDiff.tv_nsec);
 
     close(EpollFd);
     SdbLogDebug("Exiting postgres main loop");

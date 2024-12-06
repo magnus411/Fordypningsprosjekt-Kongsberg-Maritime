@@ -19,18 +19,6 @@ SDB_LOG_REGISTER(ModbusTestServer);
 #define BACKLOG     5
 #define PACKET_FREQ 1e5
 
-typedef struct __attribute__((packed, aligned(1)))
-{
-    pg_int8 PacketId;
-    time_t  Time; // NOTE(ingar): The insert function assumes a time_t comes in and converts it to a
-                  // pg_timestamp
-    pg_float8 Rpm;
-    pg_float8 Torque;
-    pg_float8 Power;
-    pg_float8 PeakPeakPfs;
-
-} shaft_power_data;
-
 static inline void
 GenerateShaftPowerData(shaft_power_data *Data)
 {
@@ -84,10 +72,11 @@ SendModbusData(int NewFd)
 {
     // NOTE(ingar): By default everything is set to 1
     static u8               ModbusFrame[MODBUS_TCP_FRAME_MAX_SIZE] = { 1 };
-    static const u16         DataLength                             = sizeof(shaft_power_data);
+    static const u16        DataLength                             = sizeof(shaft_power_data);
     static const u16        Length                                 = DataLength + 3;
-    static shaft_power_data SpData
-        = { .PacketId = 1, .Time = 783883485000000, .Rpm = 1, .Torque = 1, .Power = 1, .PeakPeakPfs = 1 };
+    static shaft_power_data SpData                                 = {
+                                        .PacketId = 1, .Time = 783883485000000, .Rpm = 1, .Torque = 1, .Power = 1, .PeakPeakPfs = 1
+    };
 
     u16 TransactionId = 1;
     u16 ProtocolId    = 1;

@@ -14,9 +14,9 @@ SDB_BEGIN_EXTERN_C
 // TODO(ingar): We might want to add a flag for the endianness of the data
 typedef struct
 {
-    size_t BufferMaxFill;  // It's unlikely that a given buffer can be filled exactly
-    size_t PacketSize;     // Filled by db during init
-    u64    PacketMaxCount; // --||--
+    size_t BufferMaxFill; // It's unlikely that a given buffer can be filled exactly
+    size_t PacketSize;    // Filled by db during init
+    u64    ItemMaxCount;  // --||--
 
     atomic_uint WriteBufIdx;
     atomic_uint ReadBufIdx;

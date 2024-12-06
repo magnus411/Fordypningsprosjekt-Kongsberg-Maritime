@@ -24,21 +24,10 @@ SDB_THREAD_ARENAS_REGISTER(Postgres, 2);
 #include <src/DatabaseSystems/DatabaseInitializer.h>
 #include <src/DatabaseSystems/DatabaseSystems.h>
 #include <src/DatabaseSystems/Postgres.h>
-#include <src/DevUtils/TestConstants.h>
 #include <src/Libs/cJSON/cJSON.h>
 
-// TODO(ingar): Remove after testing
-typedef struct __attribute__((packed, aligned(1)))
-{
-    pg_int8 PacketId;
-    time_t  Time; // NOTE(ingar): The insert function assumes a time_t comes in and converts it to a
-                  // pg_timestamp
-    pg_float8 Rpm;
-    pg_float8 Torque;
-    pg_float8 Power;
-    pg_float8 PeakPeakPfs;
-
-} shaft_power_data;
+// TODO(ingar): Remove before release
+#include <src/DevUtils/TestConstants.h>
 
 void
 PgInitThreadArenas(void)
@@ -46,11 +35,11 @@ PgInitThreadArenas(void)
     SdbThreadArenasInit(Postgres);
 }
 
-pg_timestamp
+inline pg_timestamp
 UnixToPgTimestamp(time_t UnixTime)
 {
     pg_timestamp Timestamp = ((UnixTime * USECS_PER_SECOND)
-            + ((UNIX_EPOCH_JDATE - POSTGRES_EPOCH_JDATE) * USECS_PER_DAY));
+                              + ((UNIX_EPOCH_JDATE - POSTGRES_EPOCH_JDATE) * USECS_PER_DAY));
     return Timestamp;
 }
 
@@ -327,8 +316,8 @@ PgPrepareCtx(database_api *Pg)
 
         sensor_data_pipe *Pipe = Pg->SdPipes[SensorIdx];
         Pipe->PacketSize       = Ti->RowSize;
-        Pipe->PacketMaxCount   = Pipe->Buffers[0]->Cap / Pipe->PacketSize;
-        Pipe->BufferMaxFill    = Pipe->PacketSize * Pipe->PacketMaxCount;
+        Pipe->ItemMaxCount     = Pipe->Buffers[0]->Cap / Pipe->PacketSize;
+        Pipe->BufferMaxFill    = Pipe->PacketSize * Pipe->ItemMaxCount;
 
         ++SensorIdx;
     }
@@ -349,7 +338,7 @@ cleanup:
     return (Errno == 0) ? PgCtx : NULL;
 }
 
-static size_t
+static inline size_t
 Write2(char *To, const char *From)
 {
     u16 Val;
@@ -359,7 +348,7 @@ Write2(char *To, const char *From)
     return sizeof(Val);
 }
 
-static size_t
+static inline size_t
 Write4(char *To, const char *From)
 {
     u32 Val;
@@ -369,7 +358,7 @@ Write4(char *To, const char *From)
     return sizeof(Val);
 }
 
-static size_t
+static inline size_t
 Write8(char *To, const char *From)
 {
     u64 Val;
@@ -379,7 +368,7 @@ Write8(char *To, const char *From)
     return sizeof(Val);
 }
 
-static size_t
+static inline size_t
 WriteTimestamp(char *To, const char *From)
 {
     time_t UTime;
@@ -464,7 +453,7 @@ PgInsertData(PGconn *Conn, pg_table_info *Ti, const char *Data, u64 ItemCount)
             SdbMemcpy(NtwrkConvBuf + ConvOffset, &NtwrkTypeLen, sizeof(NtwrkTypeLen));
             ConvOffset += sizeof(NtwrkTypeLen);
 
-            // WARN: The type length migh not necessarily be the same as the type written to the
+            // WARN: The type length might not necessarily be the same as the type written to the
             // network conversion buffer, so we might need to add handling of that
             const char *ColData = CurrRow + ColMd.Offset;
             switch(ColMd.TypeOid) {

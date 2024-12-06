@@ -89,22 +89,14 @@ MbParseTcpFrame(const u8 *Frame, u16 *UnitId, u16 *DataLength)
 modbus_ctx *
 MbPrepareCtx(comm_protocol_api *Mb)
 {
-    mb_init_args *Args = Mb->OptArgs;
-
-    if(Args->PortCount != Args->IpCount) {
-        SdbLogError("Mismatch in port count (%lu) and ip count (%lu)", Args->PortCount,
-                    Args->IpCount);
-        return NULL;
-    }
-
     modbus_ctx *MbCtx = SdbPushStruct(&Mb->Arena, modbus_ctx);
-    MbCtx->ConnCount  = Args->PortCount;
-    mb_conn *Conns    = SdbPushArray(&Mb->Arena, mb_conn, MbCtx->ConnCount);
-    MbCtx->Conns      = Conns;
+    MbCtx->ConnCount  = 1;
+    MbCtx->Conns      = SdbPushArray(&Mb->Arena, mb_conn, MbCtx->ConnCount);
 
+    mb_conn *Conns = MbCtx->Conns;
     for(u64 i = 0; i < MbCtx->ConnCount; ++i) {
-        Conns[i].Port   = Args->Ports[i];
-        Conns[i].Ip     = SdbStringDuplicate(&Mb->Arena, Args->Ips[i]);
+        Conns[i].Port   = MODBUS_PORT;
+        Conns[i].Ip     = SdbStringMake(&Mb->Arena, "127.0.0.1");
         Conns[i].SockFd = SocketCreate(Conns[i].Ip, Conns[i].Port);
         if(Conns[i].SockFd == -1) {
             SdbLogError("Failed to create socket for sensor index %lu", i);

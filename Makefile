@@ -17,9 +17,9 @@ SANITIZERS = -fsanitize=address
 
 DEBUG_FLAGS = -g -O0 -Wall -Wno-unused-function -Wno-cpp -DDEBUG
 RELWDB_FLAGS = -O2 -g -DNDEBUG -Wno-unused-function -Wno-cpp
-RELEASE_FLAGS = -O2 -march=native -Wextra -pedantic -Wno-unused-function -Wno-cpp -DNDEBUG
+RELEASE_FLAGS = -O3 -march=native -Wextra -pedantic -Wno-unused-function -Wno-cpp -DNDEBUG
 
-.PHONY: all debug relwdb release datagenerator clean lint compile_commands.json
+.PHONY: all debug relwdb release data_generator clean lint compile_commands.json
 
 all: debug
 
@@ -29,7 +29,7 @@ debug: build_main
 relwdb: CFLAGS = $(RELWDB_FLAGS) $(SDB_LOG_LEVEL) $(SDB_DEBUG) $(DB_SYSTEMS) $(COMM_PROTOCOLS)
 relwdb: build_main
 
-release: CFLAGS = $(RELEASE_FLAGS) $(SDB_LOG_LEVEL) $(SDB_DEBUG) $(DB_SYSTEMS) $(COMM_PROTOCOLS)
+release: CFLAGS = $(RELEASE_FLAGS) -DSDB_LOG_LEVEL=0  -DSDB_MEM_TRACE=0 -DSDB_PRINTF_DEBUG_ENABLE=0 -DSDB_ASSERT=0 $(DB_SYSTEMS) $(COMM_PROTOCOLS)
 release: build_main
 
 tests: CFLAGS = $(DEBUG_FLAGS) $(SDB_LOG_LEVEL) $(SDB_DEBUG) $(DB_SYSTEMS) $(COMM_PROTOCOLS)

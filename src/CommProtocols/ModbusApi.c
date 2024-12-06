@@ -6,7 +6,7 @@ SDB_THREAD_ARENAS_EXTERN(Modbus);
 #include <src/CommProtocols/CommProtocols.h>
 #include <src/CommProtocols/Modbus.h>
 #include <src/Common/SensorDataPipe.h>
-#include <src/Common/Socket.h>
+#include <src/DevUtils/TestConstants.h>
 
 sdb_errno
 MbInit(comm_protocol_api *Mb)
@@ -18,12 +18,6 @@ MbInit(comm_protocol_api *Mb)
     SdbThreadArenasAdd(Scratch1);
     SdbThreadArenasAdd(Scratch2);
 
-    Mb->Ctx = MbPrepareCtx(Mb);
-    if(Mb->Ctx == NULL) {
-        SdbLogError("Failed to initialize Modbus context");
-        return -1;
-    }
-
     return 0;
 }
 
@@ -32,57 +26,21 @@ MbRun(comm_protocol_api *Mb)
 {
     sdb_errno Ret = 0;
 
-    modbus_ctx         *MbCtx         = MB_CTX(Mb);
     sdb_thread_control *ModuleControl = Mb->ModuleControl;
     sdb_arena          *MbArena       = &Mb->Arena;
-    mb_conn             Conn = MbCtx->Conns[0]; // TODO(ingar): Simplified to only use one for now
 
     sensor_data_pipe *Pipe = Mb->SdPipes[0]; // TODO(ingar): Simplified to only use one pipe for now
     sdb_arena        *CurBuf = Pipe->Buffers[atomic_load(&Pipe->WriteBufIdx)];
 
-    int LogCounter = 0;
-    while(!SdbTCtlShouldStop(ModuleControl)) {
-        if(++LogCounter % 1000 == 0) {
-            SdbLogDebug("Postgres test loop is still running");
-        }
-        SdbAssert((SdbArenaGetPos(CurBuf) <= Pipe->BufferMaxFill),
-                  "Pipe buffer overflow in buffer %u", atomic_load(&Pipe->WriteBufIdx));
+    sdb_file_data *TestData = SdbLoadFileIntoMemory("./data/TestData.sdb", NULL);
 
-        if(SdbArenaGetPos(CurBuf) == Pipe->BufferMaxFill) {
-            CurBuf = SdPipeGetWriteBuffer(Pipe);
-        }
-
-        u8  Frame[MODBUS_TCP_FRAME_MAX_SIZE];
-        int RecvResult = SocketRecvWithTimeout(Conn.SockFd, Frame, sizeof(Frame), SDB_TIME_MS(500));
-
-        switch(RecvResult) {
-            case -2: // Timeout
-                continue;
-            case -1: // Error
-                Ret = -1;
-                goto exit;
-                break;
-            case 0: // Server disconnected
-                Ret = 0;
-                goto exit;
-                break;
-            default: // Data received
-                {
-                    u16       UnitId, DataLength;
-                    const u8 *Data = MbParseTcpFrame(Frame, &UnitId, &DataLength);
-
-                    SdbAssert(DataLength == Pipe->PacketSize,
-                              "Modbus packet size did not match expected, was %u expected %zd",
-                              DataLength, Pipe->PacketSize);
-
-                    u8 *Ptr = SdbArenaPush(CurBuf, DataLength);
-                    SdbMemcpy(Ptr, Data, DataLength);
-                }
-                break;
-        }
+    u64 RemainingData = TestData->Size / Pipe->BufferMaxFill;
+    while(RemainingData > 0) {
+        SdbMemcpy(CurBuf->Mem, TestData->Data + (TestData->Size - RemainingData),
+                  Pipe->BufferMaxFill);
+        SdPipeGetWriteBuffer(Pipe);
     }
 
-exit:
     SdPipeFlush(Pipe);
     SdbLogDebug("Modbus main loop stopped with %s", (Ret == 0) ? "success" : "error");
 

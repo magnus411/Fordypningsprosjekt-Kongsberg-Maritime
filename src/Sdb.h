@@ -1251,7 +1251,7 @@ Sdb__MemMap__(sdb_mmap *Map, void *MAddr, size_t MSize, int MProt, int MFlags, i
             }
         }
 
-        Map->Fd = open(FileName, OFlags, OMode);
+        Map->Fd = open(FileName, OFlags & (~O_TRUNC), OMode);
         if(Map->Fd == -1) {
             Sdb__WriteLog__(Module, "ERR", "Error opening file %s: %s", FileName, strerror(errno));
             goto error;
@@ -1341,7 +1341,8 @@ SdbLoadFileIntoMemory(const char *Filename, sdb_arena *Arena)
         FileData->Data = SdbPushArray(Arena, u8, FileSize + 1);
     } else {
         u64 FileDataSize = sizeof(sdb_file_data) + FileSize + 1;
-        FileData         = calloc(1, FileDataSize);
+        FileData         = calloc(1, sizeof(sdb_file_data));
+        FileData->Data   = calloc(1, FileSize);
         if(!FileData) {
             fclose(File);
             return NULL;
@@ -1351,6 +1352,7 @@ SdbLoadFileIntoMemory(const char *Filename, sdb_arena *Arena)
     FileData->Size = FileSize;
     u64 BytesRead  = fread(FileData->Data, 1, FileSize, File);
     if(BytesRead != FileSize) {
+        fprintf(stderr, "Failed to read data from file %s\n", strerror(errno));
         fclose(File);
         if(Arena != NULL) {
             SdbArenaPop(Arena, sizeof(sdb_file_data) + FileData->Size + 1);

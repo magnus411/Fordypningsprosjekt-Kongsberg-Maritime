@@ -14,9 +14,10 @@ SDB_LOG_REGISTER(Main);
 #include <src/Common/Time.h>
 #include <src/DatabaseSystems/DatabaseInitializer.h>
 #include <src/DatabaseSystems/DatabaseSystems.h>
-#include <src/DevUtils/ModbusTestServer.h>
 #include <src/Libs/cJSON/cJSON.h>
 
+#include <src/DevUtils/ModbusMockApi.h>
+#include <src/DevUtils/ModbusTestServer.h>
 
 #define SD_PIPE_BUF_COUNT 4
 
@@ -57,7 +58,7 @@ main(int ArgCount, char **ArgV)
     // TODO(ingar): It might be more prudent for the api's to malloc memory directly if main isn't
     // going to use any anyways
     sdb_arena SdbArena;
-    u64       SdbArenaSize = SdbMebiByte(32);
+    u64       SdbArenaSize = SdbMebiByte(128);
     u8       *SdbArenaMem  = malloc(SdbArenaSize);
     if(NULL == SdbArenaMem) {
         SdbLogError("Failed to allocate memory for arena");
@@ -88,7 +89,8 @@ main(int ArgCount, char **ArgV)
     }
 
 
-    const u32   ThreadCount = 3;
+    // const u32   ThreadCount = 3;
+    const u32   ThreadCount = 2;
     sdb_barrier ModulesBarrier;
     SdbBarrierInit(&ModulesBarrier, ThreadCount);
     // NOTE(ingar): This is used to ensure that all modules have been initialized before
@@ -98,10 +100,14 @@ main(int ArgCount, char **ArgV)
     db_module_ctx *DbmCtx = DbModuleInit(&ModulesBarrier, Dbs_Postgres, DbsApiInit, SdPipes,
                                          SensorCount, SdbMebiByte(9), SdbMebiByte(8), &SdbArena);
 
-    comm_module_ctx *CommCtx
-        = CommModulePrepare(&ModulesBarrier, Comm_Protocol_Modbus_TCP, CpApiInit, SdPipes,
-                            SensorCount, SdbMebiByte(9), SdbMebiByte(8), &SdbArena);
+    // comm_module_ctx *CommCtx
+    //     = CommModulePrepare(&ModulesBarrier, Comm_Protocol_Modbus_TCP, CpApiInit, SdPipes,
+    //                         SensorCount, SdbMebiByte(9), SdbMebiByte(8), &SdbArena);
 
+    // TODO(ingar): For testing, remove
+    comm_module_ctx *CommCtx
+        = CommModulePrepare(&ModulesBarrier, Comm_Protocol_Modbus_TCP, MbMockApiInit, SdPipes,
+                            SensorCount, SdbMebiByte(9), SdbMebiByte(8), &SdbArena);
 
     sigset_t SigSet;
     sigemptyset(&SigSet);
@@ -112,7 +118,7 @@ main(int ArgCount, char **ArgV)
 
 
     sdb_thread DbmThread, CommThread, ModbusServerThread;
-    SdbThreadCreate(&ModbusServerThread, RunModbusTestServer, &ModulesBarrier);
+    // SdbThreadCreate(&ModbusServerThread, RunModbusTestServer, &ModulesBarrier);
     SdbThreadCreate(&DbmThread, DbModuleRun, DbmCtx);
     SdbThreadCreate(&CommThread, CommModuleRun, CommCtx);
 
@@ -135,7 +141,7 @@ main(int ArgCount, char **ArgV)
     SdbTCtlWaitForStop(&DbmCtx->Control);
     SdbTCtlWaitForStop(&CommCtx->Control);
 
-    sdb_errno ModbusRet = SdbThreadJoin(&ModbusServerThread);
+    sdb_errno ModbusRet = 0; // SdbThreadJoin(&ModbusServerThread);
     sdb_errno DbmRet    = SdbThreadJoin(&DbmThread);
     sdb_errno CommRet   = SdbThreadJoin(&CommThread);
 
