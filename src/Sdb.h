@@ -7,6 +7,7 @@
 // part by uncommenting #define SDB_H_IMPLEMENTATION (and remember to comment it out again
 // afterwards,
 #include <assert.h>
+#include <ctype.h>
 #include <errno.h>
 #include <fcntl.h>
 #include <float.h>
@@ -122,6 +123,7 @@ enum
 bool   SdbDoubleEpsilonCompare(const double A, const double B);
 u64    SdbDoubleSignBit(double F);
 double SdbRadiansFromDegrees(double Degrees);
+size_t SdbMemSizeFromString(const char *SizeStr);
 
 ////////////////////////////////////////
 //              LOGGING               //
@@ -623,6 +625,74 @@ SdbRadiansFromDegrees(double Degrees)
 {
     double Radians = 0.01745329251994329577f * Degrees;
     return Radians;
+}
+
+size_t
+SdbMemSizeFromString(const char *SizeStr)
+{
+    if(!SizeStr || !*SizeStr) {
+        return 0;
+    }
+
+    char  *EndPtr;
+    size_t Value = strtoull(SizeStr, &EndPtr, 10);
+
+    if(EndPtr == SizeStr) {
+        return 0; // No number found
+    }
+
+    while(isspace(*EndPtr)) {
+        EndPtr++;
+    }
+
+    if(!*EndPtr) {
+        return Value;
+    }
+
+    size_t Multiplier = 0;
+    switch(*EndPtr) {
+        case 'T':
+            Multiplier = 1000ULL * 1000ULL * 1000ULL * 1000ULL;
+            break;
+        case 't':
+            Multiplier = 1024ULL * 1024ULL * 1024ULL * 1024ULL;
+            break;
+        case 'G':
+            Multiplier = 1000ULL * 1000ULL * 1000ULL;
+            break;
+        case 'g':
+            Multiplier = 1024ULL * 1024ULL * 1024ULL;
+            break;
+        case 'M':
+            Multiplier = 1000ULL * 1000ULL;
+            break;
+        case 'm':
+            Multiplier = 1024ULL * 1024ULL;
+            break;
+        case 'K':
+            Multiplier = 1000ULL;
+            break;
+        case 'k':
+            Multiplier = 1024ULL;
+            break;
+        case 'B':
+            // Check if this is just 'B' or part of a larger unit
+            if(EndPtr[1] != '\0') {
+                return 0;
+            } else {
+                Multiplier = 1;
+            }
+            break;
+        default:
+            return 0;
+    }
+
+    // If we have a unit letter, verify it's followed by 'B' (except for plain 'B')
+    if(*EndPtr != 'B' && (EndPtr[1] != 'B' || EndPtr[2] != '\0')) {
+        return 0;
+    }
+
+    return Value * Multiplier;
 }
 
 ////////////////////////////////////////
