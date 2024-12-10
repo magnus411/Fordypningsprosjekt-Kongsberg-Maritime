@@ -30,10 +30,11 @@ typedef struct
 
 } sensor_data_pipe;
 
-sensor_data_pipe **SdPipesInit(u64 PipeCount, u64 BufCount, size_t BufSize, sdb_arena *Arena);
-sdb_arena         *SdPipeGetWriteBuffer(sensor_data_pipe *Pipe);
-sdb_arena         *SdPipeGetReadBuffer(sensor_data_pipe *Pipe);
-void               SdPipeFlush(sensor_data_pipe *Pipe);
+sensor_data_pipe *SdpCreate(u64 BufCount, size_t BufSize, sdb_arena *Arena);
+void              SdpDestroy(sensor_data_pipe *Pipe, bool AllocatedWithArena);
+sdb_arena        *SdPipeGetWriteBuffer(sensor_data_pipe *Pipe);
+sdb_arena        *SdPipeGetReadBuffer(sensor_data_pipe *Pipe);
+void              SdPipeFlush(sensor_data_pipe *Pipe);
 
 SDB_END_EXTERN_C
 
