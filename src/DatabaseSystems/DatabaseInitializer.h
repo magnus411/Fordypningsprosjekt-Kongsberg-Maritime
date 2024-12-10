@@ -9,7 +9,7 @@ SDB_BEGIN_EXTERN_C
 
 // ccJSON **DbInitGetSchemasFromDb(PGconn *Conn);
 
-cJSON *DbInitGetConfFromFile(const char *filename, sdb_arena *Arena);
+cJSON *DbInitGetConfFromFile(const char *Filename, sdb_arena *A);
 
 SDB_END_EXTERN_C
 
