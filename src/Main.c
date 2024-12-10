@@ -11,26 +11,114 @@ SDB_LOG_REGISTER(Main);
 #include <src/CommProtocols/CommProtocols.h>
 #include <src/Common/SensorDataPipe.h>
 #include <src/Common/Thread.h>
+#include <src/Common/ThreadGroup.h>
 #include <src/Common/Time.h>
+#include <src/CpDbCouplings/CpDbCouplings.h>
 #include <src/DatabaseSystems/DatabaseInitializer.h>
 #include <src/DatabaseSystems/DatabaseSystems.h>
+
 #include <src/Libs/cJSON/cJSON.h>
 
 #include <src/DevUtils/ModbusMockApi.h>
 #include <src/DevUtils/ModbusTestServer.h>
 
-#define SD_PIPE_BUF_COUNT 4
-
 static volatile sig_atomic_t GlobalShutdown = 0;
 static sdb_mutex             ShutdownMutex;
 static sdb_cond              ShutdownCond;
-static sdb_thread            SignalHandlerThread;
-
+static pthread_t             SignalHandlerThread;
 
 sdb_errno
-SignalHandler(sdb_thread *Thread)
+SetUpFromConf(sdb_string ConfFilename, tg_manager **Manager)
 {
-    sigset_t *SigSet = Thread->Args;
+    sdb_errno Ret = 0;
+
+    sdb_file_data *ConfFile = SdbLoadFileIntoMemory(ConfFilename, NULL);
+    if(ConfFile == NULL) {
+        return -ENOMEM;
+    }
+
+    cJSON *Conf = cJSON_Parse((char *)ConfFile->Data);
+    if(Conf == NULL) {
+        Ret = -SDBE_JSON_ERR;
+        goto cleanup;
+    }
+
+
+    cJSON *CpDbCouplingConfs = cJSON_GetObjectItem(Conf, "cp_db_couplings");
+    if(CpDbCouplingConfs == NULL || !cJSON_IsArray(CpDbCouplingConfs)) {
+        Ret = -SDBE_JSON_ERR;
+        goto cleanup;
+    }
+
+    u64 CouplingCount = cJSON_GetArraySize(CpDbCouplingConfs);
+    if(CouplingCount <= 0) {
+        SdbLogError("No Cp-Db couplings were found in the configuration file (count was %lu)",
+                    CouplingCount);
+        Ret = -EINVAL;
+        goto cleanup;
+    }
+
+    // NOTE(ingar): This *can* be done programatically, but just manually adjusting it is simpler
+#define ALL_COUPLINGS_MAX_TASK_COUNT 3
+    u64 ManagerSize = sizeof(tg_manager) + CouplingCount * sizeof(tg_group *);
+    u64 TgsSize = CouplingCount * sizeof(tg_group) + ALL_COUPLINGS_MAX_TASK_COUNT * sizeof(tg_task)
+                + ALL_COUPLINGS_MAX_TASK_COUNT * sizeof(pthread_t);
+#undef ALL_COUPLINGS_MAX_TASK_COUNT
+
+    // NOTE(ingar): Using an arena in this manner isn't *exactly* their intended use-case, but I've
+    // already written the code to use an arena, so I'm doing this for expedience
+    // NOTE(ingar): The memory that the manager and thread groups live in is malloced, so it will
+    // exist even if the arena goes out of scope. The thread groups will live for the entirety of
+    // the program so freeing isn't an issue
+    // NOTE(ingar): All of this is kinda cursed
+    sdb_arena TgArena;
+    u64       TgArenaSize = ManagerSize + TgsSize;
+    u8       *TgAMem      = malloc(TgArenaSize);
+    SdbArenaInit(&TgArena, TgAMem, TgArenaSize);
+    if(TgAMem == NULL) {
+        SdbLogError("Failed to malloc thread group memory");
+        Ret = -ENOMEM;
+        goto cleanup;
+    }
+
+    *Manager = SdbPushStruct(&TgArena, tg_manager);
+    Ret      = TgInitManager(*Manager, CouplingCount, &TgArena);
+    if(Ret != 0) {
+        SdbLogError("Failed to init thread group manager");
+        goto cleanup;
+    }
+
+    u64    t = 0;
+    cJSON *CouplingConf;
+    cJSON_ArrayForEach(CouplingConf, CpDbCouplingConfs)
+    {
+        (*Manager)->Groups[t] = CpDbCouplingCreateTg(CouplingConf, *Manager, t, &TgArena);
+        if((*Manager)->Groups[t] == NULL) {
+            cJSON *CouplingName = cJSON_GetObjectItem(CouplingConf, "name");
+            SdbLogError("Unable to create thread group for Cp-Db coupling %s",
+                        cJSON_GetStringValue(CouplingName));
+            Ret = -1;
+            goto cleanup;
+        }
+    }
+
+cleanup:
+    if(Ret == -SDBE_JSON_ERR) {
+        SdbLogError("Error parsing JSON: %s", cJSON_GetErrorPtr());
+    }
+    if((Ret != 0) && (TgAMem != NULL)) {
+        free(TgAMem);
+    }
+
+    free(ConfFile);
+    cJSON_Delete(Conf);
+    return Ret;
+}
+
+void *
+SignalHandler(void *Arg)
+{
+    sigset_t *SigSet = Arg;
     int       Signal;
 
     while(!GlobalShutdown) {
@@ -55,101 +143,33 @@ SignalHandler(sdb_thread *Thread)
 int
 main(int ArgCount, char **ArgV)
 {
-    // TODO(ingar): It might be more prudent for the api's to malloc memory directly if main isn't
-    // going to use any anyways
-    sdb_arena SdbArena;
-    u64       SdbArenaSize = SdbMebiByte(128);
-    u8       *SdbArenaMem  = malloc(SdbArenaSize);
-    if(NULL == SdbArenaMem) {
-        SdbLogError("Failed to allocate memory for arena");
-        exit(EXIT_FAILURE);
-    } else {
-        SdbArenaInit(&SdbArena, SdbArenaMem, SdbArenaSize);
-    }
-
-    u64               SensorCount = 0;
-    sdb_scratch_arena Scratch     = SdbScratchBegin(&SdbArena);
-    cJSON *SchemaConf = DbInitGetConfFromFile("./configs/sensor_schemas.json", Scratch.Arena);
-    cJSON *SensorSchemaArray = cJSON_GetObjectItem(SchemaConf, "sensors");
-    if(SensorSchemaArray == NULL || !cJSON_IsArray(SensorSchemaArray)) {
-        SdbLogError("Schema JSON file is malformed");
-        exit(EXIT_FAILURE);
-    } else {
-        SensorCount = cJSON_GetArraySize(SensorSchemaArray);
-        cJSON_Delete(SchemaConf);
-        SdbScratchRelease(Scratch);
-    }
-
-
-    sensor_data_pipe **SdPipes
-        = SdPipesInit(SensorCount, SD_PIPE_BUF_COUNT, SdbKibiByte(32), &SdbArena);
-    if(SdPipes == NULL) {
-        SdbLogError("Failed to init sensor data pipes");
+    tg_manager *Manager = NULL;
+    SetUpFromConf("./configs/sdb_conf.json", &Manager);
+    if(Manager == NULL) {
+        SdbLogError("Failed to set up from config file");
         exit(EXIT_FAILURE);
     }
-
-
-    // const u32   ThreadCount = 3;
-    const u32   ThreadCount = 2;
-    sdb_barrier ModulesBarrier;
-    SdbBarrierInit(&ModulesBarrier, ThreadCount);
-    // NOTE(ingar): This is used to ensure that all modules have been initialized before
-    // starting their main loop
-
-
-    db_module_ctx *DbmCtx = DbModuleInit(&ModulesBarrier, Dbs_Postgres, DbsApiInit, SdPipes,
-                                         SensorCount, SdbMebiByte(9), SdbMebiByte(8), &SdbArena);
-
-    // comm_module_ctx *CommCtx
-    //     = CommModulePrepare(&ModulesBarrier, Comm_Protocol_Modbus_TCP, CpApiInit, SdPipes,
-    //                         SensorCount, SdbMebiByte(9), SdbMebiByte(8), &SdbArena);
-
-    // TODO(ingar): For testing, remove
-    comm_module_ctx *CommCtx
-        = CommModulePrepare(&ModulesBarrier, Comm_Protocol_Modbus_TCP, MbMockApiInit, SdPipes,
-                            SensorCount, SdbMebiByte(9), SdbMebiByte(8), &SdbArena);
 
     sigset_t SigSet;
     sigemptyset(&SigSet);
     sigaddset(&SigSet, SIGINT);
     sigaddset(&SigSet, SIGTERM);
     pthread_sigmask(SIG_BLOCK, &SigSet, NULL);
-    SdbThreadCreate(&SignalHandlerThread, SignalHandler, &SigSet);
+    pthread_create(&SignalHandlerThread, NULL, SignalHandler, &SigSet);
+    pthread_detach(SignalHandlerThread);
 
-
-    sdb_thread DbmThread, CommThread, ModbusServerThread;
-    // SdbThreadCreate(&ModbusServerThread, RunModbusTestServer, &ModulesBarrier);
-    SdbThreadCreate(&DbmThread, DbModuleRun, DbmCtx);
-    SdbThreadCreate(&CommThread, CommModuleRun, CommCtx);
+    sdb_errno TgStartRet = TgManagerStartAll(Manager);
+    if(TgStartRet != 0) {
+        exit(EXIT_FAILURE);
+    }
 
 
     SdbMutexInit(&ShutdownMutex);
     SdbCondInit(&ShutdownCond);
 
-    // TODO(ingar): Find some way for the modules to initiate a shutdown (for development, prod will
-    // need some other recovery mechanism) if they fail
-    // TODO(ingar): Probably make global shutdown externally available
     SdbMutexLock(&ShutdownMutex, SDB_TIMEOUT_MAX);
     while(!GlobalShutdown) {
         SdbCondWait(&ShutdownCond, &ShutdownMutex, SDB_TIMEOUT_MAX);
     }
     SdbMutexUnlock(&ShutdownMutex);
-
-    SdbTCtlSignalStop(&DbmCtx->Control);
-    SdbTCtlSignalStop(&CommCtx->Control);
-
-    SdbTCtlWaitForStop(&DbmCtx->Control);
-    SdbTCtlWaitForStop(&CommCtx->Control);
-
-    sdb_errno ModbusRet = 0; // SdbThreadJoin(&ModbusServerThread);
-    sdb_errno DbmRet    = SdbThreadJoin(&DbmThread);
-    sdb_errno CommRet   = SdbThreadJoin(&CommThread);
-
-    if(DbmRet == 0 && CommRet == 0 && ModbusRet == 0) {
-        SdbLogInfo("All threads finished with success!");
-        exit(EXIT_SUCCESS);
-    } else {
-        SdbLogError("Threads finished with errors!");
-        exit(EXIT_FAILURE);
-    }
 }
