@@ -1,3 +1,4 @@
+#if 0
 #include <errno.h>
 #include <pthread.h>
 
@@ -162,3 +163,4 @@ exit:
     SdbTCtlMarkStopped(&CommCtx->Control);
     return Ret;
 }
+#endif
