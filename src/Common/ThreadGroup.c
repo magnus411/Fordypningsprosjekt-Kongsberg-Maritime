@@ -9,38 +9,6 @@ SDB_LOG_REGISTER(ThreadGroup);
 #include <src/Common/ThreadGroup.h>
 #include <src/Common/Time.h>
 
-struct tg_manager;
-
-typedef void *(*tg_fn)(void *);
-
-typedef struct
-{
-    pthread_t *Threads;
-    void      *SharedData;
-
-    i32  GroupId;
-    i32  ThreadCount;
-    bool Completed;
-
-    struct tg_manager *Manager;
-
-    void (*CleanupFn)(void *);
-
-} tg_group;
-
-
-typedef struct tg_manager
-{
-    tg_group **Groups;
-
-    i32 GroupCount;
-    i32 CompletedCount;
-
-    sdb_mutex Mutex;
-    sdb_cond  Cond;
-
-} tg_manager;
-
 sdb_errno
 TgInitManager(tg_manager *Manager, i32 MaxGroups, sdb_arena *A)
 {
@@ -66,8 +34,8 @@ TgMonitor(void *Arg)
         pthread_join(Group->Threads[i], NULL);
     }
 
-    if(Group->CleanupFn) {
-        Group->CleanupFn(Group->SharedData);
+    if(Group->Cleanup) {
+        Group->Cleanup(Group->SharedData);
     }
 
     SdbMutexLock(&Group->Manager->Mutex, SDB_TIMEOUT_MAX);
@@ -79,35 +47,50 @@ TgMonitor(void *Arg)
     return NULL;
 }
 
-sdb_errno
-TgInitGroup(tg_group *Group, tg_manager *Manager, i32 GroupId, i32 ThreadCount,
-            void *(*InitFn)(void), tg_fn *Tasks, void (*CleanupFn)(void *), sdb_arena *A)
+tg_group *
+TgCreateGroup(tg_manager *Manager, i32 GroupId, i32 ThreadCount, void *SharedData, tg_init Init,
+              tg_task *Tasks, tg_cleanup Cleanup, sdb_arena *A)
 {
-    sdb_errno Ret = 0;
+    tg_group *Group = SdbPushStruct(A, tg_group);
+    if(!Group) {
+        return NULL;
+    }
 
-    Group->Threads     = SdbPushArray(A, pthread_t, ThreadCount);
+    Group->Threads = SdbPushArray(A, pthread_t, ThreadCount);
+    if(!Group->Threads) {
+        return NULL;
+    }
+
     Group->GroupId     = GroupId;
     Group->ThreadCount = ThreadCount;
     Group->Completed   = false;
     Group->Manager     = Manager;
-    Group->CleanupFn   = CleanupFn;
-
-    if(!Group->Threads) {
-        return -ENOMEM;
+    Group->Cleanup     = Cleanup;
+    Group->SharedData  = (!SharedData && Init) ? Init() : SharedData;
+    Group->Tasks       = SdbPushArray(A, tg_task, ThreadCount); // To improve data locality
+    if(Group->Tasks == NULL) {
+        return NULL;
+    } else {
+        SdbMemcpy(Group->Tasks, Tasks, ThreadCount * sizeof(*Tasks));
     }
 
-    Group->SharedData = InitFn ? InitFn() : NULL;
+    return Group;
+}
 
-    for(i32 i = 0; i < ThreadCount; ++i) {
-        Ret = pthread_create(&Group->Threads[i], NULL, Tasks[i], Group->SharedData);
+sdb_errno
+TgStartGroup(tg_group *Group)
+{
+    sdb_errno Ret = 0;
+
+    for(i32 i = 0; i < Group->ThreadCount; ++i) {
+        Ret = pthread_create(&Group->Threads[i], NULL, Group->Tasks[i], Group->SharedData);
         if(Ret != 0) {
             for(i32 j = 0; j < i; ++j) {
                 pthread_join(Group->Threads[j], NULL);
             }
-            if(CleanupFn) {
-                CleanupFn(Group->SharedData);
+            if(Group->Cleanup) {
+                Group->Cleanup(Group->SharedData);
             }
-            free(Group->Threads);
             return -Ret;
         }
     }
@@ -122,8 +105,26 @@ TgInitGroup(tg_group *Group, tg_manager *Manager, i32 GroupId, i32 ThreadCount,
     return Ret;
 }
 
+sdb_errno
+TgManagerStartAll(tg_manager *Manager)
+{
+    sdb_errno Ret = 0;
+    SdbMutexLock(&Manager->Mutex, SDB_TIMEOUT_MAX);
+
+    for(u64 g = 0; g < Manager->GroupCount; ++g) {
+        Ret = TgStartGroup(Manager->Groups[g]);
+        if(Ret != 0) {
+            SdbLogError("Manager failed to start group %d", Manager->Groups[g]->GroupId);
+            break;
+        }
+    }
+
+    SdbMutexUnlock(&Manager->Mutex);
+    return Ret;
+}
+
 void
-TgWaitForAll(tg_manager *Manager)
+TgManagerWaitForAll(tg_manager *Manager)
 {
     SdbMutexLock(&Manager->Mutex, SDB_TIMEOUT_MAX);
 
