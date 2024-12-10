@@ -88,6 +88,8 @@ enum
     SDBE_PG_ERR = 6,
 
     SDBE_JSON_ERR = 7,
+
+    SDBE_PTR_WAS_NULL = 8,
 };
 
 
@@ -164,6 +166,9 @@ i64 Sdb__WriteLog__(sdb__log_module__ *Module, const char *LogLevel, const char 
     __attribute__((format(printf, 3, 4)));
 
 #define SDB__LOG_LEVEL_CHECK__(level) (SDB_LOG_LEVEL >= SDB_LOG_LEVEL_##level)
+
+#define SDB_LOGGING_NOT_USED                                                                       \
+    static sdb__log_module__ *Sdb__LogInstance__ __attribute__((used)) = NULL
 
 #define SDB_LOG_REGISTER(module_name)                                                              \
     static char       SDB_CONCAT3(Sdb__LogModule, module_name, Buffer__)[SDB_LOG_BUF_SIZE];        \
@@ -420,7 +425,7 @@ void SdbSeedRandPCG(uint32_t Seed);
 typedef struct
 {
     u64 Size;
-    u8 *Data;
+    u8  Data[];
 } sdb_file_data;
 
 sdb_file_data *SdbLoadFileIntoMemory(const char *Filename, sdb_arena *Arena);
@@ -703,6 +708,10 @@ SdbMemSizeFromString(const char *SizeStr)
 i64
 Sdb__WriteLog__(sdb__log_module__ *Module, const char *LogLevel, const char *Fmt, ...)
 {
+    if(Module == NULL) {
+        return 0; // NOTE(ingar): If the log module is NULL, then we assume logging isn't used
+    }
+
     pthread_mutex_lock(&Module->Lock);
 
     time_t    PosixTime;
@@ -1406,17 +1415,15 @@ SdbLoadFileIntoMemory(const char *Filename, sdb_arena *Arena)
     rewind(File);
 
     sdb_file_data *FileData;
+    u64            FileDataSize = sizeof(sdb_file_data) + FileSize + 1;
     if(NULL != Arena) {
-        FileData       = SdbPushStruct(Arena, sdb_file_data);
-        FileData->Data = SdbPushArray(Arena, u8, FileSize + 1);
+        FileData = SdbArenaPush(Arena, FileDataSize);
     } else {
-        u64 FileDataSize = sizeof(sdb_file_data) + FileSize + 1;
-        FileData         = calloc(1, sizeof(sdb_file_data));
-        FileData->Data   = calloc(1, FileSize);
-        if(!FileData) {
-            fclose(File);
-            return NULL;
-        }
+        FileData = calloc(1, FileDataSize);
+    }
+    if(!FileData) {
+        fclose(File);
+        return NULL;
     }
 
     FileData->Size = FileSize;
@@ -1425,7 +1432,7 @@ SdbLoadFileIntoMemory(const char *Filename, sdb_arena *Arena)
         fprintf(stderr, "Failed to read data from file %s\n", strerror(errno));
         fclose(File);
         if(Arena != NULL) {
-            SdbArenaPop(Arena, sizeof(sdb_file_data) + FileData->Size + 1);
+            SdbArenaPop(Arena, FileDataSize);
         } else {
             free(FileData);
         }
