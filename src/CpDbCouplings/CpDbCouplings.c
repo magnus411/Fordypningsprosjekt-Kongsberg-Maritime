@@ -27,7 +27,7 @@ GetCouplingIdFromName(const char *Name)
 }
 
 tg_group *
-CpDbCouplingCreateTg(cJSON *Conf, tg_manager *Manager, i32 GroupId, sdb_arena *A)
+CpDbCouplingCreateTg(cJSON *Conf, u64 GroupId, sdb_arena *A)
 {
     cJSON *Enabled = cJSON_GetObjectItem(Conf, "enabled");
     if(!(cJSON_IsBool(Enabled) && cJSON_IsTrue(Enabled))) {
@@ -42,7 +42,7 @@ CpDbCouplingCreateTg(cJSON *Conf, tg_manager *Manager, i32 GroupId, sdb_arena *A
     switch(CouplingId) {
         case Mb_With_Postgres:
             {
-                Group = MbPgCreateTg(Conf, Manager, GroupId, A);
+                Group = MbPgCreateTg(Conf, GroupId, A);
                 if(Group != NULL) {
                     SdbLogInfo("Created thread group for Modbus with Postgres");
                 } else {

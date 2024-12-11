@@ -13,7 +13,7 @@ SDB_LOG_REGISTER(MbWithPg);
 void *
 PgThread(void *Arg)
 {
-    PgRun(Arg);
+    // PgRun(Arg);
 
     return NULL;
 }
@@ -21,7 +21,7 @@ PgThread(void *Arg)
 void *
 MbThread(void *Arg)
 {
-    MbRun(Arg);
+    // MbRun(Arg);
     return NULL;
 }
 
@@ -119,17 +119,20 @@ MbPgCleanup(void *Arg)
 void *
 MbPgTestServer(void *Arg)
 {
+    return NULL;
 }
 
-static tg_task MbPgTasks[] = { PgThread, MbThread };
+static tg_task MbPgTasks[]     = { PgThread, MbThread };
+static tg_task MbPgTestTasks[] = { PgThread, MbThread, MbPgTestServer };
 
 tg_group *
-MbPgCreateTg(cJSON *Conf, tg_manager *Manager, i32 GroupId, sdb_arena *A)
+MbPgCreateTg(cJSON *Conf, u64 GroupId, sdb_arena *A)
 {
     void *Ctx = MbPgInit(Conf);
     if(Ctx == NULL) {
         return NULL;
     }
-    tg_group *Group = TgCreateGroup(Manager, GroupId, 2, Ctx, NULL, MbPgTasks, MbPgCleanup, A);
+
+    tg_group *Group = TgCreateGroup(GroupId, 2, Ctx, NULL, MbPgTasks, MbPgCleanup, A);
     return Group;
 }

@@ -27,6 +27,6 @@ void *MbPgInit(cJSON *Conf);
 
 sdb_errno MbPgCleanup(void *Arg);
 
-tg_group *MbPgCreateTg(cJSON *Conf, tg_manager *Manager, i32 GroupId, sdb_arena *A);
+tg_group *MbPgCreateTg(cJSON *Conf, u64 GroupId, sdb_arena *A);
 
 #endif
