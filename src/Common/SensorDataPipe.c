@@ -10,11 +10,11 @@ SDB_LOG_REGISTER(SensorDataPipe);
 #include <src/Common/Time.h>
 
 sensor_data_pipe *
-SdpCreate(u64 BufSize, u64 BufCount, sdb_arena *Arena)
+SdpCreate(u64 BufCount, u64 BufSize, sdb_arena *Arena)
 {
     sdb_arena TempArena;
-    bool      UsedArena = Arena != NULL;
-    if(!UsedArena) {
+    bool      UsingArena = Arena != NULL;
+    if(!UsingArena) {
         u64 PipeSize = sizeof(sensor_data_pipe) + BufCount * sizeof(sdb_arena *)
                      + BufCount * sizeof(sdb_arena) + BufCount * BufSize;
         u8 *Mem = calloc(1, PipeSize);
@@ -37,7 +37,7 @@ SdpCreate(u64 BufSize, u64 BufCount, sdb_arena *Arena)
 
     if(Pipe->ReadEventFd == -1 || Pipe->WriteEventFd == -1) {
         SdbLogError("Failed to create event fd");
-        if(UsedArena) {
+        if(UsingArena) {
             SdbArenaSeek(Arena, ArenaF5);
         } else {
             free(Arena->Mem);

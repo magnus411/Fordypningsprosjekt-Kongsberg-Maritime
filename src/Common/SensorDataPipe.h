@@ -30,7 +30,7 @@ typedef struct
 
 } sensor_data_pipe;
 
-sensor_data_pipe *SdpCreate(u64 BufCount, size_t BufSize, sdb_arena *Arena);
+sensor_data_pipe *SdpCreate(u64 BufCount, u64 BufSize, sdb_arena *Arena);
 void              SdpDestroy(sensor_data_pipe *Pipe, bool AllocatedWithArena);
 sdb_arena        *SdPipeGetWriteBuffer(sensor_data_pipe *Pipe);
 sdb_arena        *SdPipeGetReadBuffer(sensor_data_pipe *Pipe);
