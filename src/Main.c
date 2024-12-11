@@ -8,28 +8,99 @@
 
 SDB_LOG_REGISTER(Main);
 
-#include <src/CommProtocols/CommProtocols.h>
-#include <src/Common/SensorDataPipe.h>
 #include <src/Common/Thread.h>
-#include <src/Common/Time.h>
-#include <src/DatabaseSystems/DatabaseInitializer.h>
-#include <src/DatabaseSystems/DatabaseSystems.h>
-#include <src/DevUtils/ModbusTestServer.h>
+#include <src/Common/ThreadGroup.h>
+#include <src/CpDbCouplings/CpDbCouplings.h>
+
 #include <src/Libs/cJSON/cJSON.h>
 
-
-#define SD_PIPE_BUF_COUNT 4
-
-static volatile sig_atomic_t GlobalShutdown = 0;
-static sdb_mutex             ShutdownMutex;
-static sdb_cond              ShutdownCond;
-static sdb_thread            SignalHandlerThread;
-
+volatile sig_atomic_t GlobalShutdown = 0;
+static sdb_mutex      ShutdownMutex;
+static sdb_cond       ShutdownCond;
+static pthread_t      SignalHandlerThread;
 
 sdb_errno
-SignalHandler(sdb_thread *Thread)
+SetUpFromConf(sdb_string ConfFilename, tg_manager **Manager)
 {
-    sigset_t *SigSet = Thread->Args;
+    sdb_errno      Ret               = 0;
+    sdb_file_data *ConfFile          = NULL;
+    cJSON         *Conf              = NULL;
+    cJSON         *CpDbCouplingConfs = NULL;
+    u64            CouplingCount     = 0;
+    u64            tg                = 0;
+    cJSON         *CouplingConf      = NULL;
+    tg_group     **Tgs               = NULL;
+
+    ConfFile = SdbLoadFileIntoMemory(ConfFilename, NULL);
+    if(ConfFile == NULL) {
+        return -ENOMEM;
+    }
+
+    Conf = cJSON_Parse((char *)ConfFile->Data);
+    if(Conf == NULL) {
+        Ret = -SDBE_JSON_ERR;
+        goto cleanup;
+    }
+
+    CpDbCouplingConfs = cJSON_GetObjectItem(Conf, "cp_db_couplings");
+    if(CpDbCouplingConfs == NULL || !cJSON_IsArray(CpDbCouplingConfs)) {
+        Ret = -SDBE_JSON_ERR;
+        goto cleanup;
+    }
+
+    CouplingCount = cJSON_GetArraySize(CpDbCouplingConfs);
+    if(CouplingCount <= 0) {
+        SdbLogError("No Cp-Db couplings were found in the configuration file (count was %lu)",
+                    CouplingCount);
+        Ret = -EINVAL;
+        goto cleanup;
+    }
+
+    // NOTE(ingar): Has to be done this way because of the goto statements
+    Tgs = malloc(sizeof(tg_group *) * CouplingCount);
+    if(!Tgs) {
+        Ret = -ENOMEM;
+        goto cleanup;
+    }
+
+    cJSON_ArrayForEach(CouplingConf, CpDbCouplingConfs)
+    {
+        Tgs[tg] = CdcCreateTg(CouplingConf, tg, NULL);
+        if(Tgs[tg] == NULL) {
+            cJSON *CouplingName = cJSON_GetObjectItem(CouplingConf, "name");
+            SdbLogError("Unable to create thread group for Cp-Db coupling %s",
+                        cJSON_GetStringValue(CouplingName));
+            Ret = -1;
+            goto cleanup;
+        }
+        ++tg;
+    }
+
+    *Manager = TgCreateManager(Tgs, CouplingCount, NULL);
+    if(!*Manager) {
+        SdbLogError("Failed to create TG manager");
+        Ret = -1;
+    }
+
+cleanup:
+    if(Ret == -SDBE_JSON_ERR) {
+        SdbLogError("Error parsing JSON: %s", cJSON_GetErrorPtr());
+    }
+    if((Ret != 0) && *Manager) {
+        TgDestroyManager(*Manager);
+    }
+    if(Tgs) {
+        free(Tgs);
+    }
+    free(ConfFile);
+    cJSON_Delete(Conf);
+    return Ret;
+}
+
+void *
+SignalHandler(void *Arg)
+{
+    sigset_t *SigSet = Arg;
     int       Signal;
 
     while(!GlobalShutdown) {
@@ -54,96 +125,46 @@ SignalHandler(sdb_thread *Thread)
 int
 main(int ArgCount, char **ArgV)
 {
-    // TODO(ingar): It might be more prudent for the api's to malloc memory directly if main isn't
-    // going to use any anyways
-    sdb_arena SdbArena;
-    u64       SdbArenaSize = SdbMebiByte(32);
-    u8       *SdbArenaMem  = malloc(SdbArenaSize);
-    if(NULL == SdbArenaMem) {
-        SdbLogError("Failed to allocate memory for arena");
+    tg_manager *Manager = NULL;
+    SetUpFromConf("./configs/sdb_conf.json", &Manager);
+    if(Manager == NULL) {
+        SdbLogError("Failed to set up from config file");
         exit(EXIT_FAILURE);
     } else {
-        SdbArenaInit(&SdbArena, SdbArenaMem, SdbArenaSize);
+        SdbLogInfo("Successfully set up from config file!");
     }
 
-    u64               SensorCount = 0;
-    sdb_scratch_arena Scratch     = SdbScratchBegin(&SdbArena);
-    cJSON *SchemaConf = DbInitGetConfFromFile("./configs/sensor_schemas.json", Scratch.Arena);
-    cJSON *SensorSchemaArray = cJSON_GetObjectItem(SchemaConf, "sensors");
-    if(SensorSchemaArray == NULL || !cJSON_IsArray(SensorSchemaArray)) {
-        SdbLogError("Schema JSON file is malformed");
-        exit(EXIT_FAILURE);
-    } else {
-        SensorCount = cJSON_GetArraySize(SensorSchemaArray);
-        cJSON_Delete(SchemaConf);
-        SdbScratchRelease(Scratch);
-    }
-
-
-    sensor_data_pipe **SdPipes
-        = SdPipesInit(SensorCount, SD_PIPE_BUF_COUNT, SdbKibiByte(32), &SdbArena);
-    if(SdPipes == NULL) {
-        SdbLogError("Failed to init sensor data pipes");
-        exit(EXIT_FAILURE);
-    }
-
-
-    const u32   ThreadCount = 3;
-    sdb_barrier ModulesBarrier;
-    SdbBarrierInit(&ModulesBarrier, ThreadCount);
-    // NOTE(ingar): This is used to ensure that all modules have been initialized before
-    // starting their main loop
-
-
-    db_module_ctx *DbmCtx = DbModuleInit(&ModulesBarrier, Dbs_Postgres, DbsApiInit, SdPipes,
-                                         SensorCount, SdbMebiByte(9), SdbMebiByte(8), &SdbArena);
-
-    comm_module_ctx *CommCtx
-        = CommModulePrepare(&ModulesBarrier, Comm_Protocol_Modbus_TCP, CpApiInit, SdPipes,
-                            SensorCount, SdbMebiByte(9), SdbMebiByte(8), &SdbArena);
-
-
+    SdbLogInfo("Starting signal handler");
     sigset_t SigSet;
     sigemptyset(&SigSet);
     sigaddset(&SigSet, SIGINT);
     sigaddset(&SigSet, SIGTERM);
     pthread_sigmask(SIG_BLOCK, &SigSet, NULL);
-    SdbThreadCreate(&SignalHandlerThread, SignalHandler, &SigSet);
+    pthread_create(&SignalHandlerThread, NULL, SignalHandler, &SigSet);
+    pthread_detach(SignalHandlerThread);
 
+    SdbLogInfo("Starting all thread groups");
+    sdb_errno TgStartRet = TgManagerStartAll(Manager);
+    if(TgStartRet != 0) {
+        SdbLogError("Failed to start thread groups. Exiting");
+        exit(EXIT_FAILURE);
+    } else {
+        SdbLogInfo("Successfully started all thread groups!");
+    }
 
-    sdb_thread DbmThread, CommThread, ModbusServerThread;
-    SdbThreadCreate(&ModbusServerThread, RunModbusTestServer, &ModulesBarrier);
-    SdbThreadCreate(&DbmThread, DbModuleRun, DbmCtx);
-    SdbThreadCreate(&CommThread, CommModuleRun, CommCtx);
-
-
+    // TODO(ingar): Move signal handlign to monitor threads
+    SdbLogInfo("Starting to wait for shutdown signal");
     SdbMutexInit(&ShutdownMutex);
     SdbCondInit(&ShutdownCond);
-
-    // TODO(ingar): Find some way for the modules to initiate a shutdown (for development, prod will
-    // need some other recovery mechanism) if they fail
-    // TODO(ingar): Probably make global shutdown externally available
     SdbMutexLock(&ShutdownMutex, SDB_TIMEOUT_MAX);
     while(!GlobalShutdown) {
         SdbCondWait(&ShutdownCond, &ShutdownMutex, SDB_TIMEOUT_MAX);
     }
     SdbMutexUnlock(&ShutdownMutex);
 
-    SdbTCtlSignalStop(&DbmCtx->Control);
-    SdbTCtlSignalStop(&CommCtx->Control);
+    SdbLogInfo("Shutdown signal received. Shutting down thread groups");
+    TgManagerWaitForAll(Manager);
+    SdbLogInfo("All thread groups have shut down. Goodbye!");
 
-    SdbTCtlWaitForStop(&DbmCtx->Control);
-    SdbTCtlWaitForStop(&CommCtx->Control);
-
-    sdb_errno ModbusRet = SdbThreadJoin(&ModbusServerThread);
-    sdb_errno DbmRet    = SdbThreadJoin(&DbmThread);
-    sdb_errno CommRet   = SdbThreadJoin(&CommThread);
-
-    if(DbmRet == 0 && CommRet == 0 && ModbusRet == 0) {
-        SdbLogInfo("All threads finished with success!");
-        exit(EXIT_SUCCESS);
-    } else {
-        SdbLogError("Threads finished with errors!");
-        exit(EXIT_FAILURE);
-    }
+    exit(EXIT_SUCCESS);
 }

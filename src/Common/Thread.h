@@ -3,7 +3,6 @@
 
 #include <pthread.h>
 #include <semaphore.h>
-#include <stdatomic.h>
 
 #include <src/Sdb.h>
 
@@ -15,6 +14,17 @@ typedef sem_t             sdb_sem;
 typedef pthread_mutex_t   sdb_mutex;
 typedef pthread_cond_t    sdb_cond;
 typedef pthread_barrier_t sdb_barrier;
+
+typedef struct
+{
+    sdb_mutex Mutex;
+    sdb_cond  Cond;
+    bool      ShouldStop;
+    bool      HasStopped;
+    bool      WaitingForSignalStop;
+    bool      WaitingForMarkStopped;
+
+} sdb_thread_control;
 
 sdb_errno SdbSemInit(sdb_sem *Sem, u32 InitialValue);
 sdb_errno SdbSemDeinit(sdb_sem *Sem);
@@ -35,45 +45,6 @@ sdb_errno SdbCondBroadcast(sdb_cond *Cond);
 sdb_errno SdbBarrierInit(sdb_barrier *Barrier, u32 ThreadCount);
 sdb_errno SdbBarrierDeinit(sdb_barrier *Barrier);
 sdb_errno SdbBarrierWait(sdb_barrier *Barrier);
-
-// TODO(ingar): rw_lock
-
-struct sdb_thread;
-typedef sdb_errno (*sdb_thread_task)(struct sdb_thread *Thread);
-typedef struct sdb_thread
-{
-    pthread_t pid;
-
-    bool Joinable;
-
-    atomic_uint State;
-    sdb_sem     NewSignal;
-    sdb_sem     SignalProcessed;
-
-    sdb_thread_task Task;
-    sdb_errno       TaskResult;
-    void           *Args;
-
-} sdb_thread;
-
-typedef struct
-{
-    sdb_mutex Mutex;
-    sdb_cond  Cond;
-    bool      ShouldStop;
-    bool      HasStopped;
-    bool      WaitingForSignalStop;
-    bool      WaitingForMarkStopped;
-
-} sdb_thread_control;
-
-sdb_errno   SdbThreadCreate(sdb_thread *Thread, sdb_thread_task Task, void *Args);
-sdb_errno   SdbThreadCheckSignal(sdb_thread *Thread, sdb_timediff MaxTimeout);
-sdb_errno   SdbThreadJoin(sdb_thread *Thread);
-sdb_errno   SdbThreadPause(sdb_thread *Thread, sdb_timediff MaxTimeout);
-sdb_errno   SdbThreadContinue(sdb_thread *Thread, sdb_timediff MaxTimeout);
-sdb_errno   SdbThreadKill(sdb_thread *Thread, sdb_timediff MaxTimeout);
-sdb_thread *SdbThreadGetCurrent(void);
 
 // TODO(ingar): Error handling
 sdb_errno SdbTCtlInit(sdb_thread_control *Control);

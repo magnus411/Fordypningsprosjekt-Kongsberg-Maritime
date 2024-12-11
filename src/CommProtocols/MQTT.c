@@ -1,11 +1,10 @@
-#include "src/CommProtocols/CommProtocols.h"
+#if 0
 #include "src/Common/SensorDataPipe.h"
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
-#if 0
 #include <MQTTClient.h>
 
 #include <src/Sdb.h>
@@ -130,22 +129,5 @@ MqttFinalize(comm_protocol_api *Mqtt)
     SdbArenaClear(&Mqtt->Arena);
     return 0;
 }
-#else
 
-sdb_errno
-MqttFinalize(comm_protocol_api *Mqtt)
-{
-    return 0;
-}
-
-sdb_errno
-MqttRun(comm_protocol_api *Mqtt)
-{
-    return 0;
-}
-sdb_errno
-MqttInit(comm_protocol_api *Mqtt)
-{
-    return 0;
-}
 #endif

@@ -7,7 +7,6 @@
 SDB_LOG_REGISTER(Modbus);
 SDB_THREAD_ARENAS_REGISTER(Modbus, 2);
 
-#include <src/CommProtocols/CommProtocols.h>
 #include <src/CommProtocols/Modbus.h>
 #include <src/Common/CircularBuffer.h>
 #include <src/Common/SensorDataPipe.h>
@@ -73,49 +72,30 @@ MbReceiveTcpFrame(int Sockfd, u8 *Frame, size_t BufferSize)
  * ----------------------------------------------------------------------------------------
  */
 const u8 *
-MbParseTcpFrame(const u8 *Frame, u16 *UnitId, u16 *FunctionCode, u16 *DataLength)
+MbParseTcpFrame(const u8 *Frame, u16 *UnitId, u16 *DataLength)
 {
-    // TODO(ingar): Why are these not used?
-    // u16 TransactionId = (Buffer[0] << 8) | Buffer[1];
-    // u16 ProtocolId    = (Buffer[2] << 8) | Buffer[3];
-    // u16 Length        = (Buffer[4] << 8) | Buffer[5];
-    *UnitId       = Frame[6];
-    *FunctionCode = Frame[7];
-    *DataLength   = Frame[8];
+    *UnitId     = Frame[6];
+    *DataLength = Frame[8];
 
-    // Function code 0x03 is read multiple holding registers
-    if(*FunctionCode != 0x03) {
-        SdbLogError("Unsupported function code 0x03 found in frame");
-        return NULL;
-    }
-
-    if(*DataLength > MAX_DATA_LENGTH) {
-        SdbLogWarning("Byte count exceeds maximum data length. Skipping this frame.\n");
-        return NULL;
-    }
+    // if(*DataLength > MAX_DATA_LENGTH) {
+    //     SdbLogWarning("Byte count exceeds maximum data length. Skipping this frame.\n");
+    //     return NULL;
+    // }
 
     return &Frame[9];
 }
 
 modbus_ctx *
-MbPrepareCtx(comm_protocol_api *Mb)
+MbPrepareCtx(sdb_arena *MbArena)
 {
-    mb_init_args *Args = Mb->OptArgs;
+    modbus_ctx *MbCtx = SdbPushStruct(MbArena, modbus_ctx);
+    MbCtx->ConnCount  = 1;
+    MbCtx->Conns      = SdbPushArray(MbArena, mb_conn, MbCtx->ConnCount);
 
-    if(Args->PortCount != Args->IpCount) {
-        SdbLogError("Mismatch in port count (%lu) and ip count (%lu)", Args->PortCount,
-                    Args->IpCount);
-        return NULL;
-    }
-
-    modbus_ctx *MbCtx = SdbPushStruct(&Mb->Arena, modbus_ctx);
-    MbCtx->ConnCount  = Args->PortCount;
-    mb_conn *Conns    = SdbPushArray(&Mb->Arena, mb_conn, MbCtx->ConnCount);
-    MbCtx->Conns      = Conns;
-
+    mb_conn *Conns = MbCtx->Conns;
     for(u64 i = 0; i < MbCtx->ConnCount; ++i) {
-        Conns[i].Port   = Args->Ports[i];
-        Conns[i].Ip     = SdbStringDuplicate(&Mb->Arena, Args->Ips[i]);
+        Conns[i].Port   = MODBUS_PORT;
+        Conns[i].Ip     = SdbStringMake(MbArena, "127.0.0.1");
         Conns[i].SockFd = SocketCreate(Conns[i].Ip, Conns[i].Port);
         if(Conns[i].SockFd == -1) {
             SdbLogError("Failed to create socket for sensor index %lu", i);

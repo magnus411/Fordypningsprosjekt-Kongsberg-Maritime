@@ -7,7 +7,9 @@
 // part by uncommenting #define SDB_H_IMPLEMENTATION (and remember to comment it out again
 // afterwards,
 #include <assert.h>
+#include <ctype.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <float.h>
 #include <math.h>
 #include <pthread.h>
@@ -16,12 +18,14 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
+#include <sys/stat.h>
 #include <time.h>
 #include <unistd.h>
 
 #if !defined(__cplusplus)
 #include <stdbool.h>
-#endif // C/C++
+#endif
 
 ////////////////////////////////////////
 //              DEFINES               //
@@ -69,6 +73,7 @@ typedef int64_t i64;
  * When appropriate, negative POSIX errno values can be returned,
  * e.g. -EINVAL.
  */
+// TODO(ingar): Check number range for POSIX errno codes and make sure they don't overlap with ours
 typedef int_least32_t sdb_errno;
 enum
 {
@@ -84,7 +89,39 @@ enum
     SDBE_PG_ERR = 6,
 
     SDBE_JSON_ERR = 7,
+
+    SDBE_PTR_WAS_NULL = 8,
 };
+
+static inline const char *
+SdbStrErr(sdb_errno E)
+{
+    if(E < 0) {
+        E = -E;
+    }
+    switch(E) {
+        case SDBE_SUCCESS:
+            return "Success";
+        case SDBE_ERR:
+            return "Error";
+        case SDBE_DBS_UNAVAIL:
+            return "Database system unavailable";
+        case SDBE_CP_UNAVAIL:
+            return "Communication protocol unavailable";
+        case SDBE_CONN_CLOSED_SUCS:
+            return "Connection closed successfully";
+        case SDBE_CONN_CLOSED_ERR:
+            return "Connection closed with error";
+        case SDBE_PG_ERR:
+            return "PostgreSQL error";
+        case SDBE_JSON_ERR:
+            return "JSON parsing error";
+        case SDBE_PTR_WAS_NULL:
+            return "Pointer was NULL";
+        default:
+            return "Unknown error";
+    }
+}
 
 
 #define SDB_EXPAND(x)       x
@@ -119,6 +156,7 @@ enum
 bool   SdbDoubleEpsilonCompare(const double A, const double B);
 u64    SdbDoubleSignBit(double F);
 double SdbRadiansFromDegrees(double Degrees);
+size_t SdbMemSizeFromString(const char *SizeStr);
 
 ////////////////////////////////////////
 //              LOGGING               //
@@ -159,6 +197,9 @@ i64 Sdb__WriteLog__(sdb__log_module__ *Module, const char *LogLevel, const char 
     __attribute__((format(printf, 3, 4)));
 
 #define SDB__LOG_LEVEL_CHECK__(level) (SDB_LOG_LEVEL >= SDB_LOG_LEVEL_##level)
+
+#define SDB_LOGGING_NOT_USED                                                                       \
+    static sdb__log_module__ *Sdb__LogInstance__ __attribute__((used)) = NULL
 
 #define SDB_LOG_REGISTER(module_name)                                                              \
     static char       SDB_CONCAT3(Sdb__LogModule, module_name, Buffer__)[SDB_LOG_BUF_SIZE];        \
@@ -415,12 +456,133 @@ void SdbSeedRandPCG(uint32_t Seed);
 typedef struct
 {
     u64 Size;
-    u8 *Data;
+    u8  Data[];
 } sdb_file_data;
 
 sdb_file_data *SdbLoadFileIntoMemory(const char *Filename, sdb_arena *Arena);
 bool SdbWriteBufferToFile(void *Buffer, u64 ElementSize, u64 ElementCount, const char *Filename);
 bool SdbWrite_sdb_file_data_ToFile(sdb_file_data *FileData, const char *Filename);
+
+typedef struct
+{
+    void      *Data;     // Mapped memory region
+    size_t     Size;     // Size of mapping
+    int        Fd;       // File descriptor (kept open if requested)
+    sdb_string Filename; // Copy of filename for cleanup
+    int        Flags;    // Saved flags for cleanup
+} sdb_mmap;
+
+/**
+ * @brief Creates a memory mapping with optional file backing
+ *
+ * This function provides a convenient wrapper around mmap() with integrated file handling.
+ * It can create both file-backed and anonymous mappings, with various protection and
+ * sharing options.
+ *
+ * @param Map      Pointer to the sdb_mmap that will be filled
+ * @param MAddr    Desired mapping address (NULL for system choice)
+ * @param MSize    Size of the mapping in bytes
+ * @param MProt    Memory protection flags (can be combined with |):
+ *                 - PROT_NONE  : No access permitted
+ *                 - PROT_READ  : Pages can be read
+ *                 - PROT_WRITE : Pages can be written
+ *                 - PROT_EXEC  : Pages can be executed
+ *
+ * @param MFlags   Mapping flags (can be combined with |):
+ *                 - MAP_SHARED    : Updates visible to other processes
+ *                 - MAP_PRIVATE   : Creates copy-on-write mapping
+ *                 - MAP_FIXED     : Use exact address (not recommended)
+ *                 - MAP_ANONYMOUS : Create anonymous mapping (no file backing)
+ *                 - MAP_LOCKED    : Lock pages into memory
+ *                 - MAP_POPULATE  : Populate page tables
+ *                 - MAP_NORESERVE : No swap space reservation
+ *                 - MAP_HUGETLB   : Use huge pages
+ *
+ * @param MFd      File descriptor for mapping:
+ *                 - >= 0 : Use this file descriptor
+ *                 - -1   : Used with MAP_ANONYMOUS
+ *                 - < -1 : Open file using FileName, OFlags, and OMode
+ *
+ * @param MOffset  Offset into file (must be page-aligned)
+ *
+ * @param FileName Path to file (used only if MFd < -1)
+ *
+ * @param OFlags   File open flags (used only if MFd < -1), can combine with |:
+ *                 Required - one of:
+ *                 - O_RDONLY  : Read only
+ *                 - O_WRONLY  : Write only
+ *                 - O_RDWR    : Read and write
+ *
+ *                 Optional:
+ *                 - O_APPEND    : Append to file
+ *                 - O_CREAT     : Create if not exists
+ *                 - O_EXCL      : With O_CREAT: fail if exists
+ *                 - O_TRUNC     : Truncate to MSize (WARN: Will shrink the file if the file's size
+ * is > MSize)
+ *                 - O_DIRECT    : Direct I/O
+ *                 - O_SYNC      : Synchronous I/O
+ *                 - O_NOFOLLOW  : Don't follow symlinks
+ *                 - O_CLOEXEC   : Close on exec
+ *                 - O_TMPFILE   : Create unnamed temporary file
+ *
+ * @param OMode    File creation mode (used only if OFlags includes O_CREAT):
+ *                 Typical values (in octal):
+ *                 - 0644 : User: rw-, Group: r--, Other: r--
+ *                 - 0666 : User: rw-, Group: rw-, Other: rw-
+ *                 - 0600 : User: rw-, Group: ---, Other: ---
+ *                 - 0755 : User: rwx, Group: r-x, Other: r-x
+ *
+ *                 Individual bits:
+ *                 - S_IRUSR (0400) : User read
+ *                 - S_IWUSR (0200) : User write
+ *                 - S_IXUSR (0100) : User execute
+ *                 - S_IRGRP (0040) : Group read
+ *                 - S_IWGRP (0020) : Group write
+ *                 - S_IXGRP (0010) : Group execute
+ *                 - S_IROTH (0004) : Other read
+ *                 - S_IWOTH (0002) : Other write
+ *                 - S_IXOTH (0001) : Other execute
+ *
+ *                 Special bits:
+ *                 - S_ISUID (04000) : Set UID bit
+ *                 - S_ISGID (02000) : Set GID bit
+ *                 - S_ISVTX (01000) : Sticky bit
+ *
+ * @return sdb_errno:
+ *         - 0 on success
+ *         - Negative errno value on failure:
+ *           - -EACCES  : Permission denied
+ *           - -EEXIST  : File exists (with O_CREAT | O_EXCL)
+ *           - -EINVAL  : Invalid arguments
+ *           - -ENFILE  : System file table full
+ *           - -ENOMEM  : Out of memory
+ *           - -ENOENT  : File not found
+ *
+ * @note
+ * - The Map structure must be allocated by the caller
+ * - FileName string must remain valid throughout the mapping's lifetime
+ * - File descriptor handling:
+ *   - MAP_SHARED: fd kept open
+ *   - MAP_PRIVATE: fd closed after mapping
+ *   - MAP_ANONYMOUS: fd closed/ignored
+ * - The actual mapping size will be rounded up to the system page size
+ * - MProt permissions must be compatible with OFlags
+ * - The actual protection may be more restrictive than MProt due to file permissions
+ * - MAP_FIXED is dangerous and should be avoided
+ * - File permissions are masked by the process umask
+ * - Some combinations may not be supported on all systems
+ */
+sdb_errno Sdb__MemMap__(sdb_mmap *Map, void *MAddr, size_t MSize, int MProt, int MFlags, int MFd,
+                        off_t MOffset, sdb_string FileName, int OFlags, mode_t OMode,
+                        sdb__log_module__ *Module);
+
+#define SdbMemMap(map, maddr, msize, mprot, mflags, mfd, moffset, filename, oflags, omode)         \
+    Sdb__MemMap__(map, maddr, msize, mprot, mflags, mfd, moffset, filename, oflags, omode,         \
+                  Sdb__LogInstance__)
+
+void SdbMemUnmap(sdb_mmap *Map);
+int  SdbMemMapSync(sdb_mmap *Map);
+int  SdbMemMapAdvise(sdb_mmap *Map, int Advice);
 
 ////////////////////////////////////////
 //            "TOKENIZER"             //
@@ -501,6 +663,74 @@ SdbRadiansFromDegrees(double Degrees)
     return Radians;
 }
 
+size_t
+SdbMemSizeFromString(const char *SizeStr)
+{
+    if(!SizeStr || !*SizeStr) {
+        return 0;
+    }
+
+    char  *EndPtr;
+    size_t Value = strtoull(SizeStr, &EndPtr, 10);
+
+    if(EndPtr == SizeStr) {
+        return 0; // No number found
+    }
+
+    while(isspace(*EndPtr)) {
+        EndPtr++;
+    }
+
+    if(!*EndPtr) {
+        return Value;
+    }
+
+    size_t Multiplier = 0;
+    switch(*EndPtr) {
+        case 'T':
+            Multiplier = 1000ULL * 1000ULL * 1000ULL * 1000ULL;
+            break;
+        case 't':
+            Multiplier = 1024ULL * 1024ULL * 1024ULL * 1024ULL;
+            break;
+        case 'G':
+            Multiplier = 1000ULL * 1000ULL * 1000ULL;
+            break;
+        case 'g':
+            Multiplier = 1024ULL * 1024ULL * 1024ULL;
+            break;
+        case 'M':
+            Multiplier = 1000ULL * 1000ULL;
+            break;
+        case 'm':
+            Multiplier = 1024ULL * 1024ULL;
+            break;
+        case 'K':
+            Multiplier = 1000ULL;
+            break;
+        case 'k':
+            Multiplier = 1024ULL;
+            break;
+        case 'B':
+            // Check if this is just 'B' or part of a larger unit
+            if(EndPtr[1] != '\0') {
+                return 0;
+            } else {
+                Multiplier = 1;
+            }
+            break;
+        default:
+            return 0;
+    }
+
+    // If we have a unit letter, verify it's followed by 'B' (except for plain 'B')
+    if(*EndPtr != 'B' && (EndPtr[1] != 'B' || EndPtr[2] != '\0')) {
+        return 0;
+    }
+
+    return Value * Multiplier;
+}
+
 ////////////////////////////////////////
 //              LOGGING               //
 ////////////////////////////////////////
@@ -509,6 +739,10 @@ SdbRadiansFromDegrees(double Degrees)
 i64
 Sdb__WriteLog__(sdb__log_module__ *Module, const char *LogLevel, const char *Fmt, ...)
 {
+    if(Module == NULL) {
+        return 0; // NOTE(ingar): If the log module is NULL, then we assume logging isn't used
+    }
+
     pthread_mutex_lock(&Module->Lock);
 
     time_t    PosixTime;
@@ -723,7 +957,7 @@ SdbArenaGetPos(sdb_arena *Arena)
 void *
 SdbArenaSeek(sdb_arena *Arena, u64 Pos)
 {
-    if(0 <= Pos && Pos <= Arena->Cap) {
+    if(Pos <= Arena->Cap) {
         Arena->Cur = Pos;
         return Arena->Mem + Arena->Cur;
     }
@@ -1098,6 +1332,103 @@ SdbSeedRandPCG(uint32_t Seed)
 //              FILE IO                //
 /////////////////////////////////////////
 
+void
+SdbMemUnmap(sdb_mmap *Map)
+{
+    if(Map->Data != NULL && Map->Data != MAP_FAILED) {
+        munmap(Map->Data, Map->Size);
+    }
+
+    if(Map->Fd >= 0) {
+        close(Map->Fd);
+    }
+}
+
+sdb_errno
+Sdb__MemMap__(sdb_mmap *Map, void *MAddr, size_t MSize, int MProt, int MFlags, int MFd,
+              off_t MOffset, sdb_string FileName, int OFlags, mode_t OMode,
+              sdb__log_module__ *Module)
+{
+    Map->Size = MSize;
+    Map->Fd   = -1;
+
+    if(MFd < -1) {
+        if(FileName) {
+            Map->Filename = FileName;
+            if(!Map->Filename) {
+                Sdb__WriteLog__(Module, "ERR", "Failed to copy filename: %s", strerror(errno));
+                goto error;
+            }
+        }
+
+        Map->Fd = open(FileName, OFlags & (~O_TRUNC), OMode);
+        if(Map->Fd == -1) {
+            Sdb__WriteLog__(Module, "ERR", "Error opening file %s: %s", FileName, strerror(errno));
+            goto error;
+        }
+    } else {
+        Map->Fd = MFd;
+    }
+
+    if(OFlags & O_TRUNC || (MFlags & MAP_SHARED && MProt & PROT_WRITE)) {
+        if(ftruncate(Map->Fd, MSize) == -1) {
+            Sdb__WriteLog__(Module, "ERR", "Error setting file size: %s", strerror(errno));
+            goto error;
+        }
+
+        if(lseek(Map->Fd, 0, SEEK_SET) == -1) {
+            Sdb__WriteLog__(Module, "ERR", "Error resetting file pointer: %s", strerror(errno));
+            goto error;
+        }
+    }
+
+    if(MFlags & MAP_ANONYMOUS) {
+        if(Map->Fd != -1) {
+            close(Map->Fd);
+            Map->Fd = -1;
+        }
+    }
+
+    Map->Data = mmap(MAddr, MSize, MProt, MFlags, Map->Fd, MOffset);
+    if(Map->Data == MAP_FAILED) {
+        Sdb__WriteLog__(Module, "ERR", "Error mapping memory: %s", strerror(errno));
+        goto error;
+    }
+
+    if(MFlags & MAP_PRIVATE) {
+        if(Map->Fd != -1) {
+            close(Map->Fd);
+            Map->Fd = -1;
+        }
+    }
+
+    if(MFlags & MAP_LOCKED) {
+        if(mlock(Map->Data, MSize) == -1) {
+            Sdb__WriteLog__(Module, "WARN", "Failed to lock pages in memory: %s", strerror(errno));
+        }
+    }
+
+    return 0;
+
+error:
+    SdbMemUnmap(Map);
+    return -errno;
+}
+
+int
+SdbMemMapSync(sdb_mmap *Map)
+{
+    int Ret = msync(Map->Data, Map->Size, MS_SYNC);
+    return Ret;
+}
+
+int
+SdbMemMapAdvise(sdb_mmap *Map, int Advice)
+{
+    int Ret = madvise(Map->Data, Map->Size, Advice);
+    return Ret;
+}
+
 sdb_file_data *
 SdbLoadFileIntoMemory(const char *Filename, sdb_arena *Arena)
 {
@@ -1115,24 +1446,24 @@ SdbLoadFileIntoMemory(const char *Filename, sdb_arena *Arena)
     rewind(File);
 
     sdb_file_data *FileData;
+    u64            FileDataSize = sizeof(sdb_file_data) + FileSize + 1;
     if(NULL != Arena) {
-        FileData       = SdbPushStruct(Arena, sdb_file_data);
-        FileData->Data = SdbPushArray(Arena, u8, FileSize + 1);
+        FileData = SdbArenaPush(Arena, FileDataSize);
     } else {
-        u64 FileDataSize = sizeof(sdb_file_data) + FileSize + 1;
-        FileData         = calloc(1, FileDataSize);
-        if(!FileData) {
-            fclose(File);
-            return NULL;
-        }
+        FileData = calloc(1, FileDataSize);
+    }
+    if(!FileData) {
+        fclose(File);
+        return NULL;
     }
 
     FileData->Size = FileSize;
     u64 BytesRead  = fread(FileData->Data, 1, FileSize, File);
     if(BytesRead != FileSize) {
+        fprintf(stderr, "Failed to read data from file %s\n", strerror(errno));
         fclose(File);
         if(Arena != NULL) {
-            SdbArenaPop(Arena, sizeof(sdb_file_data) + FileData->Size + 1);
+            SdbArenaPop(Arena, FileDataSize);
         } else {
             free(FileData);
         }

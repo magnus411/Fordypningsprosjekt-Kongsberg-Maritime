@@ -1,0 +1,23 @@
+{
+    "cp_db_couplings": [
+        {
+            "name": "modbus_with_postgres",
+            "enabled": true,
+            "modbus": {
+                "mem": "8mB",
+                "scratch_size": "128kB"
+            },
+            "postgres": {
+                "mem": "8mB",
+                "scratch_size": "128kB"
+            },
+            "pipe": {
+                "buf_count": 2,
+                "buf_size": "32kB"
+            },
+            "testing": {
+                "enabled": false
+            }
+        }
+    ]
+}

@@ -14,9 +14,9 @@ SDB_BEGIN_EXTERN_C
 // TODO(ingar): We might want to add a flag for the endianness of the data
 typedef struct
 {
-    size_t BufferMaxFill;  // It's unlikely that a given buffer can be filled exactly
-    size_t PacketSize;     // Filled by db during init
-    u64    PacketMaxCount; // --||--
+    size_t BufferMaxFill; // It's unlikely that a given buffer can be filled exactly
+    size_t PacketSize;    // Filled by db during init
+    u64    ItemMaxCount;  // --||--
 
     atomic_uint WriteBufIdx;
     atomic_uint ReadBufIdx;
@@ -30,10 +30,11 @@ typedef struct
 
 } sensor_data_pipe;
 
-sensor_data_pipe **SdPipesInit(u64 PipeCount, u64 BufCount, size_t BufSize, sdb_arena *Arena);
-sdb_arena         *SdPipeGetWriteBuffer(sensor_data_pipe *Pipe);
-sdb_arena         *SdPipeGetReadBuffer(sensor_data_pipe *Pipe);
-void               SdPipeFlush(sensor_data_pipe *Pipe);
+sensor_data_pipe *SdpCreate(u64 BufCount, u64 BufSize, sdb_arena *Arena);
+void              SdpDestroy(sensor_data_pipe *Pipe, bool AllocatedWithArena);
+sdb_arena        *SdPipeGetWriteBuffer(sensor_data_pipe *Pipe);
+sdb_arena        *SdPipeGetReadBuffer(sensor_data_pipe *Pipe);
+void              SdPipeFlush(sensor_data_pipe *Pipe);
 
 SDB_END_EXTERN_C
 

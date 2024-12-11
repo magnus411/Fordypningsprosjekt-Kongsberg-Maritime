@@ -1,13 +1,14 @@
 #ifndef MQTT_H
 #define MQTT_H
 
+#if 0
+
 #include <MQTTClient.h>
 
 #include <src/Sdb.h>
 
 SDB_BEGIN_EXTERN_C
 
-#include <src/CommProtocols/CommProtocols.h>
 #include <src/Common/SensorDataPipe.h>
 
 // TODO(ingar): This doesn't seem right. Is there only ever one token? Also, this is not threadsafe
@@ -37,5 +38,7 @@ sdb_errno MqttRun(comm_protocol_api *MQTT);
 sdb_errno MqttFinalize(comm_protocol_api *MQTT);
 
 SDB_END_EXTERN_C
+
+#endif
 
 #endif // MQTT_H

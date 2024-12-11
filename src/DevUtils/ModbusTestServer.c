@@ -19,20 +19,25 @@ SDB_LOG_REGISTER(ModbusTestServer);
 #define BACKLOG     5
 #define PACKET_FREQ 1e5
 
-typedef struct __attribute__((packed, aligned(1)))
+static inline void
+GenerateShaftPowerData(shaft_power_data *Data)
 {
-    pg_int8 PacketId;
-    time_t  Time; // NOTE(ingar): The insert function assumes a time_t comes in and converts it to a
-                  // pg_timestamp
-    pg_float8 Rpm;
-    pg_float8 Torque;
-    pg_float8 Power;
-    pg_float8 PeakPeakPfs;
+    static i64 Id          = 1;
+    static i64 Rpm         = 1;
+    static i64 Torque      = 1;
+    static i64 Power       = 1;
+    static i64 PeakPeakPfs = 1;
 
-} shaft_power_data;
+    Data->PacketId    = Id++;
+    Data->Time        = time(NULL);
+    Data->Rpm         = Rpm++;
+    Data->Torque      = Torque++;
+    Data->Power       = Power++;
+    Data->PeakPeakPfs = PeakPeakPfs++;
+}
 
 static void
-GeneratePowerShaftData(shaft_power_data *Data)
+GenerateShaftPowerDataRandom(shaft_power_data *Data)
 {
     time_t     CurrentTime = time(NULL);
     static i64 Id          = 0;
@@ -58,26 +63,27 @@ GenerateModbusTcpFrame(u8 *Buffer, u16 TransactionId, u16 ProtocolId, u16 Length
     Buffer[6] = UnitId;
     Buffer[7] = FunctionCode;
     Buffer[8] = DataLength;
-    memcpy(&Buffer[9], Data, DataLength);
+    SdbMemcpy(&Buffer[9], Data, DataLength);
 }
 
-sdb_errno
-SendModbusData(int NewFd, u16 UnitId)
+
+static inline sdb_errno
+SendModbusData(int NewFd)
 {
-    u8 ModbusFrame[MODBUS_TCP_FRAME_MAX_SIZE];
+    // NOTE(ingar): By default everything is set to 1
+    static u8               ModbusFrame[MODBUS_TCP_FRAME_MAX_SIZE] = { 1 };
+    static const u16        DataLength                             = sizeof(shaft_power_data);
+    static const u16        Length                                 = DataLength + 3;
+    static shaft_power_data SpData                                 = {
+                                        .PacketId = 1, .Time = 783883485000000, .Rpm = 1, .Torque = 1, .Power = 1, .PeakPeakPfs = 1
+    };
 
     u16 TransactionId = 1;
-    u16 ProtocolId    = 0;
-    u8  FunctionCode  = MODBUS_READ_HOLDING_REGISTERS;
+    u16 ProtocolId    = 1;
+    u8  FunctionCode  = 1;
 
-    shaft_power_data Data = { 0 };
-
-    u16 DataLength = sizeof(Data);
-    u16 Length     = DataLength + 3;
-
-    GeneratePowerShaftData(&Data);
-    GenerateModbusTcpFrame(ModbusFrame, TransactionId, ProtocolId, Length, UnitId, FunctionCode,
-                           (u8 *)&Data, DataLength);
+    ModbusFrame[8] = DataLength;
+    SdbMemcpy(&ModbusFrame[9], &SpData, DataLength);
 
     ssize_t SendResult = send(NewFd, ModbusFrame, MODBUS_TCP_HEADER_LEN + Length, 0);
 
@@ -85,8 +91,8 @@ SendModbusData(int NewFd, u16 UnitId)
 }
 
 
-sdb_errno
-RunModbusTestServer(sdb_thread *Thread)
+void *
+RunModbusTestServer(void *Arg)
 {
     SdbLogInfo("Running Modbus Test Server");
 
@@ -96,14 +102,12 @@ RunModbusTestServer(sdb_thread *Thread)
     struct sockaddr_in ServerAddr, ClientAddr;
     socklen_t          SinSize;
     char               ClientIp[INET6_ADDRSTRLEN];
-
-    int Port   = MODBUS_PORT;
-    u16 UnitId = 1;
+    int                Port = MODBUS_PORT;
 
     SockFd = socket(AF_INET, SOCK_STREAM, 0);
     if(SockFd == -1) {
         SdbLogError("Failed to create socket: %s (errno: %d)", strerror(errno), errno);
-        return SockFd;
+        return NULL;
     }
 
     ServerAddr.sin_family      = AF_INET;
@@ -116,13 +120,13 @@ RunModbusTestServer(sdb_thread *Thread)
                     inet_ntoa(ServerAddr.sin_addr), ntohs(ServerAddr.sin_port), strerror(errno),
                     errno);
         close(SockFd);
-        return -1;
+        return NULL;
     }
 
     if(listen(SockFd, BACKLOG) == -1) {
         SdbLogError("Failed to listen on socket: %s (errno: %d)", strerror(errno), errno);
         close(SockFd);
-        return -1;
+        return NULL;
     }
 
     SdbLogDebug("Server: waiting for connections on port %d...", Port);
@@ -132,18 +136,18 @@ RunModbusTestServer(sdb_thread *Thread)
     if(NewFd == -1) {
         SdbLogError("Error accepting connection: %s (errno: %d)", strerror(errno), errno);
         close(SockFd);
-        return -1;
+        return NULL;
     }
 
     inet_ntop(ClientAddr.sin_family, &(ClientAddr.sin_addr), ClientIp, sizeof(ClientIp));
     SdbLogInfo("Server: accepted connection from %s:%d", ClientIp, ntohs(ClientAddr.sin_port));
 
-    SdbBarrierWait(Thread->Args);
+    SdbBarrierWait((sdb_barrier *)Arg);
+
     for(u64 i = 0; i < MODBUS_PACKET_COUNT; ++i) {
-        if(SendModbusData(NewFd, UnitId) == -1) {
+        if(SendModbusData(NewFd) == -1) {
             SdbLogError("Failed to send Modbus data to client %s:%d, closing connection", ClientIp,
                         ntohs(ClientAddr.sin_port));
-
             break;
         } else {
             if((i % (u64)(MODBUS_PACKET_COUNT / 5)) == 0) {
@@ -151,10 +155,10 @@ RunModbusTestServer(sdb_thread *Thread)
                             ntohs(ClientAddr.sin_port));
             }
         }
-        SdbSleep(SDB_TIME_S(1.0 / PACKET_FREQ));
+        // SdbSleep(SDB_TIME_S(1.0 / PACKET_FREQ));
     }
     SdbLogDebug("All data sent, stopping server");
     close(NewFd);
     close(SockFd);
-    return 0;
+    return NULL;
 }
