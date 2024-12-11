@@ -16,7 +16,7 @@
                 "buf_size": "32kB"
             },
             "testing": {
-                "enabled": false
+                "enabled": true
             }
         }
     ]

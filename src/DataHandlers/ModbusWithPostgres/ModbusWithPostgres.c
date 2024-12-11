@@ -7,6 +7,7 @@ SDB_LOG_REGISTER(MbWithPg);
 #include <src/DataHandlers/ModbusWithPostgres/Modbus.h>
 #include <src/DataHandlers/ModbusWithPostgres/ModbusWithPostgres.h>
 #include <src/DataHandlers/ModbusWithPostgres/Postgres.h>
+#include <src/DevUtils/ModbusTestServer.h>
 
 #include <src/Libs/cJSON/cJSON.h>
 
@@ -34,6 +35,20 @@ MbThread(void *Arg)
 void *
 MbPgTestServer(void *Arg)
 {
+    mbpg_ctx *Ctx = Arg;
+    RunModbusTestServer(&Ctx->Barrier);
+
+    return NULL;
+}
+
+void *
+MbPgPipeThroughputTest(void *Arg)
+{
+    sdb_errno Ret = MbPipeThroughputTest(Arg);
+    if(Ret != 0) {
+        SdbLogError("Modbus pipe throughput test exited with error code %d (%s)", Ret,
+                    SdbStrErr(Ret));
+    }
     return NULL;
 }
 
@@ -76,8 +91,9 @@ MbPgCleanup(void *Arg)
 }
 
 
-static tg_task MbPgTasks[]     = { PgThread, MbThread };
-static tg_task MbPgTestTasks[] = { PgThread, MbThread, MbPgTestServer };
+static tg_task MbPgTasks[]               = { PgThread, MbThread };
+static tg_task MbPgThroughputTestTasks[] = { PgThread, MbPgPipeThroughputTest };
+static tg_task MbPgTestTasks[]           = { PgThread, MbThread, MbPgTestServer };
 
 tg_group *
 MbPgCreateTg(cJSON *Conf, u64 GroupId, sdb_arena *A)
