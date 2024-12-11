@@ -78,7 +78,7 @@ comm_module_ctx *CommModulePrepare(sdb_barrier *ModulesBarrier, Comm_Protocol_Ty
                                    cp_init_api ApiInit, sensor_data_pipe **Pipes, u64 SensorCount,
                                    u64 ModuleArenaSize, u64 DbsArenaSize, sdb_arena *Arena);
 
-sdb_errno CommModuleRun(sdb_thread *CommThread);
+// sdb_errno CommModuleRun(sdb_thread *CommThread);
 
 
 SDB_END_EXTERN_C

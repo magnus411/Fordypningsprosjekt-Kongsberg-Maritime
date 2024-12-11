@@ -80,7 +80,7 @@ db_module_ctx *DbModuleInit(sdb_barrier *ModulesBarrier, Db_System_Type Type, db
                             sensor_data_pipe **Pipes, u64 SensorCount, u64 ModuleArenaSize,
                             u64 DbsArenaSize, sdb_arena *Arena);
 
-sdb_errno DbModuleRun(sdb_thread *DbmThread);
+// sdb_errno DbModuleRun(sdb_thread *DbmThread);
 
 SDB_END_EXTERN_C
 
