@@ -10,7 +10,7 @@ SDB_LOG_REGISTER(Main);
 
 #include <src/Common/Thread.h>
 #include <src/Common/ThreadGroup.h>
-#include <src/CpDbCouplings/CpDbCouplings.h>
+#include <src/DataHandlers/DataHandlers.h>
 
 #include <src/Libs/cJSON/cJSON.h>
 
@@ -25,10 +25,10 @@ SetUpFromConf(sdb_string ConfFilename, tg_manager **Manager)
     sdb_errno      Ret               = 0;
     sdb_file_data *ConfFile          = NULL;
     cJSON         *Conf              = NULL;
-    cJSON         *CpDbCouplingConfs = NULL;
-    u64            CouplingCount     = 0;
+    cJSON         *DataHandlersConfs = NULL;
+    u64            HandlerCount      = 0;
     u64            tg                = 0;
-    cJSON         *CouplingConf      = NULL;
+    cJSON         *HandlerConf       = NULL;
     tg_group     **Tgs               = NULL;
 
     ConfFile = SdbLoadFileIntoMemory(ConfFilename, NULL);
@@ -42,33 +42,32 @@ SetUpFromConf(sdb_string ConfFilename, tg_manager **Manager)
         goto cleanup;
     }
 
-    CpDbCouplingConfs = cJSON_GetObjectItem(Conf, "cp_db_couplings");
-    if(CpDbCouplingConfs == NULL || !cJSON_IsArray(CpDbCouplingConfs)) {
+    DataHandlersConfs = cJSON_GetObjectItem(Conf, "data_handlers");
+    if(DataHandlersConfs == NULL || !cJSON_IsArray(DataHandlersConfs)) {
         Ret = -SDBE_JSON_ERR;
         goto cleanup;
     }
 
-    CouplingCount = cJSON_GetArraySize(CpDbCouplingConfs);
-    if(CouplingCount <= 0) {
-        SdbLogError("No Cp-Db couplings were found in the configuration file (count was %lu)",
-                    CouplingCount);
+    HandlerCount = cJSON_GetArraySize(DataHandlersConfs);
+    if(HandlerCount <= 0) {
+        SdbLogError("No data handlers were found in the configuration file");
         Ret = -EINVAL;
         goto cleanup;
     }
 
     // NOTE(ingar): Has to be done this way because of the goto statements
-    Tgs = malloc(sizeof(tg_group *) * CouplingCount);
+    Tgs = malloc(sizeof(tg_group *) * HandlerCount);
     if(!Tgs) {
         Ret = -ENOMEM;
         goto cleanup;
     }
 
-    cJSON_ArrayForEach(CouplingConf, CpDbCouplingConfs)
+    cJSON_ArrayForEach(HandlerConf, DataHandlersConfs)
     {
-        Tgs[tg] = CdcCreateTg(CouplingConf, tg, NULL);
+        Tgs[tg] = DhsCreateTg(HandlerConf, tg, NULL);
         if(Tgs[tg] == NULL) {
-            cJSON *CouplingName = cJSON_GetObjectItem(CouplingConf, "name");
-            SdbLogError("Unable to create thread group for Cp-Db coupling %s",
+            cJSON *CouplingName = cJSON_GetObjectItem(HandlerConf, "name");
+            SdbLogError("Unable to create thread group for data handler %s",
                         cJSON_GetStringValue(CouplingName));
             Ret = -1;
             goto cleanup;
@@ -76,7 +75,7 @@ SetUpFromConf(sdb_string ConfFilename, tg_manager **Manager)
         ++tg;
     }
 
-    *Manager = TgCreateManager(Tgs, CouplingCount, NULL);
+    *Manager = TgCreateManager(Tgs, HandlerCount, NULL);
     if(!*Manager) {
         SdbLogError("Failed to create TG manager");
         Ret = -1;

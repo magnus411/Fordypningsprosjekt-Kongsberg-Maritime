@@ -1,14 +1,15 @@
 #include <libpq-fe.h>
-#include <src/Sdb.h>
-#include <time.h>
-SDB_LOG_REGISTER(ZeroValuesCompressor);
-#include <libpq-fe.h>
-#include <src/StoreCompressedData.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+
+#include <src/Sdb.h>
+SDB_LOG_REGISTER(ZeroValuesCompressor);
+
+#include <src/ZeroCompression/StoreCompressedData.h>
 
 static struct timespec StartOfRLE;
 static struct timespec CurrentLastZeroBlockEnd;
@@ -163,6 +164,7 @@ MultiBlockSaveAllMetaDataWhenZero(const unsigned char *MultiBlock, size_t BlockS
         }
     }
 }
+
 /* Thoughts: In order to handle complexity of blocks that are not all zeroes or all valid, is to map
  * every sub block to 1's or 0's and return the map. The outer program will then handle storage of
  * the non-zero data.

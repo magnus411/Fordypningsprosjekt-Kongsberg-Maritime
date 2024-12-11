@@ -1,5 +1,5 @@
 {
-    "cp_db_couplings": [
+    "data_handlers": [
         {
             "name": "modbus_with_postgres",
             "enabled": true,

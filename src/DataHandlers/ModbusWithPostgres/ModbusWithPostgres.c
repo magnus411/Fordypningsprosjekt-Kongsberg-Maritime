@@ -3,10 +3,10 @@ SDB_LOG_REGISTER(MbWithPg);
 
 #include <src/Common/SensorDataPipe.h>
 #include <src/Common/ThreadGroup.h>
-#include <src/CpDbCouplings/CpDbCouplings.h>
-#include <src/CpDbCouplings/ModbusWithPostgres/Modbus.h>
-#include <src/CpDbCouplings/ModbusWithPostgres/ModbusWithPostgres.h>
-#include <src/CpDbCouplings/ModbusWithPostgres/Postgres.h>
+#include <src/DataHandlers/DataHandlers.h>
+#include <src/DataHandlers/ModbusWithPostgres/Modbus.h>
+#include <src/DataHandlers/ModbusWithPostgres/ModbusWithPostgres.h>
+#include <src/DataHandlers/ModbusWithPostgres/Postgres.h>
 
 #include <src/Libs/cJSON/cJSON.h>
 
@@ -37,7 +37,7 @@ MbPgTestServer(void *Arg)
     return NULL;
 }
 
-void
+static void
 GetMemAndScratchSize(cJSON *Conf, u64 *MemSize, u64 *ScratchSize)
 {
     cJSON *MemSizeObj = cJSON_GetObjectItem(Conf, "mem");
@@ -95,8 +95,8 @@ MbPgCreateTg(cJSON *Conf, u64 GroupId, sdb_arena *A)
     cJSON *PipeBufCountObj = cJSON_GetObjectItem(PipeConf, "buf_count");
     cJSON *PipeBufSizeObj  = cJSON_GetObjectItem(PipeConf, "buf_size");
 
-    CdcGetMemAndScratchSize(ModbusConf, &Ctx->ModbusMemSize, &Ctx->ModbusScratchSize);
-    CdcGetMemAndScratchSize(PostgresConf, &Ctx->PgMemSize, &Ctx->PgScratchSize);
+    DhsGetMemAndScratchSize(ModbusConf, &Ctx->ModbusMemSize, &Ctx->ModbusScratchSize);
+    DhsGetMemAndScratchSize(PostgresConf, &Ctx->PgMemSize, &Ctx->PgScratchSize);
 
     u64 PipeBufCount = cJSON_GetNumberValue(PipeBufCountObj);
     u64 PipeBufSize  = SdbMemSizeFromString(cJSON_GetStringValue(PipeBufSizeObj));
