@@ -3,6 +3,7 @@
 
 #include <src/Sdb.h>
 
+sdb_errno MbPipeThroughputTest(void *Arg);
 sdb_errno MbRun(void *Arg);
 
 #endif

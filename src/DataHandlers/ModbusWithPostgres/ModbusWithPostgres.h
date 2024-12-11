@@ -22,6 +22,7 @@ typedef struct
 
 void *PgThread(void *Arg);
 void *MbThread(void *Arg);
+void *MbPgPipeThroughputTest(void *Arg);
 void *MbPgTestServer(void *Arg);
 
 sdb_errno MbPgCleanup(void *Arg);

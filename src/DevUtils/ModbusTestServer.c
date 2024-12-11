@@ -91,8 +91,8 @@ SendModbusData(int NewFd)
 }
 
 
-void *
-RunModbusTestServer(void *Arg)
+void
+RunModbusTestServer(sdb_barrier *Barrier)
 {
     SdbLogInfo("Running Modbus Test Server");
 
@@ -107,7 +107,7 @@ RunModbusTestServer(void *Arg)
     SockFd = socket(AF_INET, SOCK_STREAM, 0);
     if(SockFd == -1) {
         SdbLogError("Failed to create socket: %s (errno: %d)", strerror(errno), errno);
-        return NULL;
+        return;
     }
 
     ServerAddr.sin_family      = AF_INET;
@@ -120,13 +120,13 @@ RunModbusTestServer(void *Arg)
                     inet_ntoa(ServerAddr.sin_addr), ntohs(ServerAddr.sin_port), strerror(errno),
                     errno);
         close(SockFd);
-        return NULL;
+        return;
     }
 
     if(listen(SockFd, BACKLOG) == -1) {
         SdbLogError("Failed to listen on socket: %s (errno: %d)", strerror(errno), errno);
         close(SockFd);
-        return NULL;
+        return;
     }
 
     SdbLogDebug("Server: waiting for connections on port %d...", Port);
@@ -136,13 +136,13 @@ RunModbusTestServer(void *Arg)
     if(NewFd == -1) {
         SdbLogError("Error accepting connection: %s (errno: %d)", strerror(errno), errno);
         close(SockFd);
-        return NULL;
+        return;
     }
 
     inet_ntop(ClientAddr.sin_family, &(ClientAddr.sin_addr), ClientIp, sizeof(ClientIp));
     SdbLogInfo("Server: accepted connection from %s:%d", ClientIp, ntohs(ClientAddr.sin_port));
 
-    SdbBarrierWait((sdb_barrier *)Arg);
+    SdbBarrierWait(Barrier);
 
     for(u64 i = 0; i < MODBUS_PACKET_COUNT; ++i) {
         if(SendModbusData(NewFd) == -1) {
@@ -157,8 +157,10 @@ RunModbusTestServer(void *Arg)
         }
         // SdbSleep(SDB_TIME_S(1.0 / PACKET_FREQ));
     }
+
     SdbLogDebug("All data sent, stopping server");
     close(NewFd);
     close(SockFd);
-    return NULL;
+
+    return;
 }
