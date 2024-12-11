@@ -4,11 +4,11 @@
             "name": "modbus_with_postgres",
             "enabled": true,
             "modbus": {
-                "mem": "8mB"
+                "mem": "8mB",
                 "scratch_size": "100kB"
             },
             "postgres": {
-                "mem": "8mB"
+                "mem": "8mB",
                 "scratch_size": "100kB"
             },
             "pipe": {
@@ -16,8 +16,7 @@
                 "buf_size": "32KB"
             },
             "testing": {
-                "enabled": false,
-                "test_server"
+                "enabled": false
             }
         }
     ]
