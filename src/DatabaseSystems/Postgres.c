@@ -14,16 +14,15 @@
 #endif
 
 #include <src/Sdb.h>
-
 SDB_LOG_REGISTER(Postgres);
+
+#include <src/DatabaseSystems/Postgres.h>
 SDB_THREAD_ARENAS_REGISTER(Postgres, 2);
 
 #include <src/Common/CircularBuffer.h>
 #include <src/Common/SensorDataPipe.h>
 #include <src/Common/Thread.h>
 #include <src/DatabaseSystems/DatabaseInitializer.h>
-#include <src/DatabaseSystems/DatabaseSystems.h>
-#include <src/DatabaseSystems/Postgres.h>
 #include <src/Libs/cJSON/cJSON.h>
 
 // TODO(ingar): Remove before release
@@ -192,7 +191,7 @@ GetTableMetadata(PGconn *DbConn, sdb_string TableName, i16 *ColCount, i16 *ColCo
 
 
 postgres_ctx *
-PgPrepareCtx(database_api *Pg)
+PgPrepareCtx(sdb_arena *PgArena, sensor_data_pipe *Pipe)
 {
     sdb_errno         Errno   = 0;
     sdb_scratch_arena Scratch = SdbScratchGet(NULL, 0);
@@ -204,19 +203,6 @@ PgPrepareCtx(database_api *Pg)
         SdbScratchRelease(Scratch);
         return NULL;
     }
-
-    postgres_ctx *PgCtx  = SdbPushStruct(&Pg->Arena, postgres_ctx);
-    PgCtx->TablesInfo    = SdbPushArray(&Pg->Arena, pg_table_info *, Pg->SensorCount);
-    const char *ConnInfo = (const char *)ConfFile->Data;
-    PgCtx->DbConn        = PQconnectdb(ConnInfo);
-
-    if(PQstatus(PgCtx->DbConn) != CONNECTION_OK) {
-        SdbLogError("PgCtx->DbConnection to database failed. PQ error:\n%s",
-                    PQerrorMessage(PgCtx->DbConn));
-        Errno = -SDBE_PG_ERR;
-        goto cleanup;
-    }
-
 
     cJSON *SchemaConf = DbInitGetConfFromFile("./configs/sensor_schemas.json", Scratch.Arena);
     if(!cJSON_IsObject(SchemaConf)) {
@@ -230,6 +216,19 @@ PgPrepareCtx(database_api *Pg)
         goto cleanup;
     }
 
+    u64           SensorCount = cJSON_GetArraySize(SensorSchemaArray);
+    postgres_ctx *PgCtx       = SdbPushStruct(PgArena, postgres_ctx);
+    PgCtx->TablesInfo         = SdbPushArray(PgArena, pg_table_info *, SensorCount);
+
+    const char *ConnInfo = (const char *)ConfFile->Data;
+    PgCtx->DbConn        = PQconnectdb(ConnInfo);
+
+    if(PQstatus(PgCtx->DbConn) != CONNECTION_OK) {
+        SdbLogError("PgCtx->DbConnection to database failed. PQ error:\n%s",
+                    PQerrorMessage(PgCtx->DbConn));
+        Errno = -SDBE_PG_ERR;
+        goto cleanup;
+    }
 
     u64    SensorIdx    = 0;
     cJSON *SensorSchema = NULL;
@@ -247,8 +246,8 @@ PgPrepareCtx(database_api *Pg)
         }
 
 
-        pg_table_info *Ti            = SdbPushStruct(&Pg->Arena, pg_table_info);
-        Ti->TableName                = SdbStringMake(&Pg->Arena, SensorName->valuestring);
+        pg_table_info *Ti            = SdbPushStruct(PgArena, pg_table_info);
+        Ti->TableName                = SdbStringMake(PgArena, SensorName->valuestring);
         PgCtx->TablesInfo[SensorIdx] = Ti;
 
         sdb_string CreationQuery = SdbStringMake(Scratch.Arena, "CREATE TABLE IF NOT EXISTS ");
@@ -293,7 +292,7 @@ PgPrepareCtx(database_api *Pg)
 
 
         Ti->ColMetadata = GetTableMetadata(PgCtx->DbConn, Ti->TableName, &Ti->ColCount,
-                                           &Ti->ColCountNoAutoIncrements, &Ti->RowSize, &Pg->Arena);
+                                           &Ti->ColCountNoAutoIncrements, &Ti->RowSize, PgArena);
 
         if(NULL == Ti->ColMetadata || 0 == Ti->ColCount) {
             SdbLogError("Failed to get column metadata for table %s", Ti->TableName);
@@ -301,7 +300,7 @@ PgPrepareCtx(database_api *Pg)
             goto cleanup;
         }
 
-        Ti->CopyCommand = SdbStringMake(&Pg->Arena, "COPY ");
+        Ti->CopyCommand = SdbStringMake(PgArena, "COPY ");
         SdbStringAppend(Ti->CopyCommand, Ti->TableName);
         SdbStringAppendC(Ti->CopyCommand, "(");
         for(u64 c = 0; c < Ti->ColCount; ++c) {
@@ -314,10 +313,14 @@ PgPrepareCtx(database_api *Pg)
         SdbStringBackspace(Ti->CopyCommand, 2);
         SdbStringAppendC(Ti->CopyCommand, ") FROM STDIN WITH (FORMAT binary)");
 
-        sensor_data_pipe *Pipe = Pg->SdPipes[SensorIdx];
-        Pipe->PacketSize       = Ti->RowSize;
-        Pipe->ItemMaxCount     = Pipe->Buffers[0]->Cap / Pipe->PacketSize;
-        Pipe->BufferMaxFill    = Pipe->PacketSize * Pipe->ItemMaxCount;
+        // NOTE(ingar): An assumption made is that each sensor will have its own pipe since we don't
+        // have a method of differentiating packets at the moment, but unfortunately we probably
+        // don't have time to complete this part. This means that the max number of sensors
+        // supported in this current implementation is 1, BUT extending it to support more should be
+        // relatively simple.
+        Pipe->PacketSize    = Ti->RowSize;
+        Pipe->ItemMaxCount  = Pipe->Buffers[0]->Cap / Pipe->PacketSize;
+        Pipe->BufferMaxFill = Pipe->PacketSize * Pipe->ItemMaxCount;
 
         ++SensorIdx;
     }

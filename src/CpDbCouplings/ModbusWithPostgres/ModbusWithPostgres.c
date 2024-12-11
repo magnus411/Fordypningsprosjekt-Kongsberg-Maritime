@@ -3,30 +3,41 @@ SDB_LOG_REGISTER(MbWithPg);
 
 #include <src/Common/SensorDataPipe.h>
 #include <src/Common/ThreadGroup.h>
+#include <src/CpDbCouplings/CpDbCouplings.h>
+#include <src/CpDbCouplings/ModbusWithPostgres/Modbus.h>
+#include <src/CpDbCouplings/ModbusWithPostgres/ModbusWithPostgres.h>
+#include <src/CpDbCouplings/ModbusWithPostgres/Postgres.h>
 
 #include <src/Libs/cJSON/cJSON.h>
 
-#include "Modbus.h"
-#include "ModbusWithPostgres.h"
-#include "Postgres.h"
 
 void *
 PgThread(void *Arg)
 {
-    // PgRun(Arg);
-
+    sdb_errno Ret = PgRun(Arg);
+    if(Ret != 0) {
+        SdbLogError("Postgres thread exited with error code %d (%s)", Ret, SdbStrErr(Ret));
+    }
     return NULL;
 }
 
 void *
 MbThread(void *Arg)
 {
-    // MbRun(Arg);
+    sdb_errno Ret = MbRun(Arg);
+    if(Ret != 0) {
+        SdbLogError("Modbus thread exited with error code %d (%s)", Ret, SdbStrErr(Ret));
+    }
     return NULL;
 }
 
-// TODO(ingar): Move to threadgroup
-static void
+void *
+MbPgTestServer(void *Arg)
+{
+    return NULL;
+}
+
+void
 GetMemAndScratchSize(cJSON *Conf, u64 *MemSize, u64 *ScratchSize)
 {
     cJSON *MemSizeObj = cJSON_GetObjectItem(Conf, "mem");
@@ -43,59 +54,6 @@ GetMemAndScratchSize(cJSON *Conf, u64 *MemSize, u64 *ScratchSize)
     *ScratchSize = SdbMemSizeFromString(cJSON_GetStringValue(ScratchSizeObj));
 }
 
-void *
-MbPgInit(cJSON *Conf)
-{
-    cJSON *ModbusConf = cJSON_GetObjectItem(Conf, "modbus");
-    if(ModbusConf == NULL || !cJSON_IsObject(ModbusConf)) {
-        return NULL;
-    }
-
-    cJSON *PostgresConf = cJSON_GetObjectItem(Conf, "postgres");
-    if(PostgresConf == NULL || !cJSON_IsObject(PostgresConf)) {
-        return NULL;
-    }
-
-    cJSON *PipeConf = cJSON_GetObjectItem(Conf, "pipe");
-    if(PipeConf == NULL || !cJSON_IsObject(PipeConf)) {
-        return NULL;
-    }
-
-    cJSON *TestingEnabled;
-    cJSON *TestConf = cJSON_GetObjectItem(Conf, "testing");
-    if(TestConf == NULL || !cJSON_IsObject(TestConf)) {
-        return NULL;
-    } else {
-        // TODO(ingar): Implement how testing is done
-        TestingEnabled = cJSON_GetObjectItem(Conf, "enabled");
-    }
-
-
-    cJSON *PipeBufCountObj = cJSON_GetObjectItem(PipeConf, "buf_count");
-    cJSON *PipeBufSizeObj  = cJSON_GetObjectItem(PipeConf, "buf_size");
-    if(!PipeBufCountObj || !PipeBufSizeObj) {
-        return NULL;
-    }
-
-    mbpg_ctx *Ctx = malloc(sizeof(mbpg_ctx));
-    if(Ctx == NULL) {
-        return NULL;
-    }
-
-    GetMemAndScratchSize(ModbusConf, &Ctx->ModbusMemSize, &Ctx->ModbusScratchSize);
-    GetMemAndScratchSize(PostgresConf, &Ctx->PgMemSize, &Ctx->PgScratchSize);
-
-    u64 PipeBufCount = cJSON_GetNumberValue(PipeBufCountObj);
-    u64 PipeBufSize  = SdbMemSizeFromString(cJSON_GetStringValue(PipeBufSizeObj));
-    Ctx->SdPipe      = SdpCreate(PipeBufCount, PipeBufSize, NULL);
-    if(Ctx->SdPipe == NULL) {
-        free(Ctx);
-        return NULL;
-    }
-
-    return Ctx;
-}
-
 sdb_errno
 MbPgCleanup(void *Arg)
 {
@@ -105,9 +63,10 @@ MbPgCleanup(void *Arg)
             SdpDestroy(Ctx->SdPipe, false);
         } else {
             SdbLogWarning("The context passed to cleanup function's pipe was NULL");
+            return -SDBE_PTR_WAS_NULL;
         }
+        SdbBarrierDeinit(&Ctx->Barrier);
         free(Ctx);
-        return -SDBE_PTR_WAS_NULL;
     } else {
         SdbLogWarning("The context passed to cleanup function was NULL");
         return -SDBE_PTR_WAS_NULL;
@@ -116,11 +75,6 @@ MbPgCleanup(void *Arg)
     return 0;
 }
 
-void *
-MbPgTestServer(void *Arg)
-{
-    return NULL;
-}
 
 static tg_task MbPgTasks[]     = { PgThread, MbThread };
 static tg_task MbPgTestTasks[] = { PgThread, MbThread, MbPgTestServer };
@@ -128,11 +82,39 @@ static tg_task MbPgTestTasks[] = { PgThread, MbThread, MbPgTestServer };
 tg_group *
 MbPgCreateTg(cJSON *Conf, u64 GroupId, sdb_arena *A)
 {
-    void *Ctx = MbPgInit(Conf);
+    cJSON *ModbusConf   = cJSON_GetObjectItem(Conf, "modbus");
+    cJSON *PostgresConf = cJSON_GetObjectItem(Conf, "postgres");
+    cJSON *PipeConf     = cJSON_GetObjectItem(Conf, "pipe");
+    cJSON *TestConf     = cJSON_GetObjectItem(Conf, "testing");
+
+    mbpg_ctx *Ctx = malloc(sizeof(mbpg_ctx));
     if(Ctx == NULL) {
         return NULL;
     }
 
-    tg_group *Group = TgCreateGroup(GroupId, 2, Ctx, NULL, MbPgTasks, MbPgCleanup, A);
+    cJSON *PipeBufCountObj = cJSON_GetObjectItem(PipeConf, "buf_count");
+    cJSON *PipeBufSizeObj  = cJSON_GetObjectItem(PipeConf, "buf_size");
+
+    CdcGetMemAndScratchSize(ModbusConf, &Ctx->ModbusMemSize, &Ctx->ModbusScratchSize);
+    CdcGetMemAndScratchSize(PostgresConf, &Ctx->PgMemSize, &Ctx->PgScratchSize);
+
+    u64 PipeBufCount = cJSON_GetNumberValue(PipeBufCountObj);
+    u64 PipeBufSize  = SdbMemSizeFromString(cJSON_GetStringValue(PipeBufSizeObj));
+    Ctx->SdPipe      = SdpCreate(PipeBufCount, PipeBufSize, NULL);
+    if(Ctx->SdPipe == NULL) {
+        free(Ctx);
+        return NULL;
+    }
+
+    tg_group *Group;
+    cJSON    *TestingEnabled = cJSON_GetObjectItem(TestConf, "enabled");
+    if(cJSON_IsTrue(TestingEnabled)) {
+        SdbBarrierInit(&Ctx->Barrier, 3);
+        Group = TgCreateGroup(GroupId, 3, Ctx, NULL, MbPgTestTasks, MbPgCleanup, A);
+    } else {
+        Group = TgCreateGroup(GroupId, 2, Ctx, NULL, MbPgTasks, MbPgCleanup, A);
+        SdbBarrierInit(&Ctx->Barrier, 2);
+    }
+
     return Group;
 }

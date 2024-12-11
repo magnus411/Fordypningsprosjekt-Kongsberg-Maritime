@@ -1,45 +1,49 @@
-#include "src/Common/Time.h"
+#include <signal.h>
 #include <sys/epoll.h>
 
 #include <src/Sdb.h>
-SDB_LOG_REGISTER(PostgresApi);
+SDB_LOG_REGISTER(PostgresThread);
 SDB_THREAD_ARENAS_EXTERN(Postgres);
 
+#include <src/Common/Time.h>
+#include <src/CpDbCouplings/ModbusWithPostgres/ModbusWithPostgres.h>
 #include <src/DatabaseSystems/DatabaseInitializer.h>
-#include <src/DatabaseSystems/DatabaseSystems.h>
 #include <src/DatabaseSystems/Postgres.h>
 
+extern volatile sig_atomic_t GlobalShutdown;
+
 sdb_errno
-PgInit(database_api *Pg)
+PgRun(void *Arg)
 {
+    sdb_errno Ret = 0;
+    mbpg_ctx *Ctx = Arg;
+
+    sdb_arena PgArena;
+    u64       PgASize = Ctx->PgMemSize + PG_SCRATCH_COUNT * Ctx->PgScratchSize;
+    u8       *PgAMem  = malloc(PgASize);
+    SdbArenaInit(&PgArena, PgAMem, PgASize);
+
     PgInitThreadArenas();
     SdbThreadArenasInitExtern(Postgres);
-    sdb_arena *Scratch1 = SdbArenaBootstrap(&Pg->Arena, NULL, SdbKibiByte(100));
-    sdb_arena *Scratch2 = SdbArenaBootstrap(&Pg->Arena, NULL, SdbKibiByte(100));
-    SdbThreadArenasAdd(Scratch1);
-    SdbThreadArenasAdd(Scratch2);
+    for(u64 s = 0; s < PG_SCRATCH_COUNT; ++s) {
+        sdb_arena *Scratch = SdbArenaBootstrap(&PgArena, NULL, Ctx->PgScratchSize);
+        SdbThreadArenasAdd(Scratch);
+    }
 
     // Initialize postgres context
-    Pg->Ctx = PgPrepareCtx(Pg);
-
-    if(Pg->Ctx == NULL) {
+    postgres_ctx *PgCtx = PgPrepareCtx(&PgArena, Ctx->SdPipe);
+    if(PgCtx == NULL) {
         return -1;
     }
 
-    return 0;
-}
-
-sdb_errno
-PgRun(database_api *Pg)
-{
-    sdb_errno     Ret   = 0;
-    postgres_ctx *PgCtx = PG_CTX(Pg);
-
-    PGconn             *Conn      = PgCtx->DbConn;
-    pg_table_info      *TableInfo = PgCtx->TablesInfo[0]; // TODO(ingar): Generalize to more tables
-    sdb_thread_control *ModuleControl = Pg->ModuleControl;
-    sensor_data_pipe   *Pipe          = Pg->SdPipes[0];
-    int                 ReadEventFd   = Pipe->ReadEventFd;
+    PGconn *Conn = PgCtx->DbConn;
+    // NOTE(ingar): We unfortunately don't have time to extend the implementation to support more
+    // than one table at the moment, but it should be relatively straightforward. Create more pipes
+    // (one per sensor) in the Mb-Pg thread group creation function and extend the epoll waiting
+    // system to have one per pipe and then write to the correct table.
+    pg_table_info    *TableInfo   = PgCtx->TablesInfo[0];
+    sensor_data_pipe *Pipe        = Ctx->SdPipe;
+    int               ReadEventFd = Pipe->ReadEventFd;
 
     int EpollFd = epoll_create1(0);
     if(EpollFd == -1) {
@@ -61,7 +65,10 @@ PgRun(database_api *Pg)
     static u64 TotalInsertedItems = 0;
     printf("Item count/buf: %lu\n", Pipe->ItemMaxCount);
 
-    while(!SdbTCtlShouldStop(ModuleControl)) {
+    // NOTE(ingar): Wait for modbus (and test server if running tests) to complete its setup
+    SdbBarrierWait(&Ctx->Barrier);
+
+    while(!GlobalShutdown) {
         struct epoll_event Events[1];
         int                EpollRet = epoll_wait(EpollFd, Events, 1, SDB_TIME_MS(100));
         if(EpollRet == -1) {
@@ -136,16 +143,11 @@ PgRun(database_api *Pg)
 
     printf("%ld.%09ld\n", TimeDiff.tv_sec, TimeDiff.tv_nsec);
 
+    PQfinish(PgCtx->DbConn);
     close(EpollFd);
-    SdbLogDebug("Exiting postgres main loop");
+    free(PgAMem);
+
+    SdbLogDebug("Exiting thread function");
 
     return Ret;
-}
-
-sdb_errno
-PgFinalize(database_api *Pg)
-{
-    postgres_ctx *PgCtx = PG_CTX(Pg);
-    PQfinish(PgCtx->DbConn);
-    return 0;
 }

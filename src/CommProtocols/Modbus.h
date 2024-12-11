@@ -5,7 +5,6 @@
 
 SDB_BEGIN_EXTERN_C
 
-#include <src/CommProtocols/CommProtocols.h>
 #include <src/Common/SensorDataPipe.h>
 #include <src/Common/Thread.h>
 
@@ -43,11 +42,13 @@ typedef struct
 
 } mb_init_args;
 
-#define MB_CTX(mb) ((modbus_ctx *)mb->Ctx)
+#ifndef MB_SCRATCH_COUNT
+#define MB_SCRATCH_COUNT 2
+#endif
 
 void        MbThreadArenasInit(void);
 const u8   *MbParseTcpFrame(const u8 *Frame, u16 *UnitId, u16 *DataLength);
-modbus_ctx *MbPrepareCtx(comm_protocol_api *Mb);
+modbus_ctx *MbPrepareCtx(sdb_arena *MbArena);
 
 SDB_END_EXTERN_C
 

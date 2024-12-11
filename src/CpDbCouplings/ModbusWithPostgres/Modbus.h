@@ -3,10 +3,6 @@
 
 #include <src/Sdb.h>
 
-#include <src/CommProtocols/CommProtocols.h>
-
-sdb_errno MbInit(comm_protocol_api *Mb);
-sdb_errno MbRun(comm_protocol_api *Mb);
-sdb_errno MbFinalize(comm_protocol_api *Mb);
+sdb_errno MbRun(void *Arg);
 
 #endif

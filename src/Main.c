@@ -14,10 +14,10 @@ SDB_LOG_REGISTER(Main);
 
 #include <src/Libs/cJSON/cJSON.h>
 
-static volatile sig_atomic_t GlobalShutdown = 0;
-static sdb_mutex             ShutdownMutex;
-static sdb_cond              ShutdownCond;
-static pthread_t             SignalHandlerThread;
+volatile sig_atomic_t GlobalShutdown = 0;
+static sdb_mutex      ShutdownMutex;
+static sdb_cond       ShutdownCond;
+static pthread_t      SignalHandlerThread;
 
 sdb_errno
 SetUpFromConf(sdb_string ConfFilename, tg_manager **Manager)
@@ -56,6 +56,7 @@ SetUpFromConf(sdb_string ConfFilename, tg_manager **Manager)
         goto cleanup;
     }
 
+    // NOTE(ingar): Has to be done this way because of the goto statements
     Tgs = malloc(sizeof(tg_group *) * CouplingCount);
     if(!Tgs) {
         Ret = -ENOMEM;
@@ -64,7 +65,7 @@ SetUpFromConf(sdb_string ConfFilename, tg_manager **Manager)
 
     cJSON_ArrayForEach(CouplingConf, CpDbCouplingConfs)
     {
-        Tgs[tg] = CpDbCouplingCreateTg(CouplingConf, tg, NULL);
+        Tgs[tg] = CdcCreateTg(CouplingConf, tg, NULL);
         if(Tgs[tg] == NULL) {
             cJSON *CouplingName = cJSON_GetObjectItem(CouplingConf, "name");
             SdbLogError("Unable to create thread group for Cp-Db coupling %s",
@@ -129,8 +130,11 @@ main(int ArgCount, char **ArgV)
     if(Manager == NULL) {
         SdbLogError("Failed to set up from config file");
         exit(EXIT_FAILURE);
+    } else {
+        SdbLogInfo("Successfully set up from config file!");
     }
 
+    SdbLogInfo("Starting signal handler");
     sigset_t SigSet;
     sigemptyset(&SigSet);
     sigaddset(&SigSet, SIGINT);
@@ -139,15 +143,19 @@ main(int ArgCount, char **ArgV)
     pthread_create(&SignalHandlerThread, NULL, SignalHandler, &SigSet);
     pthread_detach(SignalHandlerThread);
 
+    SdbLogInfo("Starting all thread groups");
     sdb_errno TgStartRet = TgManagerStartAll(Manager);
     if(TgStartRet != 0) {
+        SdbLogError("Failed to start thread groups. Exiting");
         exit(EXIT_FAILURE);
+    } else {
+        SdbLogInfo("Successfully started all thread groups!");
     }
 
+    // TODO(ingar): Move signal handlign to monitor threads
+    SdbLogInfo("Starting to wait for shutdown signal");
     SdbMutexInit(&ShutdownMutex);
     SdbCondInit(&ShutdownCond);
-
-    // TODO(ingar): Move signal handlign to monitor threads
     SdbMutexLock(&ShutdownMutex, SDB_TIMEOUT_MAX);
     while(!GlobalShutdown) {
         SdbCondWait(&ShutdownCond, &ShutdownMutex, SDB_TIMEOUT_MAX);
@@ -156,7 +164,7 @@ main(int ArgCount, char **ArgV)
 
     SdbLogInfo("Shutdown signal received. Shutting down thread groups");
     TgManagerWaitForAll(Manager);
-    SdbLogInfo("All thread groups have shut down. Exiting");
+    SdbLogInfo("All thread groups have shut down. Goodbye!");
 
     exit(EXIT_SUCCESS);
 }

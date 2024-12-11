@@ -10,7 +10,6 @@ SDB_BEGIN_EXTERN_C
 #include <src/Common/CircularBuffer.h>
 #include <src/Common/SensorDataPipe.h>
 #include <src/Common/Thread.h>
-#include <src/DatabaseSystems/DatabaseSystems.h>
 #include <src/Libs/cJSON/cJSON.h>
 
 #define POSTGRES_CONF_FS_PATH "./configs/postgres-conf"
@@ -229,14 +228,16 @@ typedef struct
 
 } postgres_ctx;
 
-#define PG_CTX(pg) ((postgres_ctx *)pg->Ctx)
+#ifndef PG_SCRATCH_COUNT
+#define PG_SCRATCH_COUNT 2
+#endif
 
 void             DiagnoseConnectionAndTable(PGconn *DbConn, const char *TableName);
 void             PrintPGresult(const PGresult *Result);
 pg_col_metadata *GetTableMetadata(PGconn *DbConn, sdb_string TableName, i16 *ColCount,
                                   i16 *ColCountNoAutoIncrements, size_t *RowSize, sdb_arena *A);
 void             PgInitThreadArenas(void);
-postgres_ctx    *PgPrepareCtx(database_api *Pg);
+postgres_ctx    *PgPrepareCtx(sdb_arena *PgArena, sensor_data_pipe *Pipe);
 pg_timestamp     UnixToPgTimestamp(time_t UnixTime);
 pg_timestamp     TimevalToPgTimestamp(struct timeval Tv);
 pg_timestamp     TimespecToPgTimestamp(struct timespec Ts);

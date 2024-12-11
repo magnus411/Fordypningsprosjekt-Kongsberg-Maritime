@@ -73,6 +73,7 @@ typedef int64_t i64;
  * When appropriate, negative POSIX errno values can be returned,
  * e.g. -EINVAL.
  */
+// TODO(ingar): Check number range for POSIX errno codes and make sure they don't overlap with ours
 typedef int_least32_t sdb_errno;
 enum
 {
@@ -91,6 +92,36 @@ enum
 
     SDBE_PTR_WAS_NULL = 8,
 };
+
+static inline const char *
+SdbStrErr(sdb_errno E)
+{
+    if(E < 0) {
+        E = -E;
+    }
+    switch(E) {
+        case SDBE_SUCCESS:
+            return "Success";
+        case SDBE_ERR:
+            return "Error";
+        case SDBE_DBS_UNAVAIL:
+            return "Database system unavailable";
+        case SDBE_CP_UNAVAIL:
+            return "Communication protocol unavailable";
+        case SDBE_CONN_CLOSED_SUCS:
+            return "Connection closed successfully";
+        case SDBE_CONN_CLOSED_ERR:
+            return "Connection closed with error";
+        case SDBE_PG_ERR:
+            return "PostgreSQL error";
+        case SDBE_JSON_ERR:
+            return "JSON parsing error";
+        case SDBE_PTR_WAS_NULL:
+            return "Pointer was NULL";
+        default:
+            return "Unknown error";
+    }
+}
 
 
 #define SDB_EXPAND(x)       x

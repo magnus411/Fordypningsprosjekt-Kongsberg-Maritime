@@ -15,15 +15,13 @@ typedef struct
     u64 PgScratchSize;
 
     sensor_data_pipe *SdPipe;
+    sdb_barrier       Barrier;
 
 } mbpg_ctx;
-
 
 void *PgThread(void *Arg);
 
 void *MbThread(void *Arg);
-
-void *MbPgInit(cJSON *Conf);
 
 sdb_errno MbPgCleanup(void *Arg);
 

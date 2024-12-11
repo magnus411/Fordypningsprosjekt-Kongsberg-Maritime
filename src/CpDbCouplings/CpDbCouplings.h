@@ -6,6 +6,7 @@
 #include <src/Common/ThreadGroup.h>
 #include <src/Libs/cJSON/cJSON.h>
 
-tg_group *CpDbCouplingCreateTg(cJSON *Conf, u64 GroupId, sdb_arena *A);
+tg_group *CdcCreateTg(cJSON *Conf, u64 GroupId, sdb_arena *A);
+void      CdcGetMemAndScratchSize(cJSON *Conf, u64 *MemSize, u64 *ScratchSize);
 
 #endif

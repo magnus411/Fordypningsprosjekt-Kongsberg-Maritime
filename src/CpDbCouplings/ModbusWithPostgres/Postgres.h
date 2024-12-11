@@ -3,10 +3,6 @@
 
 #include <src/Sdb.h>
 
-#include <src/DatabaseSystems/DatabaseSystems.h>
-
-sdb_errno PgInit(database_api *Pg);
-sdb_errno PgRun(database_api *Pg);
-sdb_errno PgFinalize(database_api *Pg);
+sdb_errno PgRun(void *Arg);
 
 #endif

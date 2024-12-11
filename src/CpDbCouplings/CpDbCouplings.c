@@ -26,8 +26,22 @@ GetCouplingIdFromName(const char *Name)
     return -1;
 }
 
+void
+CdcGetMemAndScratchSize(cJSON *Conf, u64 *MemSize, u64 *ScratchSize)
+{
+    cJSON *MemSizeObj     = cJSON_GetObjectItem(Conf, "mem");
+    cJSON *ScratchSizeObj = cJSON_GetObjectItem(Conf, "scratch_size");
+    if(!cJSON_IsString(MemSizeObj) || !cJSON_IsString(ScratchSizeObj)) {
+        SdbAssert(0, "mem and/or scratch_size were not present or were malformed in sdb_conf.json");
+        return;
+    }
+
+    *MemSize     = SdbMemSizeFromString(cJSON_GetStringValue(MemSizeObj));
+    *ScratchSize = SdbMemSizeFromString(cJSON_GetStringValue(ScratchSizeObj));
+}
+
 tg_group *
-CpDbCouplingCreateTg(cJSON *Conf, u64 GroupId, sdb_arena *A)
+CdcCreateTg(cJSON *Conf, u64 GroupId, sdb_arena *A)
 {
     cJSON *Enabled = cJSON_GetObjectItem(Conf, "enabled");
     if(!(cJSON_IsBool(Enabled) && cJSON_IsTrue(Enabled))) {
