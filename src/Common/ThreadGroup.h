@@ -17,8 +17,8 @@ typedef struct
     pthread_t *Threads;
     void      *SharedData;
 
-    i32  GroupId;
-    i32  ThreadCount;
+    u64  GroupId;
+    u64  ThreadCount;
     bool Completed;
 
     tg_manager *Manager;
@@ -31,18 +31,19 @@ struct tg_manager
 {
     tg_group **Groups;
 
-    i32 GroupCount;
-    i32 CompletedCount;
+    u64 GroupCount;
+    u64 CompletedCount;
 
     sdb_mutex Mutex;
     sdb_cond  Cond;
 };
 
-sdb_errno TgInitManager(tg_manager *Manager, i32 MaxGroups, sdb_arena *A);
-tg_group *TgCreateGroup(tg_manager *Manager, i32 GroupId, i32 ThreadCount, void *SharedData,
-                        tg_init Init, tg_task *Tasks, tg_cleanup Cleanup, sdb_arena *A);
-sdb_errno TgStartGroup(tg_group *Group);
-sdb_errno TgManagerStartAll(tg_manager *Manager);
-void      TgManagerWaitForAll(tg_manager *Manager);
+tg_manager *TgCreateManager(tg_group **Groups, u64 GroupCount, sdb_arena *A);
+void        TgDestroyManager(tg_manager *M);
+tg_group   *TgCreateGroup(u64 GroupId, u64 ThreadCount, void *SharedData, tg_init Init,
+                          tg_task *Tasks, tg_cleanup Cleanup, sdb_arena *A);
+sdb_errno   TgStartGroup(tg_group *Group);
+sdb_errno   TgManagerStartAll(tg_manager *Manager);
+void        TgManagerWaitForAll(tg_manager *Manager);
 
 #endif
