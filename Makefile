@@ -1,5 +1,5 @@
 CC = gcc
-INCLUDES = -I.
+INCLUDES = -I. -I/usr/include/postgresql 
 LIBS = -lpaho-mqtt3c -lpthread -lpq -lm
 LINTER = clang-tidy
 LINTER_FLAGS = -quiet
