@@ -91,9 +91,9 @@ MbPgCleanup(void *Arg)
 }
 
 
-static tg_task MbPgTasks[]               = { PgThread, MbThread };
-static tg_task MbPgThroughputTestTasks[] = { PgThread, MbPgPipeThroughputTest };
-static tg_task MbPgTestTasks[]           = { PgThread, MbThread, MbPgTestServer };
+static tg_task MbPgTasks[] = { PgThread, MbPgPipeThroughputTest };
+// static tg_task MbPgThroughputTestTasks[] = { PgThread, MbPgPipeThroughputTest };
+static tg_task MbPgTestTasks[] = { PgThread, MbThread, MbPgTestServer };
 
 tg_group *
 MbPgCreateTg(cJSON *Conf, u64 GroupId, sdb_arena *A)
