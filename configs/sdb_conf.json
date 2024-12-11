@@ -5,15 +5,15 @@
             "enabled": true,
             "modbus": {
                 "mem": "8mB",
-                "scratch_size": "100kB"
+                "scratch_size": "128kB"
             },
             "postgres": {
                 "mem": "8mB",
-                "scratch_size": "100kB"
+                "scratch_size": "128kB"
             },
             "pipe": {
                 "buf_count": 2,
-                "buf_size": "32KB"
+                "buf_size": "32kB"
             },
             "testing": {
                 "enabled": false
