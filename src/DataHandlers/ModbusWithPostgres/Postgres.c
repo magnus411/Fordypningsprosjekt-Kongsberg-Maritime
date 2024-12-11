@@ -6,7 +6,7 @@ SDB_LOG_REGISTER(PostgresThread);
 SDB_THREAD_ARENAS_EXTERN(Postgres);
 
 #include <src/Common/Time.h>
-#include <src/CpDbCouplings/ModbusWithPostgres/ModbusWithPostgres.h>
+#include <src/DataHandlers/ModbusWithPostgres/ModbusWithPostgres.h>
 #include <src/DatabaseSystems/DatabaseInitializer.h>
 #include <src/DatabaseSystems/Postgres.h>
 

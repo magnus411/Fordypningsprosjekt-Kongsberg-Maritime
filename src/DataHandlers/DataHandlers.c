@@ -4,21 +4,21 @@ SDB_LOG_REGISTER(CpDbCouplings);
 #include <src/Common/ThreadGroup.h>
 #include <src/Libs/cJSON/cJSON.h>
 
-#include <src/CpDbCouplings/ModbusWithPostgres/ModbusWithPostgres.h>
+#include <src/DataHandlers/ModbusWithPostgres/ModbusWithPostgres.h>
 
-enum coupling_id
+enum handler_id
 {
     Mb_With_Postgres = 0,
 };
 
-static const char *AvailableCouplingNames[] = { "modbus_with_postgres" };
+static const char *AvailableHandlers[] = { "modbus_with_postgres" };
 
-static enum coupling_id
-GetCouplingIdFromName(const char *Name)
+static enum handler_id
+GetHandlerIdFromName(const char *Name)
 {
-    u64 ArrLen = SdbArrayLen(AvailableCouplingNames);
+    u64 ArrLen = SdbArrayLen(AvailableHandlers);
     for(i32 i = 0; i < ArrLen; ++i) {
-        if(strcmp(Name, AvailableCouplingNames[i]) == 0) {
+        if(strcmp(Name, AvailableHandlers[i]) == 0) {
             return i;
         }
     }
@@ -27,7 +27,7 @@ GetCouplingIdFromName(const char *Name)
 }
 
 void
-CdcGetMemAndScratchSize(cJSON *Conf, u64 *MemSize, u64 *ScratchSize)
+DhsGetMemAndScratchSize(cJSON *Conf, u64 *MemSize, u64 *ScratchSize)
 {
     cJSON *MemSizeObj     = cJSON_GetObjectItem(Conf, "mem");
     cJSON *ScratchSizeObj = cJSON_GetObjectItem(Conf, "scratch_size");
@@ -41,19 +41,19 @@ CdcGetMemAndScratchSize(cJSON *Conf, u64 *MemSize, u64 *ScratchSize)
 }
 
 tg_group *
-CdcCreateTg(cJSON *Conf, u64 GroupId, sdb_arena *A)
+DhsCreateTg(cJSON *Conf, u64 GroupId, sdb_arena *A)
 {
     cJSON *Enabled = cJSON_GetObjectItem(Conf, "enabled");
     if(!(cJSON_IsBool(Enabled) && cJSON_IsTrue(Enabled))) {
         return NULL;
     }
 
-    cJSON      *CouplingNameObj = cJSON_GetObjectItem(Conf, "name");
-    const char *CouplingName    = cJSON_GetStringValue(CouplingNameObj);
+    cJSON      *HandlerNameObj = cJSON_GetObjectItem(Conf, "name");
+    const char *HandlerName    = cJSON_GetStringValue(HandlerNameObj);
 
-    tg_group        *Group;
-    enum coupling_id CouplingId = GetCouplingIdFromName(CouplingName);
-    switch(CouplingId) {
+    tg_group       *Group;
+    enum handler_id HandlerId = GetHandlerIdFromName(HandlerName);
+    switch(HandlerId) {
         case Mb_With_Postgres:
             {
                 Group = MbPgCreateTg(Conf, GroupId, A);

@@ -6,7 +6,7 @@ SDB_THREAD_ARENAS_EXTERN(Modbus);
 #include <src/CommProtocols/Modbus.h>
 #include <src/Common/SensorDataPipe.h>
 #include <src/Common/Thread.h>
-#include <src/CpDbCouplings/ModbusWithPostgres/ModbusWithPostgres.h>
+#include <src/DataHandlers/ModbusWithPostgres/ModbusWithPostgres.h>
 #include <src/DevUtils/TestConstants.h>
 
 sdb_errno

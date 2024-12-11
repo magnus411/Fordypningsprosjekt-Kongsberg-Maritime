@@ -1,5 +1,6 @@
 #ifndef MB_W_PG_COUPLING_H
 #define MB_W_PG_COUPLING_H
+
 #include <src/Sdb.h>
 
 #include <src/Common/SensorDataPipe.h>
@@ -20,11 +21,10 @@ typedef struct
 } mbpg_ctx;
 
 void *PgThread(void *Arg);
-
 void *MbThread(void *Arg);
+void *MbPgTestServer(void *Arg);
 
 sdb_errno MbPgCleanup(void *Arg);
-
 tg_group *MbPgCreateTg(cJSON *Conf, u64 GroupId, sdb_arena *A);
 
 #endif

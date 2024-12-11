@@ -1,11 +1,13 @@
-#include <src/Sdb.h>
-#include <time.h>
-SDB_LOG_REGISTER(StoreCompressedData);
 #include <libpq-fe.h>
-#include <src/StoreCompressedData.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
+
+#include <src/Sdb.h>
+SDB_LOG_REGISTER(StoreCompressedData);
+
+#include <src/ZeroCompression/StoreCompressedData.h>
 
 //////////////////////////////////////////////////////
 //  Storing run length encoded streaks of zero data //
