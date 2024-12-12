@@ -104,9 +104,7 @@ MbRun(void *Arg)
 
         static int counter = 0;
         while(!SdbShouldShutdown()) {
-            if(++LogCounter % 1000 == 0) {
-                SdbLogDebug("Modbus loop is still running");
-            }
+
 
             SdbAssert((SdbArenaGetPos(CurBuf) <= Pipe->BufferMaxFill),
                       "Pipe buffer overflow in buffer %u", atomic_load(&Pipe->WriteBufIdx));
@@ -129,15 +127,48 @@ MbRun(void *Arg)
                     goto reconnect;
                 default: // Data received
                     {
-                        u16       UnitId, DataLength;
-                        const u8 *Data = MbParseTcpFrame(Frame, &UnitId, &DataLength);
-                        if(DataLength != Pipe->PacketSize) {
-                            SdbLogError(
-                                "Modbus packet size did not match expected, was %u expected %zd",
-                                DataLength, Pipe->PacketSize);
-                            close(Conn.SockFd);
+                        u8      Frame[MODBUS_TCP_FRAME_MAX_SIZE] = { 0 };
+                        ssize_t HeaderResult                     = SocketRecvWithTimeout(
+                            Conn.SockFd, Frame, MODBUS_TCP_HEADER_LEN, SDB_TIME_MS(500));
+                        if(HeaderResult <= 0) {
+                            if(HeaderResult == -2) {
+                                continue; // Timeout
+                            }
                             goto reconnect;
                         }
+                        if(HeaderResult != MODBUS_TCP_HEADER_LEN) {
+                            SdbLogError("Incomplete header received: %zd bytes", HeaderResult);
+                            goto reconnect;
+                        }
+
+                        u16 Length = (Frame[4] << 8) | Frame[5];
+                        if(Length > MODBUS_TCP_FRAME_MAX_SIZE - MODBUS_TCP_HEADER_LEN) {
+                            SdbLogError("Invalid frame length in header: %u", Length);
+                            goto reconnect;
+                        }
+
+                        ssize_t DataResult = SocketRecvWithTimeout(
+                            Conn.SockFd, Frame + MODBUS_TCP_HEADER_LEN, Length, SDB_TIME_MS(500));
+
+
+                        if(DataResult != Length) {
+                            SdbLogError("Incomplete data received: %zd of %u bytes", DataResult,
+                                        Length);
+                            goto reconnect;
+                        }
+                        u16       UnitId, DataLength;
+                        const u8 *Data = MbParseTcpFrame(Frame, &UnitId, &DataLength);
+                        if(!Data) {
+                            SdbLogError("Failed to parse frame");
+                            goto reconnect;
+                        }
+
+                        if(DataLength != Pipe->PacketSize) {
+                            SdbLogError("Size mismatch: got %u, expected %zu", DataLength,
+                                        Pipe->PacketSize);
+                            goto reconnect;
+                        }
+
 
                         u8 *Ptr = SdbArenaPush(CurBuf, DataLength);
                         SdbMemcpy(Ptr, Data, DataLength);

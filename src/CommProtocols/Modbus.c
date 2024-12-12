@@ -103,8 +103,8 @@ MbPrepareCtx(sdb_arena *MbArena)
 
     mb_conn *Conns = MbCtx->Conns;
     for(u64 i = 0; i < MbCtx->ConnCount; ++i) {
-        Conns[i].Port   = 50123;
-        Conns[i].Ip     = SdbStringMake(MbArena, "167.99.218.233");
+        Conns[i].Port   = 1312;
+        Conns[i].Ip     = SdbStringMake(MbArena, "172.23.246.166");
         Conns[i].SockFd = SocketCreate(Conns[i].Ip, Conns[i].Port);
         if(Conns[i].SockFd == -1) {
             SdbLogError("Failed to create socket for sensor index %lu", i);
