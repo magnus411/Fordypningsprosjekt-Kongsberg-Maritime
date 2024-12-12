@@ -17,6 +17,7 @@ typedef struct
 
     sensor_data_pipe *SdPipe;
     sdb_barrier       Barrier;
+    sdb_barrier       ServerBarrier;
 
 } mbpg_ctx;
 

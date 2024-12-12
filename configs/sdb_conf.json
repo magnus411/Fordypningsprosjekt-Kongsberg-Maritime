@@ -16,7 +16,12 @@
                 "buf_size": "32kB"
             },
             "testing": {
-                "enabled": true
+                "throughput": {
+                    "enabled": false
+                },
+                "tcp": {
+                    "enabled": true
+                }
             }
         }
     ]

@@ -48,6 +48,7 @@ PgRun(void *Arg)
     int EpollFd = epoll_create1(0);
     if(EpollFd == -1) {
         SdbLogError("Failed to create epoll: %s", strerror(errno));
+        free(PgAMem);
         return -errno;
     }
 
@@ -55,6 +56,7 @@ PgRun(void *Arg)
         = { .events = EPOLLIN | EPOLLERR | EPOLLHUP, .data.fd = ReadEventFd };
     if(epoll_ctl(EpollFd, EPOLL_CTL_ADD, ReadEventFd, &ReadEvent) == -1) {
         SdbLogError("Failed to start read event: %s", strerror(errno));
+        free(PgAMem);
         return -errno;
     }
 
@@ -66,6 +68,7 @@ PgRun(void *Arg)
     printf("Item count/buf: %lu\n", Pipe->ItemMaxCount);
 
     // NOTE(ingar): Wait for modbus (and test server if running tests) to complete its setup
+
     SdbBarrierWait(&Ctx->Barrier);
 
     while(!GlobalShutdown) {
@@ -98,7 +101,7 @@ PgRun(void *Arg)
 
         if(Events[0].events & EPOLLIN) {
             sdb_arena *Buf = NULL;
-            while((Buf = SdPipeGetReadBuffer(Pipe)) != NULL) {
+            while(!GlobalShutdown && (Buf = SdPipeGetReadBuffer(Pipe, SDB_TIME_MS(100))) != NULL) {
                 SdbAssert(Buf->Cur % Pipe->PacketSize == 0,
                           "Pipe does not contain a multiple of the packet size");
 
@@ -141,7 +144,7 @@ PgRun(void *Arg)
         }
     }
 
-    printf("%ld.%09ld\n", TimeDiff.tv_sec, TimeDiff.tv_nsec);
+    printf("Total insertion time: %ld.%09ld\n", TimeDiff.tv_sec, TimeDiff.tv_nsec);
 
     PQfinish(PgCtx->DbConn);
     close(EpollFd);

@@ -77,11 +77,6 @@ MbParseTcpFrame(const u8 *Frame, u16 *UnitId, u16 *DataLength)
     *UnitId     = Frame[6];
     *DataLength = Frame[8];
 
-    // if(*DataLength > MAX_DATA_LENGTH) {
-    //     SdbLogWarning("Byte count exceeds maximum data length. Skipping this frame.\n");
-    //     return NULL;
-    // }
-
     return &Frame[9];
 }
 
