@@ -74,16 +74,25 @@ MbReceiveTcpFrame(int Sockfd, u8 *Frame, size_t BufferSize)
 const u8 *
 MbParseTcpFrame(const u8 *Frame, u16 *UnitId, u16 *DataLength)
 {
-    *UnitId     = Frame[6];
+    // Parse the Length field from the Modbus TCP header (bytes 4-5)
+    u16 Length = (Frame[4] << 8) | Frame[5];
+
+    // Parse the Unit ID (byte 6)
+    *UnitId = Frame[6];
+
+    // The actual data length is in byte 8
     *DataLength = Frame[8];
 
-    // if(*DataLength > MAX_DATA_LENGTH) {
-    //     SdbLogWarning("Byte count exceeds maximum data length. Skipping this frame.\n");
-    //     return NULL;
-    // }
+    // Verify that Length = DataLength + 3 (accounting for UnitID, FunctionCode, and ByteCount)
+    if(Length != *DataLength + 3) {
+        SdbLogWarning("Inconsistent Modbus frame lengths: Length=%u, DataLength=%u", Length,
+                      *DataLength);
+        return NULL;
+    }
 
-    return &Frame[9];
+    return &Frame[9]; // Return pointer to start of data
 }
+
 
 modbus_ctx *
 MbPrepareCtx(sdb_arena *MbArena)

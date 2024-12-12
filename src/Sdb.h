@@ -411,7 +411,7 @@ typedef struct
 
 } sdb_string_header;
 
-#define SDB_STRING_HEADER(str) ((sdb_string_header *)(str)-1)
+#define SDB_STRING_HEADER(str) ((sdb_string_header *)(str) - 1)
 
 u64 SdbStringLen(sdb_string String);
 u64 SdbStringCap(sdb_string String);

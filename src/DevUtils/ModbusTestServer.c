@@ -72,20 +72,27 @@ GenerateModbusTcpFrame(u8 *Buffer, u16 TransactionId, u16 ProtocolId, u16 Length
 static inline sdb_errno
 SendModbusData(int NewFd)
 {
-    static u8        ModbusFrame[MODBUS_TCP_FRAME_MAX_SIZE] = { 1 };
+    static u8        ModbusFrame[MODBUS_TCP_FRAME_MAX_SIZE] = { 0 };
     static const u16 DataLength                             = sizeof(shaft_power_data);
-    static const u16 Length                                 = DataLength + 3;
+    static const u16 Length = DataLength + 3; // Length includes UnitID, FunctionCode, ByteCount
     shaft_power_data SpData;
     static u64       sendCount = 0;
 
     // Generate random data
     GenerateShaftPowerDataRandom(&SpData);
 
-    u16 TransactionId = 1;
-    u16 ProtocolId    = 1;
-    u8  FunctionCode  = 1;
+    // Set Modbus TCP header fields
+    ModbusFrame[0] = 0x00;                 // Transaction ID high byte
+    ModbusFrame[1] = 0x01;                 // Transaction ID low byte
+    ModbusFrame[2] = 0x00;                 // Protocol ID high byte
+    ModbusFrame[3] = 0x00;                 // Protocol ID low byte
+    ModbusFrame[4] = (Length >> 8) & 0xFF; // Length high byte
+    ModbusFrame[5] = Length & 0xFF;        // Length low byte
+    ModbusFrame[6] = 0x01;                 // Unit ID
+    ModbusFrame[7] = 0x10;                 // Function code (16 = Write Multiple Registers)
+    ModbusFrame[8] = DataLength;           // Byte count of data
 
-    ModbusFrame[8] = DataLength;
+    // Copy the actual data
     SdbMemcpy(&ModbusFrame[9], &SpData, DataLength);
 
     ssize_t SendResult = send(NewFd, ModbusFrame, MODBUS_TCP_HEADER_LEN + Length, 0);
@@ -99,7 +106,6 @@ SendModbusData(int NewFd)
 
     return SendResult;
 }
-
 void
 RunModbusTestServer(sdb_barrier *Barrier)
 {
