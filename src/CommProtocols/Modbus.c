@@ -103,7 +103,7 @@ MbPrepareCtx(sdb_arena *MbArena)
 
     mb_conn *Conns = MbCtx->Conns;
     for(u64 i = 0; i < MbCtx->ConnCount; ++i) {
-        Conns[i].Port   = 54321;
+        Conns[i].Port   = 50123;
         Conns[i].Ip     = SdbStringMake(MbArena, "127.0.0.1");
         Conns[i].SockFd = SocketCreate(Conns[i].Ip, Conns[i].Port);
         if(Conns[i].SockFd == -1) {
