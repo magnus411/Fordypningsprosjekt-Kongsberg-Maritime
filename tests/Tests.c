@@ -15,16 +15,17 @@ SDB_LOG_REGISTER(MainTests);
 #include <src/DatabaseSystems/DatabaseSystems.h>
 #include <src/Libs/cJSON/cJSON.h>
 
+#include <src/Signals.h>
 #include <tests/CommProtocols/CommProtocolsTest.h>
 #include <tests/CommProtocols/ModbusTest.h>
 #include <tests/DatabaseSystems/DatabaseSystemsTest.h>
 
 #define SD_PIPE_BUF_COUNT 4
 
-static volatile sig_atomic_t GlobalShutdown = 0;
-static sdb_mutex             ShutdownMutex;
-static sdb_cond              ShutdownCond;
-static sdb_thread            SignalHandlerThread;
+#include <src/Signals.h>
+static sdb_mutex  ShutdownMutex;
+static sdb_cond   ShutdownCond;
+static sdb_thread SignalHandlerThread;
 
 
 sdb_errno
@@ -33,13 +34,13 @@ SignalHandler(sdb_thread *Thread)
     sigset_t *SigSet = Thread->Args;
     int       Signal;
 
-    while(!GlobalShutdown) {
+    while(!SdbShouldShutdown()) {
         if(sigwait(SigSet, &Signal) == 0) {
             switch(Signal) {
                 case SIGINT:
                 case SIGTERM:
                     SdbLogInfo("Received shutdown signal %s", strsignal(Signal));
-                    GlobalShutdown = 1;
+                    !SdbShouldShutdown = 1;
                     SdbCondSignal(&ShutdownCond);
                     break;
                 default:
@@ -122,7 +123,7 @@ main(int ArgCount, char **ArgV)
     SdbCondInit(&ShutdownCond);
 
     SdbMutexLock(&ShutdownMutex, SDB_TIMEOUT_MAX);
-    while(!GlobalShutdown) {
+    while(!SdbShouldShutdown) {
         SdbCondWait(&ShutdownCond, &ShutdownMutex, SDB_TIMEOUT_MAX);
     }
     SdbMutexUnlock(&ShutdownMutex);

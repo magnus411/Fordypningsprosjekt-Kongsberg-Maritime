@@ -9,7 +9,7 @@ SDB_THREAD_ARENAS_EXTERN(Postgres);
 #include <src/DataHandlers/ModbusWithPostgres/ModbusWithPostgres.h>
 #include <src/DatabaseSystems/DatabaseInitializer.h>
 #include <src/DatabaseSystems/Postgres.h>
-
+#include <src/Signals.h>
 extern volatile sig_atomic_t GlobalShutdown;
 
 sdb_errno
@@ -68,7 +68,7 @@ PgRun(void *Arg)
     // NOTE(ingar): Wait for modbus (and test server if running tests) to complete its setup
     SdbBarrierWait(&Ctx->Barrier);
 
-    while(!GlobalShutdown) {
+    while(!SdbShouldShutdown()) {
         struct epoll_event Events[1];
         int                EpollRet = epoll_wait(EpollFd, Events, 1, SDB_TIME_MS(100));
         if(EpollRet == -1) {

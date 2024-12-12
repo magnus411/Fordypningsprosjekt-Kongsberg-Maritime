@@ -8,6 +8,7 @@ SDB_LOG_REGISTER(ThreadGroup);
 #include <src/Common/Thread.h>
 #include <src/Common/ThreadGroup.h>
 #include <src/Common/Time.h>
+#include <src/Signals.h>
 
 tg_manager *
 TgCreateManager(tg_group **Groups, u64 GroupCount, sdb_arena *A)
@@ -187,8 +188,8 @@ TgManagerWaitForAll(tg_manager *Manager)
 {
     SdbMutexLock(&Manager->Mutex, SDB_TIMEOUT_MAX);
 
-    while(Manager->CompletedCount < Manager->GroupCount) {
-        SdbCondWait(&Manager->Cond, &Manager->Mutex, SDB_TIMEOUT_MAX);
+    while(Manager->CompletedCount < Manager->GroupCount && !SdbShouldShutdown()) {
+        SdbCondWait(&Manager->Cond, &Manager->Mutex, SDB_TIME_S(1.0));
 
         for(i32 i = 0; i < Manager->GroupCount; ++i) {
             tg_group *Group = Manager->Groups[i];
@@ -199,7 +200,11 @@ TgManagerWaitForAll(tg_manager *Manager)
         }
     }
 
-    SdbLogInfo("All groups have completed");
+    if(SdbShouldShutdown()) {
+        SdbLogInfo("Shutdown requested, marking remaining groups as completed");
+        Manager->CompletedCount = Manager->GroupCount;
+    }
 
+    SdbLogInfo("All groups have completed or shutdown requested");
     SdbMutexUnlock(&Manager->Mutex);
 }

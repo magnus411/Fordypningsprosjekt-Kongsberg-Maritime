@@ -7,7 +7,6 @@
 SDB_LOG_REGISTER(Socket);
 
 #include <src/Common/Socket.h>
-
 int
 SocketCreate(const char *IpAddress, int Port)
 {
@@ -29,6 +28,8 @@ SocketCreate(const char *IpAddress, int Port)
         return -1;
     }
 
+
+    sleep(1);
     if(connect(SockFd, (struct sockaddr *)&ServerAddr, sizeof(ServerAddr)) == -1) {
         SdbLogError("Failed to connect to server %s:%d, errno: %s", IpAddress,
                     ntohs(ServerAddr.sin_port), strerror(errno));
@@ -74,7 +75,7 @@ SocketRecvWithTimeout(int SockFd, void *Buffer, size_t Length, sdb_timediff Time
     if(RecvResult == 0) {
         // Server closed connection
         SdbLogError("Server closed connection");
-        return 0;
+        return RecvResult;
     } else if(RecvResult == -1) {
         SdbLogError("Recv failed: %s", strerror(errno));
         return -1;

@@ -8,6 +8,7 @@
 
 SDB_LOG_REGISTER(ModbusTestServer);
 
+#include <netinet/tcp.h>
 #include <src/CommProtocols/Modbus.h>
 #include <src/Common/CircularBuffer.h>
 #include <src/Common/Socket.h>
@@ -15,6 +16,7 @@ SDB_LOG_REGISTER(ModbusTestServer);
 #include <src/Common/Time.h>
 #include <src/DatabaseSystems/Postgres.h>
 #include <src/DevUtils/TestConstants.h>
+#include <src/Signals.h>
 
 #define BACKLOG     5
 #define PACKET_FREQ 1e5
@@ -70,13 +72,14 @@ GenerateModbusTcpFrame(u8 *Buffer, u16 TransactionId, u16 ProtocolId, u16 Length
 static inline sdb_errno
 SendModbusData(int NewFd)
 {
-    // NOTE(ingar): By default everything is set to 1
-    static u8               ModbusFrame[MODBUS_TCP_FRAME_MAX_SIZE] = { 1 };
-    static const u16        DataLength                             = sizeof(shaft_power_data);
-    static const u16        Length                                 = DataLength + 3;
-    static shaft_power_data SpData                                 = {
-                                        .PacketId = 1, .Time = 783883485000000, .Rpm = 1, .Torque = 1, .Power = 1, .PeakPeakPfs = 1
-    };
+    static u8        ModbusFrame[MODBUS_TCP_FRAME_MAX_SIZE] = { 1 };
+    static const u16 DataLength                             = sizeof(shaft_power_data);
+    static const u16 Length                                 = DataLength + 3;
+    shaft_power_data SpData;
+    static u64       sendCount = 0;
+
+    // Generate random data
+    GenerateShaftPowerDataRandom(&SpData);
 
     u16 TransactionId = 1;
     u16 ProtocolId    = 1;
@@ -87,9 +90,15 @@ SendModbusData(int NewFd)
 
     ssize_t SendResult = send(NewFd, ModbusFrame, MODBUS_TCP_HEADER_LEN + Length, 0);
 
+    if(SendResult > 0) {
+        sendCount++;
+        if(sendCount % 1000000 == 0) {
+            SdbLogInfo("Sent %lu packets", sendCount);
+        }
+    }
+
     return SendResult;
 }
-
 
 void
 RunModbusTestServer(sdb_barrier *Barrier)
@@ -98,69 +107,114 @@ RunModbusTestServer(sdb_barrier *Barrier)
 
     srand(time(NULL));
 
-    int                SockFd, NewFd;
-    struct sockaddr_in ServerAddr, ClientAddr;
-    socklen_t          SinSize;
-    char               ClientIp[INET6_ADDRSTRLEN];
-    int                Port = MODBUS_PORT;
-
-    SockFd = socket(AF_INET, SOCK_STREAM, 0);
+    int SockFd = socket(AF_INET, SOCK_STREAM, 0);
     if(SockFd == -1) {
         SdbLogError("Failed to create socket: %s (errno: %d)", strerror(errno), errno);
         return;
     }
 
+    // Add socket options
+    int OptVal = 1;
+    if(setsockopt(SockFd, SOL_SOCKET, SO_REUSEADDR, &OptVal, sizeof(OptVal)) == -1) {
+        SdbLogError("Failed to set SO_REUSEADDR: %s", strerror(errno));
+        close(SockFd);
+        return;
+    }
+
+    // Add TCP_NODELAY to prevent buffering
+    if(setsockopt(SockFd, IPPROTO_TCP, TCP_NODELAY, &OptVal, sizeof(OptVal)) == -1) {
+        SdbLogError("Failed to set TCP_NODELAY: %s", strerror(errno));
+        close(SockFd);
+        return;
+    }
+
+    struct sockaddr_in ServerAddr;
     ServerAddr.sin_family      = AF_INET;
-    ServerAddr.sin_port        = htons(Port);
+    ServerAddr.sin_port        = htons(MODBUS_PORT);
     ServerAddr.sin_addr.s_addr = INADDR_ANY;
     SdbMemset(&(ServerAddr.sin_zero), '\0', 8);
 
-    if(bind(SockFd, (struct sockaddr *)&ServerAddr, sizeof(struct sockaddr)) == -1) {
-        SdbLogError("Failed to bind socket (address: %s, port: %d): %s (errno: %d)",
-                    inet_ntoa(ServerAddr.sin_addr), ntohs(ServerAddr.sin_port), strerror(errno),
-                    errno);
+    if(bind(SockFd, (struct sockaddr *)&ServerAddr, sizeof(ServerAddr)) == -1) {
+        SdbLogError("Failed to bind: %s (errno: %d)", strerror(errno), errno);
         close(SockFd);
         return;
     }
 
     if(listen(SockFd, BACKLOG) == -1) {
-        SdbLogError("Failed to listen on socket: %s (errno: %d)", strerror(errno), errno);
+        SdbLogError("Failed to listen: %s (errno: %d)", strerror(errno), errno);
         close(SockFd);
         return;
     }
 
-    SdbLogDebug("Server: waiting for connections on port %d...", Port);
+    // Make socket non-blocking
+    int flags = fcntl(SockFd, F_GETFL, 0);
+    fcntl(SockFd, F_SETFL, flags | O_NONBLOCK);
 
-    SinSize = sizeof(ClientAddr);
-    NewFd   = accept(SockFd, (struct sockaddr *)&ClientAddr, &SinSize);
-    if(NewFd == -1) {
-        SdbLogError("Error accepting connection: %s (errno: %d)", strerror(errno), errno);
-        close(SockFd);
-        return;
-    }
-
-    inet_ntop(ClientAddr.sin_family, &(ClientAddr.sin_addr), ClientIp, sizeof(ClientIp));
-    SdbLogInfo("Server: accepted connection from %s:%d", ClientIp, ntohs(ClientAddr.sin_port));
-
+    SdbLogInfo("Server: waiting for connections on port %d...", MODBUS_PORT);
     SdbBarrierWait(Barrier);
 
-    for(u64 i = 0; i < MODBUS_PACKET_COUNT; ++i) {
-        if(SendModbusData(NewFd) == -1) {
-            SdbLogError("Failed to send Modbus data to client %s:%d, closing connection", ClientIp,
-                        ntohs(ClientAddr.sin_port));
-            break;
-        } else {
-            if((i % (u64)(MODBUS_PACKET_COUNT / 5)) == 0) {
-                SdbLogDebug("Successfully sent Modbus data to client %s:%d", ClientIp,
-                            ntohs(ClientAddr.sin_port));
+    while(!SdbShouldShutdown()) {
+        struct sockaddr_in ClientAddr;
+        socklen_t          SinSize = sizeof(ClientAddr);
+        char               ClientIp[INET6_ADDRSTRLEN];
+
+        int NewFd = accept(SockFd, (struct sockaddr *)&ClientAddr, &SinSize);
+        if(NewFd == -1) {
+            if(errno == EINTR || errno == EAGAIN || errno == EWOULDBLOCK) {
+                usleep(10000); // 10ms delay if no connection
+                continue;
             }
+            SdbLogError("Accept error: %s (errno: %d)", strerror(errno), errno);
+            continue;
         }
-        // SdbSleep(SDB_TIME_S(1.0 / PACKET_FREQ));
+
+        // Set client socket to non-blocking too
+        flags = fcntl(NewFd, F_GETFL, 0);
+        fcntl(NewFd, F_SETFL, flags | O_NONBLOCK);
+
+        // Enable TCP_NODELAY for client socket
+        OptVal = 1;
+        setsockopt(NewFd, IPPROTO_TCP, TCP_NODELAY, &OptVal, sizeof(OptVal));
+
+        inet_ntop(ClientAddr.sin_family, &(ClientAddr.sin_addr), ClientIp, sizeof(ClientIp));
+        SdbLogInfo("Server: accepted connection from %s:%d", ClientIp, ntohs(ClientAddr.sin_port));
+
+        u64             packetsSent = 0;
+        struct timespec lastSend, now;
+        clock_gettime(CLOCK_MONOTONIC, &lastSend);
+
+        while(!SdbShouldShutdown()) {
+            clock_gettime(CLOCK_MONOTONIC, &now);
+
+            // Control send rate
+            if((now.tv_sec - lastSend.tv_sec) * 1000000 + (now.tv_nsec - lastSend.tv_nsec) / 1000
+               < 100) { // 100 microseconds = 10kHz
+                continue;
+            }
+
+            sdb_errno sendResult = SendModbusData(NewFd);
+            if(sendResult == -1) {
+                if(errno == EAGAIN || errno == EWOULDBLOCK) {
+                    usleep(1000); // Wait if buffer is full
+                    continue;
+                }
+                SdbLogError("Failed to send to %s:%d: %s", ClientIp, ntohs(ClientAddr.sin_port),
+                            strerror(errno));
+                break;
+            }
+
+
+            lastSend = now;
+        }
+
+        SdbLogInfo("Connection closed after sending %lu packets", packetsSent);
+        close(NewFd);
+
+        if(SdbShouldShutdown()) {
+            break;
+        }
     }
 
-    SdbLogDebug("All data sent, stopping server");
-    close(NewFd);
+    SdbLogInfo("Server shutting down");
     close(SockFd);
-
-    return;
 }

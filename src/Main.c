@@ -14,10 +14,8 @@ SDB_LOG_REGISTER(Main);
 
 #include <src/Libs/cJSON/cJSON.h>
 
-volatile sig_atomic_t GlobalShutdown = 0;
-static sdb_mutex      ShutdownMutex;
-static sdb_cond       ShutdownCond;
-static pthread_t      SignalHandlerThread;
+#include <src/DevUtils/ModbusDataParser.h>
+#include <src/Signals.h>
 
 sdb_errno
 SetUpFromConf(sdb_string ConfFilename, tg_manager **Manager)
@@ -96,34 +94,11 @@ cleanup:
     return Ret;
 }
 
-void *
-SignalHandler(void *Arg)
-{
-    sigset_t *SigSet = Arg;
-    int       Signal;
-
-    while(!GlobalShutdown) {
-        if(sigwait(SigSet, &Signal) == 0) {
-            switch(Signal) {
-                case SIGINT:
-                case SIGTERM:
-                    SdbLogInfo("Received shutdown signal %s", strsignal(Signal));
-                    GlobalShutdown = 1;
-                    SdbCondSignal(&ShutdownCond);
-                    break;
-                default:
-                    SdbLogInfo("Received unhandled signal %d %s", Signal, strsignal(Signal));
-                    break;
-            }
-        }
-    }
-
-    return 0;
-}
 
 int
 main(int ArgCount, char **ArgV)
 {
+    ConvertDumpToCSV("./dumps/pipe_dump_20241211_211549.bin", "./dumps/sensor_data.csv");
     tg_manager *Manager = NULL;
     SetUpFromConf("./configs/sdb_conf.json", &Manager);
     if(Manager == NULL) {
@@ -133,14 +108,15 @@ main(int ArgCount, char **ArgV)
         SdbLogInfo("Successfully set up from config file!");
     }
 
-    SdbLogInfo("Starting signal handler");
-    sigset_t SigSet;
-    sigemptyset(&SigSet);
-    sigaddset(&SigSet, SIGINT);
-    sigaddset(&SigSet, SIGTERM);
-    pthread_sigmask(SIG_BLOCK, &SigSet, NULL);
-    pthread_create(&SignalHandlerThread, NULL, SignalHandler, &SigSet);
-    pthread_detach(SignalHandlerThread);
+
+    if(SdbSetupSignalHandlers(Manager) != 0) {
+        SdbLogError("Failed to setup signal handlers");
+        TgDestroyManager(Manager);
+        exit(EXIT_FAILURE);
+    }
+
+    SdbSetMemoryDumpPath("/memory_dump.log");
+
 
     SdbLogInfo("Starting all thread groups");
     sdb_errno TgStartRet = TgManagerStartAll(Manager);
@@ -151,19 +127,11 @@ main(int ArgCount, char **ArgV)
         SdbLogInfo("Successfully started all thread groups!");
     }
 
-    // TODO(ingar): Move signal handlign to monitor threads
-    SdbLogInfo("Starting to wait for shutdown signal");
-    SdbMutexInit(&ShutdownMutex);
-    SdbCondInit(&ShutdownCond);
-    SdbMutexLock(&ShutdownMutex, SDB_TIMEOUT_MAX);
-    while(!GlobalShutdown) {
-        SdbCondWait(&ShutdownCond, &ShutdownMutex, SDB_TIMEOUT_MAX);
-    }
-    SdbMutexUnlock(&ShutdownMutex);
 
-    SdbLogInfo("Shutdown signal received. Shutting down thread groups");
     TgManagerWaitForAll(Manager);
-    SdbLogInfo("All thread groups have shut down. Goodbye!");
 
-    exit(EXIT_SUCCESS);
+
+    TgDestroyManager(Manager);
+
+    return EXIT_SUCCESS;
 }

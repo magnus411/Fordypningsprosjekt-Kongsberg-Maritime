@@ -1,3 +1,5 @@
+#define _GNU_SOURCE
+
 #include <src/Sdb.h>
 SDB_LOG_REGISTER(MbWithPg);
 
@@ -11,44 +13,66 @@ SDB_LOG_REGISTER(MbWithPg);
 
 #include <src/Libs/cJSON/cJSON.h>
 
+#include <pthread.h>
+#include <src/Signals.h>
 
 void *
 PgThread(void *Arg)
 {
+
+    pthread_setname_np(pthread_self(), "postgres-thread");
+
     sdb_errno Ret = PgRun(Arg);
     if(Ret != 0) {
         SdbLogError("Postgres thread exited with error code %d (%s)", Ret, SdbStrErr(Ret));
     }
+
+    SdbLogInfo("Postgres thread shutting down");
     return NULL;
 }
+
 
 void *
 MbThread(void *Arg)
 {
+    pthread_setname_np(pthread_self(), "Modbus-thread");
+
+
     sdb_errno Ret = MbRun(Arg);
     if(Ret != 0) {
         SdbLogError("Modbus thread exited with error code %d (%s)", Ret, SdbStrErr(Ret));
     }
+
+    SdbLogInfo("Modbus thread shutting down");
     return NULL;
 }
 
 void *
 MbPgTestServer(void *Arg)
 {
+    pthread_setname_np(pthread_self(), "ModbusTestServer-thread");
     mbpg_ctx *Ctx = Arg;
+
+    // Run once, not in a loop
     RunModbusTestServer(&Ctx->Barrier);
 
+    SdbLogInfo("ModbusTestServer thread shutting down");
     return NULL;
 }
+
 
 void *
 MbPgPipeThroughputTest(void *Arg)
 {
-    sdb_errno Ret = MbPipeThroughputTest(Arg);
-    if(Ret != 0) {
-        SdbLogError("Modbus pipe throughput test exited with error code %d (%s)", Ret,
-                    SdbStrErr(Ret));
+    while(!SdbShouldShutdown()) {
+        sdb_errno Ret = MbPipeThroughputTest(Arg);
+        if(Ret != 0) {
+            SdbLogError("Modbus pipe throughput test exited with error code %d (%s)", Ret,
+                        SdbStrErr(Ret));
+            break;
+        }
     }
+    SdbLogInfo("Throughput test thread shutting down");
     return NULL;
 }
 
@@ -93,7 +117,12 @@ MbPgCleanup(void *Arg)
 
 static tg_task MbPgTasks[] = { PgThread, MbPgPipeThroughputTest };
 // static tg_task MbPgThroughputTestTasks[] = { PgThread, MbPgPipeThroughputTest };
-static tg_task MbPgTestTasks[] = { PgThread, MbThread, MbPgTestServer };
+static tg_task MbPgTestTasks[] = {
+    PgThread,
+    MbPgTestServer,
+    MbThread,
+};
+// static tg_task MbPgTestTasks[] = { MbPgTestServer };
 
 tg_group *
 MbPgCreateTg(cJSON *Conf, u64 GroupId, sdb_arena *A)
@@ -131,6 +160,9 @@ MbPgCreateTg(cJSON *Conf, u64 GroupId, sdb_arena *A)
         Group = TgCreateGroup(GroupId, 2, Ctx, NULL, MbPgTasks, MbPgCleanup, A);
         SdbBarrierInit(&Ctx->Barrier, 2);
     }
+
+
+    g_signal_context.pipe = Ctx->SdPipe;
 
     return Group;
 }
