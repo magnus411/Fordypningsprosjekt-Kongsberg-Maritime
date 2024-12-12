@@ -84,13 +84,11 @@ SendModbusData(int NewFd)
         return -1;
     }
 
-    // Clear the frame buffer
     memset(ModbusFrame, 0, MODBUS_TCP_FRAME_MAX_SIZE);
-
     GenerateShaftPowerDataRandom(&SpData);
 
-    // Build frame header with explicit size checks
-    u16 pos            = 0;
+    u16 pos = 0;
+    // Fixed header construction
     ModbusFrame[pos++] = 0x00;                 // Transaction ID high
     ModbusFrame[pos++] = 0x01;                 // Transaction ID low
     ModbusFrame[pos++] = 0x00;                 // Protocol ID high
@@ -101,23 +99,19 @@ SendModbusData(int NewFd)
     ModbusFrame[pos++] = 0x10;                 // Function code
     ModbusFrame[pos++] = DataLength;           // Byte count
 
-    // Copy data with explicit bounds checking
+    // Copy data with bounds checking
     if(pos + DataLength > MODBUS_TCP_FRAME_MAX_SIZE) {
         SdbLogError("Buffer overflow prevented");
         return -1;
     }
 
     SdbMemcpy(&ModbusFrame[pos], &SpData, DataLength);
-
-    // Send with explicit size calculation
     size_t totalSize = MODBUS_TCP_HEADER_LEN + Length;
-    if(totalSize > MODBUS_TCP_FRAME_MAX_SIZE) {
-        SdbLogError("Total frame size too large: %zu", totalSize);
-        return -1;
-    }
+
+    SdbLogDebug("Sending frame - Length: %u, DataLength: %u, TotalSize: %zu", Length, DataLength,
+                totalSize);
 
     ssize_t SendResult = send(NewFd, ModbusFrame, totalSize, 0);
-
     if(SendResult > 0) {
         sendCount++;
         if(sendCount % 10000 == 0) {
@@ -127,6 +121,7 @@ SendModbusData(int NewFd)
 
     return SendResult;
 }
+
 
 void
 RunModbusTestServer(sdb_barrier *Barrier)
