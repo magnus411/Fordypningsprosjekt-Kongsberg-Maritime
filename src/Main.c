@@ -109,7 +109,7 @@ SignalHandler(void *Arg)
                 case SIGTERM:
                     SdbLogInfo("Received shutdown signal %s", strsignal(Signal));
                     GlobalShutdown = 1;
-                    SdbCondSignal(&ShutdownCond);
+                    //SdbCondSignal(&ShutdownCond);
                     break;
                 default:
                     SdbLogInfo("Received unhandled signal %d %s", Signal, strsignal(Signal));
@@ -155,11 +155,11 @@ main(int ArgCount, char **ArgV)
     SdbLogInfo("Starting to wait for shutdown signal");
     SdbMutexInit(&ShutdownMutex);
     SdbCondInit(&ShutdownCond);
-    SdbMutexLock(&ShutdownMutex, SDB_TIMEOUT_MAX);
-    while(!GlobalShutdown) {
-        SdbCondWait(&ShutdownCond, &ShutdownMutex, SDB_TIMEOUT_MAX);
-    }
-    SdbMutexUnlock(&ShutdownMutex);
+    //SdbMutexLock(&ShutdownMutex, SDB_TIMEOUT_MAX);
+    //while(!GlobalShutdown) {
+    //    SdbCondWait(&ShutdownCond, &ShutdownMutex, SDB_TIMEOUT_MAX);
+    //}
+    //SdbMutexUnlock(&ShutdownMutex);
 
     SdbLogInfo("Shutdown signal received. Shutting down thread groups");
     TgManagerWaitForAll(Manager);

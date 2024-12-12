@@ -8,6 +8,6 @@
 // access if I use it
 #define MODBUS_PORT (54321) // (502)
 
-void RunModbusTestServer(sdb_barrier *Barrier);
+void RunModbusTestServer(void *Arg);
 
 #endif

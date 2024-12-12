@@ -1,4 +1,5 @@
 #include <arpa/inet.h>
+#include <signal.h>
 #include <string.h>
 #include <sys/socket.h>
 #include <time.h>
@@ -13,11 +14,14 @@ SDB_LOG_REGISTER(ModbusTestServer);
 #include <src/Common/Socket.h>
 #include <src/Common/Thread.h>
 #include <src/Common/Time.h>
+#include <src/DataHandlers/ModbusWithPostgres/ModbusWithPostgres.h>
 #include <src/DatabaseSystems/Postgres.h>
 #include <src/DevUtils/TestConstants.h>
 
 #define BACKLOG     5
-#define PACKET_FREQ 1e5
+#define PACKET_FREQ 1e3
+
+extern volatile sig_atomic_t GlobalShutdown;
 
 static inline void
 GenerateShaftPowerData(shaft_power_data *Data)
@@ -78,10 +82,9 @@ SendModbusData(int NewFd)
                                         .PacketId = 1, .Time = 783883485000000, .Rpm = 1, .Torque = 1, .Power = 1, .PeakPeakPfs = 1
     };
 
-    u16 TransactionId = 1;
-    u16 ProtocolId    = 1;
-    u8  FunctionCode  = 1;
+    u16 UnitId = 1;
 
+    ModbusFrame[6] = UnitId;
     ModbusFrame[8] = DataLength;
     SdbMemcpy(&ModbusFrame[9], &SpData, DataLength);
 
@@ -92,9 +95,10 @@ SendModbusData(int NewFd)
 
 
 void
-RunModbusTestServer(sdb_barrier *Barrier)
+RunModbusTestServer(void *Arg)
 {
     SdbLogInfo("Running Modbus Test Server");
+    mbpg_ctx *Ctx = Arg;
 
     srand(time(NULL));
 
@@ -120,31 +124,43 @@ RunModbusTestServer(sdb_barrier *Barrier)
                     inet_ntoa(ServerAddr.sin_addr), ntohs(ServerAddr.sin_port), strerror(errno),
                     errno);
         close(SockFd);
+        SdbBarrierWait(&Ctx->ServerBarrier);
+        SdbBarrierWait(&Ctx->Barrier);
         return;
     }
 
     if(listen(SockFd, BACKLOG) == -1) {
         SdbLogError("Failed to listen on socket: %s (errno: %d)", strerror(errno), errno);
         close(SockFd);
+        SdbBarrierWait(&Ctx->ServerBarrier);
+        SdbBarrierWait(&Ctx->Barrier);
         return;
     }
-
+    SdbBarrierWait(&Ctx->ServerBarrier);
     SdbLogDebug("Server: waiting for connections on port %d...", Port);
-
     SinSize = sizeof(ClientAddr);
     NewFd   = accept(SockFd, (struct sockaddr *)&ClientAddr, &SinSize);
     if(NewFd == -1) {
         SdbLogError("Error accepting connection: %s (errno: %d)", strerror(errno), errno);
         close(SockFd);
+        SdbBarrierWait(&Ctx->Barrier);
         return;
     }
 
     inet_ntop(ClientAddr.sin_family, &(ClientAddr.sin_addr), ClientIp, sizeof(ClientIp));
     SdbLogInfo("Server: accepted connection from %s:%d", ClientIp, ntohs(ClientAddr.sin_port));
 
-    SdbBarrierWait(Barrier);
+    SdbLogInfo(
+        "Modbus test server thread successfully initialized. Waiting for other threads at barrier");
+    SdbBarrierWait(&Ctx->Barrier);
+    SdbLogInfo("Exited barrier. Starting server loop");
 
     for(u64 i = 0; i < MODBUS_PACKET_COUNT; ++i) {
+        if(GlobalShutdown) {
+            SdbLogInfo("Global shutdown initiated");
+            break;
+        }
+
         if(SendModbusData(NewFd) == -1) {
             SdbLogError("Failed to send Modbus data to client %s:%d, closing connection", ClientIp,
                         ntohs(ClientAddr.sin_port));
@@ -155,10 +171,10 @@ RunModbusTestServer(sdb_barrier *Barrier)
                             ntohs(ClientAddr.sin_port));
             }
         }
-        // SdbSleep(SDB_TIME_S(1.0 / PACKET_FREQ));
+        SdbSleep(SDB_TIME_S(1.0 / PACKET_FREQ));
     }
 
-    SdbLogDebug("All data sent, stopping server");
+    SdbLogDebug("All data sent or global shutdown initiated, stopping server");
     close(NewFd);
     close(SockFd);
 
