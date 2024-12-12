@@ -104,7 +104,7 @@ MbPrepareCtx(sdb_arena *MbArena)
     mb_conn *Conns = MbCtx->Conns;
     for(u64 i = 0; i < MbCtx->ConnCount; ++i) {
         Conns[i].Port = 1312;
-        Conns[i].Ip   = SdbStringMake(MbArena, "172.23.246.166");
+        Conns[i].Ip   = SdbStringMake(MbArena, "10.110.0.2");
 
         Conns[i].SockFd = SocketCreate(Conns[i].Ip, Conns[i].Port);
         if(Conns[i].SockFd == -1) {
