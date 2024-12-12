@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <sys/eventfd.h>
+#include <sys/poll.h>
 
 #include <src/Sdb.h>
 SDB_LOG_REGISTER(SensorDataPipe);
@@ -59,6 +60,7 @@ SdpCreate(u64 BufCount, u64 BufSize, sdb_arena *Arena)
 void
 SdpDestroy(sensor_data_pipe *Pipe, bool AllocatedWithArena)
 {
+    SdbLogDebug("Destroying sensor data pipe");
     close(Pipe->ReadEventFd);
     close(Pipe->WriteEventFd);
     if(!AllocatedWithArena) {
@@ -67,29 +69,38 @@ SdpDestroy(sensor_data_pipe *Pipe, bool AllocatedWithArena)
 }
 
 sdb_arena *
-SdPipeGetWriteBuffer(sensor_data_pipe *Pipe)
+SdPipeGetWriteBuffer(sensor_data_pipe *Pipe, sdb_timediff TimeoutMs)
 {
+    struct pollfd Pfd = { .fd = Pipe->WriteEventFd, .events = POLLIN };
+
+    int Result = poll(&Pfd, 1, TimeoutMs);
+    if(Result == -1) {
+        if(errno == EINTR) {
+            return NULL;
+        }
+        SdbLogError("Poll failed on WriteEventFd: %s", strerror(errno));
+        return NULL;
+    }
+    if(Result == 0) {
+        // Timeout occurred
+        return NULL;
+    }
+
     u32 CurWriteBuf  = atomic_load(&Pipe->WriteBufIdx);
     u32 NextWriteBuf = (CurWriteBuf + 1) % Pipe->BufCount;
 
-    // Block until a slot is available
     u64 Val;
     if(read(Pipe->WriteEventFd, &Val, sizeof(Val)) == -1) {
-        if(errno == EINTR) {
-            // Handle interrupt if needed
-            return NULL;
-        }
-        SdbLogError("Failed to read from WriteEventFd");
+        SdbLogError("Failed to read from WriteEventFd: %s", strerror(errno));
         return NULL;
     }
 
     atomic_store(&Pipe->WriteBufIdx, NextWriteBuf);
     atomic_fetch_add(&Pipe->FullBuffersCount, 1);
 
-    // Signal reader that new data is available
     Val = 1;
     if(write(Pipe->ReadEventFd, &Val, sizeof(Val)) == -1) {
-        SdbLogError("Failed to write to ReadEventFd");
+        SdbLogError("Failed to write to ReadEventFd: %s", strerror(errno));
         return NULL;
     }
 
@@ -99,16 +110,26 @@ SdPipeGetWriteBuffer(sensor_data_pipe *Pipe)
 }
 
 sdb_arena *
-SdPipeGetReadBuffer(sensor_data_pipe *Pipe)
+SdPipeGetReadBuffer(sensor_data_pipe *Pipe, sdb_timediff TimeoutMs)
 {
-    // Block until data is available
-    u64 Val;
-    if(read(Pipe->ReadEventFd, &Val, sizeof(Val)) == -1) {
+    struct pollfd Pfd = { .fd = Pipe->ReadEventFd, .events = POLLIN };
+
+    int Result = poll(&Pfd, 1, TimeoutMs);
+    if(Result == -1) {
         if(errno == EINTR) {
-            // Handle interrupt if needed
             return NULL;
         }
-        SdbLogError("Failed to read from ReadEventFd");
+        SdbLogError("Poll failed on ReadEventFd: %s", strerror(errno));
+        return NULL;
+    }
+    if(Result == 0) {
+        // Timeout occurred
+        return NULL;
+    }
+
+    u64 Val;
+    if(read(Pipe->ReadEventFd, &Val, sizeof(Val)) == -1) {
+        SdbLogError("Failed to read from ReadEventFd: %s", strerror(errno));
         return NULL;
     }
 
@@ -117,32 +138,40 @@ SdPipeGetReadBuffer(sensor_data_pipe *Pipe)
     atomic_store(&Pipe->ReadBufIdx, (CurReadBuffer + 1) % Pipe->BufCount);
     atomic_fetch_sub(&Pipe->FullBuffersCount, 1);
 
-    // Signal writer that a slot is available
     Val = 1;
     if(write(Pipe->WriteEventFd, &Val, sizeof(Val)) == -1) {
-        SdbLogError("Failed to write to WriteEventFd");
+        SdbLogError("Failed to write to WriteEventFd: %s", strerror(errno));
         return NULL;
     }
-
     return Buf;
 }
 
-
 void
-SdPipeFlush(sensor_data_pipe *Pipe)
+SdPipeFlush(sensor_data_pipe *Pipe, sdb_timediff TimeoutMs)
 {
     sdb_arena *CurrentBuf = Pipe->Buffers[atomic_load(&Pipe->WriteBufIdx)];
     if(SdbArenaGetPos(CurrentBuf) > 0) {
-        u32 CurWriteBuf  = atomic_load(&Pipe->WriteBufIdx);
-        u32 NextWriteBuf = (CurWriteBuf + 1) % Pipe->BufCount;
+        struct pollfd Pfd = { .fd = Pipe->WriteEventFd, .events = POLLIN };
 
-        // Block until a slot is available
-        u64 Val;
-        if(read(Pipe->WriteEventFd, &Val, sizeof(Val)) == -1) {
+        int Result = poll(&Pfd, 1, TimeoutMs);
+        if(Result == -1) {
             if(errno == EINTR) {
                 SdbLogWarning("Flush interrupted while waiting for buffer");
                 return;
             }
+            SdbLogError("Poll failed on WriteEventFd during flush: %s", strerror(errno));
+            return;
+        }
+        if(Result == 0) {
+            SdbLogWarning("Flush timed out while waiting for buffer");
+            return;
+        }
+
+        u32 CurWriteBuf  = atomic_load(&Pipe->WriteBufIdx);
+        u32 NextWriteBuf = (CurWriteBuf + 1) % Pipe->BufCount;
+
+        u64 Val;
+        if(read(Pipe->WriteEventFd, &Val, sizeof(Val)) == -1) {
             SdbLogError("Failed to read from WriteEventFd during flush: %s", strerror(errno));
             return;
         }
@@ -150,14 +179,10 @@ SdPipeFlush(sensor_data_pipe *Pipe)
         atomic_store(&Pipe->WriteBufIdx, NextWriteBuf);
         atomic_fetch_add(&Pipe->FullBuffersCount, 1);
 
-        // Signal reader that new data is available
         Val = 1;
         if(write(Pipe->ReadEventFd, &Val, sizeof(Val)) == -1) {
             SdbLogError("Failed to write to ReadEventFd during flush: %s", strerror(errno));
             return;
         }
-
-        sdb_arena *NextBuf = Pipe->Buffers[NextWriteBuf];
-        SdbArenaClear(NextBuf);
     }
 }
