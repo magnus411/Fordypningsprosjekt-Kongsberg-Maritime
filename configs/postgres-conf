@@ -1,1 +1,3 @@
-host=/run/postgresql dbname=fordypningsprosjekt user=postgres
+host=localhost dbname=fordypningsprosjekt user=postgres password=passord 
+
+
