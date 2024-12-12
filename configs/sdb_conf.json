@@ -1,23 +1,23 @@
 {
-    "data_handlers": [
-        {
-            "name": "modbus_with_postgres",
-            "enabled": true,
-            "modbus": {
-                "mem": "8mB",
-                "scratch_size": "128kB"
-            },
-            "postgres": {
-                "mem": "8mB",
-                "scratch_size": "128kB"
-            },
-            "pipe": {
-                "buf_count": 2,
-                "buf_size": "32kB"
-            },
-            "testing": {
-                "enabled": true
-            }
-        }
-    ]
+  "data_handlers": [
+    {
+      "name": "modbus_with_postgres",
+      "enabled": true,
+      "modbus": {
+        "mem": "8mB",
+        "scratch_size": "4000kB "
+      },
+      "postgres": {
+        "mem": "8mB",
+        "scratch_size": "4000kB"
+      },
+      "pipe": {
+        "buf_count": 2,
+        "buf_size": "3mB"
+      },
+      "testing": {
+        "enabled": true
+      }
+    }
+  ]
 }
