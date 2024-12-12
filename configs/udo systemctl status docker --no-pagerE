@@ -1,0 +1,22 @@
+[0;1;32m●[0m docker.service - Docker Application Container Engine
+     Loaded: loaded (]8;;file://ubuntu-s-1vcpu-1gb-amd-ams3-01/usr/lib/systemd/system/docker.service/usr/lib/systemd/system/docker.service]8;;; [0;1;32menabled[0m; preset: [0;1;32menabled[0m)
+     Active: [0;1;32mactive (running)[0m since Thu 2024-12-12 09:24:16 UTC; 42s ago
+TriggeredBy: [0;1;32m●[0m docker.socket
+       Docs: ]8;;https://docs.docker.comhttps://docs.docker.com]8;;
+   Main PID: 5940 (dockerd)
+      Tasks: 8
+     Memory: 52.1M (peak: 52.8M)
+        CPU: 578ms
+     CGroup: /system.slice/docker.service
+             └─[0;38;5;245m5940 /usr/bin/dockerd -H fd:// --containerd=/run/containerd/containerd.sock[0m
+
+Dec 12 09:24:15 ubuntu-s-1vcpu-1gb-amd-ams3-01 dockerd[5940]: time="2024-12-12T09:24:15.563792644Z" level=info msg="Starting up"
+Dec 12 09:24:15 ubuntu-s-1vcpu-1gb-amd-ams3-01 dockerd[5940]: time="2024-12-12T09:24:15.565693750Z" level=info msg="detected 127.0.0.53 nameserver, assuming systemd-resolved, so using resolv.conf: /run/systemd/resolve/resolv.conf"
+Dec 12 09:24:15 ubuntu-s-1vcpu-1gb-amd-ams3-01 dockerd[5940]: time="2024-12-12T09:24:15.749858058Z" level=info msg="Loading containers: start."
+Dec 12 09:24:16 ubuntu-s-1vcpu-1gb-amd-ams3-01 dockerd[5940]: time="2024-12-12T09:24:16.321488853Z" level=info msg="Loading containers: done."
+Dec 12 09:24:16 ubuntu-s-1vcpu-1gb-amd-ams3-01 dockerd[5940]: time="2024-12-12T09:24:16.352917086Z" level=warning msg="WARNING: bridge-nf-call-iptables is disabled"
+Dec 12 09:24:16 ubuntu-s-1vcpu-1gb-amd-ams3-01 dockerd[5940]: time="2024-12-12T09:24:16.352965215Z" level=warning msg="WARNING: bridge-nf-call-ip6tables is disabled"
+Dec 12 09:24:16 ubuntu-s-1vcpu-1gb-amd-ams3-01 dockerd[5940]: time="2024-12-12T09:24:16.353001225Z" level=info msg="Docker daemon" commit=92a8393 containerd-snapshotter=false storage-driver=overlay2 version=27.4.0
+Dec 12 09:24:16 ubuntu-s-1vcpu-1gb-amd-ams3-01 dockerd[5940]: time="2024-12-12T09:24:16.355203678Z" level=info msg="Daemon has completed initialization"
+Dec 12 09:24:16 ubuntu-s-1vcpu-1gb-amd-ams3-01 dockerd[5940]: time="2024-12-12T09:24:16.447195964Z" level=info msg="API listen on /run/docker.sock"
+Dec 12 09:24:16 ubuntu-s-1vcpu-1gb-amd-ams3-01 systemd[1]: Started docker.service - Docker Application Container Engine.

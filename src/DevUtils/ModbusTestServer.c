@@ -60,7 +60,7 @@ GenerateModbusTcpFrame(u8 *Buffer, u16 TransactionId, u16 ProtocolId, u16 Length
     Buffer[1] = TransactionId & 0xFF;
     Buffer[2] = (ProtocolId >> 8) & 0xFF;
     Buffer[3] = ProtocolId & 0xFF;
-    Buffer[4] = (Length >> 8) & 0xFF;
+    Buffer[4] = (Length >> 8) & 0xFF;        
     Buffer[5] = Length & 0xFF;
     Buffer[6] = UnitId;
     Buffer[7] = FunctionCode;

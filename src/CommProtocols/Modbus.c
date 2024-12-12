@@ -26,6 +26,8 @@ MbThreadArenasInit(void)
     SdbThreadArenasInit(Modbus);
 }
 
+
+
 ssize_t
 MbReceiveTcpFrame(int Sockfd, u8 *Frame, size_t BufferSize)
 {
@@ -61,29 +63,16 @@ MbReceiveTcpFrame(int Sockfd, u8 *Frame, size_t BufferSize)
     return TotalBytesRead;
 }
 
-/**Modbus TCP frame structure:
- *
- * Resources:
- * @link https://en.wikipedia.org/wiki/Modbus#Public_function_codes
- *
- * | Transaction ID | Protocol ID | Length | Unit ID | Function Code | DataLength | Data  |
- * |----------------|-------------|--------|---------|---------------|----------|---------|
- * | 2 bytes        | 2 bytes     | 2 bytes| 1 byte  | 1 byte        | 1 byte   | n bytes |
- * ----------------------------------------------------------------------------------------
- */
+
 const u8 *
 MbParseTcpFrame(const u8 *Frame, u16 *UnitId, u16 *DataLength)
 {
     *UnitId     = Frame[6];
     *DataLength = Frame[8];
 
-    // if(*DataLength > MAX_DATA_LENGTH) {
-    //     SdbLogWarning("Byte count exceeds maximum data length. Skipping this frame.\n");
-    //     return NULL;
-    // }
-
     return &Frame[9];
 }
+
 
 modbus_ctx *
 MbPrepareCtx(sdb_arena *MbArena)
@@ -94,8 +83,8 @@ MbPrepareCtx(sdb_arena *MbArena)
 
     mb_conn *Conns = MbCtx->Conns;
     for(u64 i = 0; i < MbCtx->ConnCount; ++i) {
-        Conns[i].Port   = 54321;
-        Conns[i].Ip     = SdbStringMake(MbArena, "127.0.0.1");
+        Conns[i].Port   = 1312;
+        Conns[i].Ip     = SdbStringMake(MbArena, "10.110.0.2");
         Conns[i].SockFd = SocketCreate(Conns[i].Ip, Conns[i].Port);
         if(Conns[i].SockFd == -1) {
             SdbLogError("Failed to create socket for sensor index %lu", i);

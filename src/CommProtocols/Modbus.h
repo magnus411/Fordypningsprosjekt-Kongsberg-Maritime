@@ -10,7 +10,7 @@ SDB_BEGIN_EXTERN_C
 
 // NOTE(ingar): This is port (502) used by modbus according to its wikipedia page, but I can't get
 // it to work for testing, since it's in the reserved range.
-#define MODBUS_PORT                   (54321) // (502)
+#define MODBUS_PORT                   (1312) // (502)
 #define MODBUS_TCP_HEADER_LEN         (7)
 #define MODBUS_PDU_MAX_SIZE           (253)
 #define MODBUS_TCP_FRAME_MAX_SIZE     (260)
@@ -50,6 +50,7 @@ void        MbThreadArenasInit(void);
 const u8   *MbParseTcpFrame(const u8 *Frame, u16 *UnitId, u16 *DataLength);
 modbus_ctx *MbPrepareCtx(sdb_arena *MbArena);
 
+ssize_t MbReceiveTcpFrame(int Sockfd, u8 *Frame, size_t BufferSize);
 SDB_END_EXTERN_C
 
 #endif
