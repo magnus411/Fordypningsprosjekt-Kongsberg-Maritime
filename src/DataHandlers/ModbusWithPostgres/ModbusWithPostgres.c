@@ -1,15 +1,15 @@
 #define _GNU_SOURCE
 
 #include <src/Sdb.h>
-SDB_LOG_REGISTER(MbWithPg);
+SDB_LOG_REGISTER(MbWithPgHandler);
 
 #include <src/Common/SensorDataPipe.h>
 #include <src/Common/ThreadGroup.h>
 #include <src/DataHandlers/DataHandlers.h>
 #include <src/DataHandlers/ModbusWithPostgres/Modbus.h>
+#include <src/DataHandlers/ModbusWithPostgres/ModbusTestServer.h>
 #include <src/DataHandlers/ModbusWithPostgres/ModbusWithPostgres.h>
 #include <src/DataHandlers/ModbusWithPostgres/Postgres.h>
-#include <src/DevUtils/ModbusTestServer.h>
 
 #include <src/Libs/cJSON/cJSON.h>
 
@@ -115,22 +115,19 @@ MbPgCleanup(void *Arg)
 }
 
 
-static tg_task MbPgTasks[] = { PgThread, MbPgPipeThroughputTest };
-// static tg_task MbPgThroughputTestTasks[] = { PgThread, MbPgPipeThroughputTest };
-static tg_task MbPgTestTasks[] = {
-    PgThread,
-    MbPgTestServer,
-    MbThread,
-};
-// static tg_task MbPgTestTasks[] = { MbPgTestServer };
+static tg_task MbPgTasks[]               = { PgThread, MbThread };
+static tg_task MbPgTcpTestTasks[]        = { PgThread, MbThread, MbPgTestServer };
+static tg_task MbPgThroughputTestTasks[] = { PgThread, MbPgPipeThroughputTest };
 
 tg_group *
 MbPgCreateTg(cJSON *Conf, u64 GroupId, sdb_arena *A)
 {
-    cJSON *ModbusConf   = cJSON_GetObjectItem(Conf, "modbus");
-    cJSON *PostgresConf = cJSON_GetObjectItem(Conf, "postgres");
-    cJSON *PipeConf     = cJSON_GetObjectItem(Conf, "pipe");
-    cJSON *TestConf     = cJSON_GetObjectItem(Conf, "testing");
+    cJSON *ModbusConf         = cJSON_GetObjectItem(Conf, "modbus");
+    cJSON *PostgresConf       = cJSON_GetObjectItem(Conf, "postgres");
+    cJSON *PipeConf           = cJSON_GetObjectItem(Conf, "pipe");
+    cJSON *TestConf           = cJSON_GetObjectItem(Conf, "testing");
+    cJSON *TcpTestConf        = cJSON_GetObjectItem(TestConf, "tcp");
+    cJSON *ThroughputTestConf = cJSON_GetObjectItem(TestConf, "throughput");
 
     mbpg_ctx *Ctx = malloc(sizeof(mbpg_ctx));
     if(Ctx == NULL) {
@@ -152,10 +149,21 @@ MbPgCreateTg(cJSON *Conf, u64 GroupId, sdb_arena *A)
     }
 
     tg_group *Group;
-    cJSON    *TestingEnabled = cJSON_GetObjectItem(TestConf, "enabled");
-    if(cJSON_IsTrue(TestingEnabled)) {
+    cJSON    *TcpTestEnabled        = cJSON_GetObjectItem(TcpTestConf, "enabled");
+    cJSON    *ThroughPutTestEnabled = cJSON_GetObjectItem(ThroughputTestConf, "enabled");
+    if(cJSON_IsTrue(TcpTestEnabled) && cJSON_IsTrue(ThroughPutTestEnabled)) {
+        SdbLogError("Both tcp test and throughput test are enabled. Only one can be run at a time. "
+                    "Please set one's enabled to false");
+        return NULL;
+    }
+
+    if(cJSON_IsTrue(TcpTestEnabled)) {
         SdbBarrierInit(&Ctx->Barrier, 3);
-        Group = TgCreateGroup(GroupId, 3, Ctx, NULL, MbPgTestTasks, MbPgCleanup, A);
+        SdbBarrierInit(&Ctx->ServerBarrier, 2);
+        Group = TgCreateGroup(GroupId, 3, Ctx, NULL, MbPgTcpTestTasks, MbPgCleanup, A);
+    } else if(cJSON_IsTrue(ThroughPutTestEnabled)) {
+        SdbBarrierInit(&Ctx->Barrier, 3);
+        Group = TgCreateGroup(GroupId, 3, Ctx, NULL, MbPgThroughputTestTasks, MbPgCleanup, A);
     } else {
         Group = TgCreateGroup(GroupId, 2, Ctx, NULL, MbPgTasks, MbPgCleanup, A);
         SdbBarrierInit(&Ctx->Barrier, 2);

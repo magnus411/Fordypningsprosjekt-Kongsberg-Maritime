@@ -45,11 +45,11 @@ MbPipeThroughputTest(void *Arg)
         i64 Size = (RemainingData < Pipe->BufferMaxFill) ? RemainingData : Pipe->BufferMaxFill;
         u8 *Ptr  = SdbArenaPush(CurBuf, Size);
         SdbMemcpy(Ptr, TestData->Data + (TestData->Size - RemainingData), Size);
-        CurBuf = SdPipeGetWriteBuffer(Pipe);
+        CurBuf = SdPipeGetWriteBuffer(Pipe, SDB_TIME_MS(100));
         RemainingData -= Pipe->BufferMaxFill;
     }
 
-    SdPipeFlush(Pipe);
+    SdPipeFlush(Pipe, SDB_TIME_MS(100));
     SdbLogDebug("Modbus main loop stopped with %s", (Ret == 0) ? "success" : "error");
 
     free(MbAMem);
@@ -80,27 +80,52 @@ MbRun(void *Arg)
     sensor_data_pipe *Pipe   = Ctx->SdPipe;
     sdb_arena        *CurBuf = Pipe->Buffers[atomic_load(&Pipe->WriteBufIdx)];
 
-    // Only wait at barrier first time
-    if(first_run) {
-        SdbLogInfo("Modbus thread successfully initialized. Waiting for other threads at barrier");
-        SdbBarrierWait(&Ctx->Barrier);
-        SdbLogInfo("Exited barrier. Starting main loop");
-        first_run = false;
+    SdbBarrierWait(&Ctx->ServerBarrier);
+
+    modbus_ctx *MbCtx = MbPrepareCtx(&MbArena);
+    if(MbCtx == NULL) {
+        SdbLogError("Failed to prepare modbus context. Exiting");
+        free(MbAMem);
+        return -1;
     }
 
-    while(!SdbShouldShutdown()) {
-        // Create new context and connection for each attempt
-        modbus_ctx *MbCtx = MbPrepareCtx(&MbArena);
-        if(!MbCtx) {
-            SdbLogError("Failed to prepare Modbus context");
-            usleep(1000000); // Wait 1 second before retry
-            continue;
+    mb_conn Conn = MbCtx->Conns[0]; // NOTE(ingar): Simplified to only use one
+
+
+    SdbLogInfo("Modbus thread waiting for other threads at barrier");
+    SdbBarrierWait(&Ctx->Barrier);
+    SdbLogInfo("Exited barrier. Starting main loop");
+
+    int LogCounter = 0;
+    while(!GlobalShutdown) {
+        if(++LogCounter % 1000 == 0) {
+            SdbLogDebug("Modbus loop is still running");
+        }
+        SdbAssert((SdbArenaGetPos(CurBuf) <= Pipe->BufferMaxFill),
+                  "Pipe buffer overflow in buffer %u", atomic_load(&Pipe->WriteBufIdx));
+
+        if(SdbArenaGetPos(CurBuf) == Pipe->BufferMaxFill) {
+            CurBuf = SdPipeGetWriteBuffer(Pipe, SDB_TIME_MS(100));
         }
 
         mb_conn Conn       = MbCtx->Conns[0];
         int     LogCounter = 0;
 
-        // Connection loop
+        switch(RecvResult) {
+            case -2: // Timeout
+                continue;
+            case -1: // Error
+                Ret = -1;
+                goto exit;
+                break;
+            case 0: // Server disconnected
+                Ret = 0;
+                SdbSleep(SDB_TIME_MS(500)); // Wait for GlobalShutdown to be set
+                break;
+            default: // Data received
+                {
+                    u16       UnitId, DataLength;
+                    const u8 *Data = MbParseTcpFrame(Frame, &UnitId, &DataLength);
 
         static int counter = 0;
         while(!SdbShouldShutdown()) {
@@ -166,6 +191,17 @@ reconnect:
         }
     }
 
+exit:
+    SdPipeFlush(Pipe, SDB_TIME_MS(100));
+    SdbLogDebug("Modbus main loop stopped with %s", (Ret == 0) ? "success" : "error");
+
+    for(u64 i = 0; i < MbCtx->ConnCount; ++i) {
+        int SockFd = MbCtx->Conns[i].SockFd;
+        SdbLogDebug("Closing connection %d", SockFd);
+        close(SockFd);
+    }
+
     free(MbAMem);
+
     return Ret;
 }
