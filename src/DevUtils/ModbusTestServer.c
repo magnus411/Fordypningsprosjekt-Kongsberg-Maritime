@@ -203,7 +203,7 @@ RunModbusTestServer(sdb_barrier *Barrier)
                 break;
             }
 
-
+            
             lastSend = now;
         }
 
