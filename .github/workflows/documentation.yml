@@ -1,0 +1,27 @@
+name: Documentation
+
+on:
+  push:
+    branches: [main, cleanUp]
+  pull_request:
+    branches: [main, cleanUp]
+
+jobs:
+  build-documentation:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Doxygen
+        run: sudo apt-get install doxygen graphviz -y
+
+      - name: Generate Doxygen Documentation
+        run: doxygen Doxyfile
+
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v3
+        if: github.ref == 'refs/heads/main'
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./docs/html
