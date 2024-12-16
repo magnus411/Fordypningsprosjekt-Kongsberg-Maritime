@@ -1,6 +1,6 @@
 CC = gcc
 INCLUDES = -I. -I/usr/include/postgresql 
-LIBS = -lpaho-mqtt3c -lpthread -lpq -lm
+LIBS =  -lpthread -lpq -lm
 LINTER = clang-tidy
 LINTER_FLAGS = -quiet
 
@@ -38,6 +38,12 @@ tests: build_tests
 data_generator: CFLAGS = $(RELEASE_FLAGS) $(SDB_LOG_LEVEL) $(SDB_DEBUG) $(DB_SYSTEMS) $(COMM_PROTOCOLS)
 data_generator: build_data_generator
 
+
+docs:
+	@echo "Generating documentation..."
+	doxygen Doxyfile
+	@echo "Documentation generated in docs/html"
+
 lint: compile_commands.json
 	@echo "Running clang-tidy..."
 	$(LINTER) $(SRC) $(LINTER_FLAGS)
@@ -61,7 +67,7 @@ compile_commands.json:
 build_main:
 	@mkdir -p build
 	@printf "\033[0;32m\nBuilding Sensor Database\n\033[0m"
-	$(CC) $(CFLAGS) $(INCLUDES) $(SRC) $(SRC_MAIN) -o build/SensorDB $(LIBS)
+	$(CC) $(CFLAGS) $(INCLUDES) $(SRC) $(SRC_MAIN) -o build/SensorDHS $(LIBS)
 	@printf "\033[0;32mFinished building Sensor DB\n\033[0m"
 
 build_tests:
@@ -77,3 +83,5 @@ build_data_generator:
 
 clean:
 	rm -rf build tests/build
+
+
