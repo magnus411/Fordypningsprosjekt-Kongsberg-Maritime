@@ -87,7 +87,7 @@ SORT_BY_SCOPE_NAME  = YES
 GENERATE_TREEVIEW   = YES
 ENUM_VALUES_PER_LINE = 1
 
-# Additional documentation features
+# Additional documentation featuress
 EXTRACT_ALL         = YES
 EXTRACT_PRIVATE    = YES
 EXTRACT_STATIC     = YES
