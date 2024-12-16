@@ -1,6 +1,10 @@
 #ifndef TEST_CONSTANTS_H
 #define TEST_CONSTANTS_H
 
+/**
+ * @file TestConstants.h
+ * @brief Constants for Modbus Test Server
+ */
 #include <src/Sdb.h>
 
 #include <src/DatabaseSystems/Postgres.h>

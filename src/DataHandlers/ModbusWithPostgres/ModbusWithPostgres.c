@@ -1,3 +1,8 @@
+/**
+ * @file ModbusWithPostgres.c
+ * @brief Implementation of Modbus-PostgreSQL integration
+ */
+
 #define _GNU_SOURCE
 
 #include <src/Sdb.h>
@@ -16,6 +21,16 @@ SDB_LOG_REGISTER(MbWithPg);
 #include <pthread.h>
 #include <src/Signals.h>
 
+
+/**
+ * @brief PostgreSQL thread implementation
+ *
+ * Sets thread name and runs PostgreSQL operations. Handles errors
+ * and performs graceful shutdown.
+ *
+ * @param Arg Pointer to mbpg_ctx structure
+ * @return NULL
+ */
 void *
 PgThread(void *Arg)
 {
@@ -32,6 +47,15 @@ PgThread(void *Arg)
 }
 
 
+/**
+ * @brief Modbus thread implementation
+ *
+ * Sets thread name and runs Modbus operations. Handles errors
+ * and performs graceful shutdown.
+ *
+ * @param Arg Pointer to mbpg_ctx structure
+ * @return NULL
+ */
 void *
 MbThread(void *Arg)
 {
@@ -47,6 +71,16 @@ MbThread(void *Arg)
     return NULL;
 }
 
+
+/**
+ * @brief Modbus test server thread
+ *
+ * Sets thread name and runs the Modbus test server. Handles errors
+ * and performs graceful shutdown.
+ *
+ * @param Arg Pointer to mbpg_ctx context.
+ * @return NULL
+ */
 void *
 MbPgTestServer(void *Arg)
 {
@@ -61,6 +95,16 @@ MbPgTestServer(void *Arg)
 }
 
 
+/**
+ * @brief Modbus data pipe throughput test
+ *
+ * Tests the throughput capacity of the Modbus data pipe by loading and
+ * processing test data. Waits at a barrier for synchronization with other
+ * threads before starting the test.
+ *
+ * @param Arg Pointer to mbpg_ctx structure
+ * @return sdb_errno 0 on success, error code on failure
+ */
 void *
 MbPgPipeThroughputTest(void *Arg)
 {
@@ -76,6 +120,16 @@ MbPgPipeThroughputTest(void *Arg)
     return NULL;
 }
 
+
+/**
+ * @brief Parses memory configuration from JSON
+ *
+ * Extracts memory and scratch sizes from configuration file.
+ *
+ * @param[in] Conf JSON configuration object
+ * @param[out] MemSize Memory size value
+ * @param[out] ScratchSize Scratch memory size value
+ */
 static void
 GetMemAndScratchSize(cJSON *Conf, u64 *MemSize, u64 *ScratchSize)
 {
@@ -114,16 +168,32 @@ MbPgCleanup(void *Arg)
     return 0;
 }
 
-
+/** Array of task functions for thoughout test */
 static tg_task MbPgTasks[] = { PgThread, MbPgPipeThroughputTest };
-// static tg_task MbPgThroughputTestTasks[] = { PgThread, MbPgPipeThroughputTest };
+
+
+/**< Array of task functions. Starts postgres thread, modbus test server thread and modbus thread */
 static tg_task MbPgTestTasks[] = {
     PgThread,
     MbPgTestServer,
     MbThread,
 };
-// static tg_task MbPgTestTasks[] = { MbPgTestServer };
 
+
+/**
+ * @brief Creates thread group from configuration
+ *
+ * Creates and initializes a thread group based on JSON configuration:
+ * 1. Parses Modbus and PostgreSQL configurations
+ * 2. Allocates and initializes context
+ * 3. Sets up data pipe
+ * 4. Configures thread tasks based on mode (test/normal)
+ *
+ * @param Conf JSON configuration
+ * @param GroupId Thread group identifier
+ * @param A Memory arena for allocations
+ * @return Initialized thread group or NULL on failure
+ */
 tg_group *
 MbPgCreateTg(cJSON *Conf, u64 GroupId, sdb_arena *A)
 {
@@ -162,7 +232,7 @@ MbPgCreateTg(cJSON *Conf, u64 GroupId, sdb_arena *A)
     }
 
 
-    g_signal_context.pipe = Ctx->SdPipe;
+    GSignalContext.pipe = Ctx->SdPipe;
 
     return Group;
 }

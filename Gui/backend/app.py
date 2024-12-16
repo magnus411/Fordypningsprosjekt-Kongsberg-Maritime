@@ -7,6 +7,16 @@ from threading import Event, Thread
 import random
 import time
 
+#write brief
+
+"""
+This is a simple server for the SensorDHS. It is responsible for handling the communication between the frontend and the database.
+The backend is a REST API that provides the following endpoints:
+- /getTables: Fetches all table names in the database.
+- /getTable/<table>: Fetches all rows from a specified table.
+The backend also broadcasts random data to the frontend every 2 seconds using Socket.IO. This is to simulate real-time data from the sensors.
+"""
+
 app = Flask(__name__)
 
 app.config['SQLALCHEMY_DATABASE_URI'] = f'postgresql://postgress:123123123@172.23.246.166:5432/fordypningsprosjekt'

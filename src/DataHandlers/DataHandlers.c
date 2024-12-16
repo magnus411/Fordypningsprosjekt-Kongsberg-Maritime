@@ -1,3 +1,14 @@
+/**
+ * @file DataHandlers.c
+ * @brief Implementation of Data Handler Thread Group Management
+ *
+ * Provides the core implementation for creating and managing
+ * thread groups based on configuration. Handles dynamic
+ * handler selection and initialization process.
+ *
+ */
+
+
 #include <src/Sdb.h>
 SDB_LOG_REGISTER(CpDbCouplings);
 
@@ -11,8 +22,24 @@ enum handler_id
     Mb_With_Postgres = 0,
 };
 
+/**
+ * @brief Array of available handler names
+ *
+ * Contains string representations of supported data handlers.
+ * Must be kept in sync with handler_id enumeration.
+ */
 static const char *AvailableHandlers[] = { "modbus_with_postgres" };
 
+
+/**
+ * @brief Converts handler name to its corresponding ID
+ *
+ * Searches through AvailableHandlers to find the matching
+ * handler ID for a given name.
+ *
+ * @param Name Name of the handler to look up
+ * @return enum handler_id Numeric ID of the handler, or -1 if not found
+ */
 static enum handler_id
 GetHandlerIdFromName(const char *Name)
 {
@@ -26,6 +53,20 @@ GetHandlerIdFromName(const char *Name)
     return -1;
 }
 
+
+/**
+ * @brief Extracts memory and scratch sizes from JSON configuration
+ *
+ * Retrieves memory and scratch sizes from the provided JSON
+ * configuration. Performs validation and converts string
+ * representations to numeric sizes.
+ *
+ * @param Conf JSON configuration object
+ * @param MemSize Pointer to store the extracted memory size
+ * @param ScratchSize Pointer to store the extracted scratch size
+ *
+ * @note Asserts if configuration is invalid or missing required fields
+ */
 void
 DhsGetMemAndScratchSize(cJSON *Conf, u64 *MemSize, u64 *ScratchSize)
 {
@@ -40,6 +81,22 @@ DhsGetMemAndScratchSize(cJSON *Conf, u64 *MemSize, u64 *ScratchSize)
     *ScratchSize = SdbMemSizeFromString(cJSON_GetStringValue(ScratchSizeObj));
 }
 
+
+/**
+ * @brief Creates a thread group based on configuration
+ *
+ * Determines the appropriate handler based on the configuration
+ * and creates a corresponding thread group. Currently supports
+ * Modbus with Postgres handler.
+ *
+ * @param Conf JSON configuration object
+ * @param GroupId Unique identifier for the thread group
+ * @param A Memory arena for allocation
+ *
+ * @return tg_group* Pointer to the created thread group, or NULL if creation fails
+ *
+ * @note Logs information or error messages during thread group creation
+ */
 tg_group *
 DhsCreateTg(cJSON *Conf, u64 GroupId, sdb_arena *A)
 {

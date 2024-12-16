@@ -1,3 +1,22 @@
+/**
+ * @file StoreCompressedData.c
+ * @brief Implementation of Compressed Data Storage Utilities
+ *
+ * Provides concrete implementations for storing metadata about
+ * compressed or zero-run data in a PostgreSQL database.
+ *
+ * Core Functionalities:
+ * - Creating database tables for metadata storage
+ * - Inserting run-length encoded (RLE) zero data metadata
+ * - Storing individual zero data timestamps
+ *
+ * Storage Strategies:
+ * 1. Run-Length Encoding (RLE) Metadata
+ * 2. Full Timestamp Metadata
+
+ */
+
+
 #include <libpq-fe.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -13,6 +32,22 @@ SDB_LOG_REGISTER(StoreCompressedData);
 //  Storing run length encoded streaks of zero data //
 //////////////////////////////////////////////////////
 
+
+/**
+ * @brief Initialize Run-Length Encoded Metadata Storage Table
+ *
+ * Creates a PostgreSQL table to store RLE zero data metadata if
+ * it doesn't already exist.
+ *
+ * Table Columns:
+ * - id: Unique auto-incrementing identifier
+ * - start_time: Timestamp marking the beginning of zero data run
+ * - end_time: Timestamp marking the end of zero data run
+ * - run_length: Number of consecutive zero data points
+ *
+ * @param Conn Active PostgreSQL database connection
+ * @return sdb_errno 0 on successful table creation/existence, -1 on error
+ */
 sdb_errno
 InitializeRLEMetaDataStorage(PGconn *Conn)
 {
@@ -36,6 +71,19 @@ InitializeRLEMetaDataStorage(PGconn *Conn)
     }
 }
 
+
+/**
+ * @brief Store Run-Length Encoded Metadata
+ *
+ * Inserts a record into the RLE metadata table representing
+ * a specific run of zero data points.
+ *
+ * @param Start Timestamp of zero data run start (string format)
+ * @param End Timestamp of zero data run end (string format)
+ * @param RunLength Number of consecutive zero data points
+ * @param Conn Active PostgreSQL database connection
+ * @return sdb_errno 0 on successful insertion, -1 on error
+ */
 sdb_errno
 StoreRLEMetaData(const char *Start, const char *End, size_t RunLength, PGconn *Conn)
 {
@@ -63,6 +111,21 @@ StoreRLEMetaData(const char *Start, const char *End, size_t RunLength, PGconn *C
     }
 }
 
+
+/**
+ * @brief Store RLE Metadata Using Timespec Structures
+ *
+ * Similar to StoreRLEMetaData, but accepts high-precision
+ * timespec structures for start and end times.
+ *
+ * Converts timespec to string representations for database storage.
+ *
+ * @param StartTime High-precision start time
+ * @param EndTime High-precision end time
+ * @param RunLength Number of consecutive zero data points
+ * @param Conn Active PostgreSQL database connection
+ * @return sdb_errno 0 on successful insertion, -1 on error
+ */
 sdb_errno
 StoreRLEMetaDataWithTimespecs(const struct timespec *StartTime, const struct timespec *EndTime,
                               size_t RunLength, PGconn *Conn)
@@ -105,6 +168,20 @@ StoreRLEMetaDataWithTimespecs(const struct timespec *StartTime, const struct tim
 // Storing all meta data for instances of zero data //
 //////////////////////////////////////////////////////
 
+
+/**
+ * @brief Initialize Full Metadata Storage Table
+ *
+ * Creates a PostgreSQL table to store individual timestamps
+ * of zero data points if it doesn't already exist.
+ *
+ * Table Columns:
+ * - id: Unique auto-incrementing identifier
+ * - timestamp: Individual zero data point timestamp
+ *
+ * @param Conn Active PostgreSQL database connection
+ * @return sdb_errno 0 on successful table creation/existence, -1 on error
+ */
 sdb_errno
 InitializeFullMetaDataStorage(PGconn *Conn)
 {
@@ -125,6 +202,17 @@ InitializeFullMetaDataStorage(PGconn *Conn)
     }
 }
 
+
+/**
+ * @brief Store Individual Metadata Timestamp
+ *
+ * Inserts a single timestamp representing a zero data point
+ * into the full metadata table.
+ *
+ * @param TimeStamp Timestamp of the zero data point
+ * @param Conn Active PostgreSQL database connection
+ * @return sdb_errno 0 on successful insertion, -1 on error
+ */
 sdb_errno
 StoreMetaData(struct timespec *TimeStamp, PGconn *Conn)
 {

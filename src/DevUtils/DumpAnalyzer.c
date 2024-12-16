@@ -1,3 +1,10 @@
+/**
+ * @file DumpAnalyzer.c
+ * @brief Analyzes a memory dump file for debugging purposes
+ *
+ * @note This file is not part of the final system, but is used for debugging
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>

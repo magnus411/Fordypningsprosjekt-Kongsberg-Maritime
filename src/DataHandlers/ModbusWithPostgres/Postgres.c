@@ -1,3 +1,11 @@
+/**
+ * @file PostgresAPI.c
+ * @brief Implementation of PostgreSQL database operations thread
+ * @details Implements data processing and storage operations for sensor data,
+ * including connection management, event handling, and performance monitoring.
+ */
+
+
 #include <signal.h>
 #include <sys/epoll.h>
 
@@ -12,6 +20,37 @@ SDB_THREAD_ARENAS_EXTERN(Postgres);
 #include <src/Signals.h>
 extern volatile sig_atomic_t GlobalShutdown;
 
+
+/**
+ * @brief Main PostgreSQL operation loop
+ *
+ * Implementation details:
+ * 1. Initializes thread-local resources and arenas
+ * 2. Sets up database connection and event handling
+ * 3. Processes data in a loop until shutdown:
+ *    - Waits for data using epoll
+ *    - Reads data from pipe
+ *    - Inserts data into database
+ *    - Tracks performance metrics
+ * 4. Handles cleanup on shutdown
+ *
+ * Performance monitoring:
+ * - Tracks insertion timing
+ * - Monitors total items processed
+ * - Records operation latency
+ *
+ * Error handling:
+ * - Connection failures
+ * - Timeouts
+ * - I/O errors
+ * - Data insertion failures
+ *
+ * @param Arg Pointer to mbpg_ctx structure
+ * @return sdb_errno Success/error status
+ *
+ * @note Currently supports single table operations
+ * @warning May timeout after 5 consecutive failures
+ */
 sdb_errno
 PgRun(void *Arg)
 {

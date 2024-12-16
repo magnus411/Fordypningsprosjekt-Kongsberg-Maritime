@@ -1,3 +1,8 @@
+/**
+ * @file DatabaseInitializer.c
+ * @brief Implementation of database configuration initialization
+ */
+
 #include <libpq-fe.h>
 #include <stdbool.h>
 #include <stdio.h>
@@ -10,6 +15,20 @@ SDB_LOG_REGISTER(DatabaseInitializer);
 
 #include <src/Libs/cJSON/cJSON.h>
 
+/**
+ * @brief Loads and parses a database configuration file
+ *
+ * Implementation details:
+ * 1. Creates a scratch arena if an arena is provided
+ * 2. Loads file content into memory
+ * 3. Parses JSON content
+ * 4. Cleans up temporary resources
+ *
+ *
+ * @param Filename Configuration file path
+ * @param A Optional memory arena
+ * @return cJSON structure containing parsed configuration
+ */
 cJSON *
 DbInitGetConfFromFile(const char *Filename, sdb_arena *A)
 {

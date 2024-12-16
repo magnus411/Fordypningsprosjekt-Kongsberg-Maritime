@@ -1,3 +1,12 @@
+/**
+ * @file Metrics.c
+ * @brief Implementation of Metrics Tracking
+ *
+ * Provides concrete implementation of thread-safe  metrics collection and storage.
+ *
+ */
+
+
 #include <pthread.h>
 #include <src/Common/Metrics.h>
 #include <src/Common/Thread.h>
@@ -16,6 +25,19 @@ metric BufferWriteThroughput;
 metric BufferReadThroughput;
 metric OutputThroughput;
 
+
+/**
+ * @brief Initialize Metrics Tracking Instance
+ *
+ * Configures metric structure with:
+ * - Zero-initialized sample buffer
+ * - File handle for persistent storage
+ * - Thread synchronization primitives
+ *
+ * @param Metric Pointer to metric structure
+ * @param Type Metric type classification
+ * @param FileName Path for metrics file storage
+ */
 
 void
 MetricInit(metric *Metric, metric_type Type, const char *FileName)
@@ -37,6 +59,14 @@ MetricInit(metric *Metric, metric_type Type, const char *FileName)
     SdbMutexInit(&Metric->FileLock);
 }
 
+
+/**
+ * @brief Add Performance Sample to Metrics
+ *
+ * @param Metric Pointer to metric structure
+ * @param Data Numeric performance value
+ * @return sdb_errno Success or error code
+ */
 sdb_errno
 MetricAddSample(metric *Metric, int Data)
 {
@@ -62,6 +92,13 @@ MetricAddSample(metric *Metric, int Data)
     return 0;
 }
 
+
+/**
+ * @brief Write Accumulated Samples to File
+ *
+ * @param Metric Pointer to metric structure
+ * @return sdb_errno Success or error code
+ */
 sdb_errno
 MetricWriteToFile(metric *Metric)
 {
@@ -105,6 +142,13 @@ MetricWriteToFile(metric *Metric)
 }
 
 
+/**
+ * @brief Cleanup Metrics Tracking Resources
+ *
+ *
+ * @param Metric Pointer to metric structure
+ * @return sdb_errno Success or error code
+ */
 sdb_errno
 MetricDestroy(metric *Metric)
 {

@@ -1434,6 +1434,7 @@ SdbLoadFileIntoMemory(const char *Filename, sdb_arena *Arena)
 {
     FILE *File = fopen(Filename, "rb");
     if(!File) {
+        printf("Failed to open file: %s\n", strerror(errno));
         return NULL;
     }
 

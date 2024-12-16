@@ -6,6 +6,28 @@
 #include <string.h>
 #include <time.h>
 
+
+/**
+ * @file ZeroValuesCompressor.c
+ * @brief Implementation of Zero Value Compression Utilities
+ *
+ * Provides concrete implementations for detecting, storing,
+ * and compressing zero-value sensor data blocks.
+ *
+ * Core Functionalities:
+ * - Zero value detection algorithms
+ * - Metadata extraction strategies
+ * - Run-Length Encoding (RLE) compression
+ * - PostgreSQL metadata storage
+ *
+ * Key Components:
+ * - Single and multi-block zero value processing
+ * - Flexible storage mechanisms
+ * - Efficient data compression techniques
+ *
+ */
+
+
 #include <src/Sdb.h>
 SDB_LOG_REGISTER(ZeroValuesCompressor);
 
@@ -32,6 +54,24 @@ typedef struct __attribute__((packed))
     double          RpmHigh, RpmLow;
 } torsional_packet;
 
+
+/**
+ * @brief Check if All Values in a Single Block are Zero
+ *
+ * Examines a torsional packet to determine if all numeric
+ * fields contain zero values.
+ *
+ * Checks:
+ * - Peak-to-Peak PFS
+ * - Peak-to-Peak KNM
+ * - Main Frequency
+ * - Secondary Frequency
+ * - High and Low Torque
+ * - High and Low RPM
+ *
+ * @param SingleBlock Pointer to the data block
+ * @return bool True if all values are zero, false otherwise
+ */
 bool
 CheckIfAllZeroOnSingleBlock(const unsigned char *SingleBlock)
 {
@@ -43,7 +83,21 @@ CheckIfAllZeroOnSingleBlock(const unsigned char *SingleBlock)
 }
 
 // TODO: refactor to use CheckIfAllZeroOnSingleBlock.
-// Make this return the non-zero data for storage outside of this method
+
+/**
+ * @brief Extract Metadata for Zero Data Blocks
+ *
+ * Scans a data block and collects timestamp information
+ * for blocks containing zero values.
+ *
+ * Processes the block in sub-block increments, checking
+ * for zero-value conditions and storing relevant metadata.
+ *
+ * @param DataBlock Pointer to the input data block
+ * @param BlockSize Total size of the data block
+ * @param Result Output array to store zero data timestamps
+ * @param ResultCount Pointer to store the number of zero blocks found
+ */
 void
 GetMetaDataWhenZeroFromBlock(const unsigned char *DataBlock, size_t BlockSize, char **Result,
                              size_t *ResultCount)
@@ -79,8 +133,23 @@ GetMetaDataWhenZeroFromBlock(const unsigned char *DataBlock, size_t BlockSize, c
     }
 }
 
-// Takes a given amount of datablocks and stores the ones thats zero in its respective table.
-// returns the blocks that were not zero.
+/**
+ * @brief Store and Remove Zero Metadata
+ *
+ * Processes a data block by:
+ * 1. Identifying blocks with zero values
+ * 2. Storing metadata for zero blocks
+ * 3. Filtering out zero blocks from the original data
+ *
+ * Supports flexible memory allocation through optional arena.
+ *
+ * @param DataBlock Input data block
+ * @param BlockSize Total size of the data block
+ * @param FilteredSize Pointer to store the size of non-zero data
+ * @param Arena Optional memory arena for allocation
+ * @param Conn PostgreSQL database connection
+ * @return const unsigned char* Filtered block containing only non-zero data
+ */
 const unsigned char *
 StoreAndRemoveAllMetaData(const unsigned char *DataBlock, size_t BlockSize, size_t *FilteredSize,
                           sdb_arena *Arena, PGconn *Conn)
@@ -130,7 +199,15 @@ StoreAndRemoveAllMetaData(const unsigned char *DataBlock, size_t BlockSize, size
     return FilteredBlock;
 }
 
-// Saves every instance of zero datas metadata, handling single blocks.
+/**
+ * @brief Save Metadata for Zero Values in a Single Block
+ *
+ * Checks a single block for zero values and stores
+ * its timestamp metadata in the database.
+ *
+ * @param SingleBlock Pointer to the data block to check
+ * @param Conn PostgreSQL database connection
+ */
 void
 SingleBlockSaveMetaDataWhenZero(const unsigned char *SingleBlock, PGconn *Conn)
 {
@@ -165,11 +242,17 @@ MultiBlockSaveAllMetaDataWhenZero(const unsigned char *MultiBlock, size_t BlockS
     }
 }
 
-/* Thoughts: In order to handle complexity of blocks that are not all zeroes or all valid, is to map
- * every sub block to 1's or 0's and return the map. The outer program will then handle storage of
- * the non-zero data.
+/**
+ * @brief Mapping of Block Zero/Non-Zero Status
  *
- * Using the mapping will make it easy to store every zero using RLE even if length is one. */
+ * Creates a binary map indicating the zero/non-zero status
+ * of each block in a multi-block dataset.
+ *
+ * @param MultiBlock Pointer to the multi-block data
+ * @param BlockSize Total size of the multi-block data
+ * @param Map Output array to store block status mapping
+ * @return sdb_errno 0 on success, negative on failure
+ */
 sdb_errno
 MapMultiBlock(const unsigned char *MultiBlock, size_t BlockSize, int *Map)
 {
@@ -189,6 +272,25 @@ MapMultiBlock(const unsigned char *MultiBlock, size_t BlockSize, int *Map)
     return -1;
 }
 
+
+/**
+ * @brief Full Run-Length Encoded Zero Compression
+ *
+ * Implements a comprehensive zero data compression strategy
+ * using Run-Length Encoding (RLE) across multiple blocks.
+ *
+ * Tracks:
+ * - Start of zero data streak
+ * - End of zero data streak
+ * - Number of consecutive zero blocks
+ *
+ * Stores RLE metadata in PostgreSQL when a zero streak ends.
+ *
+ * @param MultiBlock Pointer to the multi-block data
+ * @param BlockSize Total size of the multi-block data
+ * @param Conn PostgreSQL database connection
+ * @return sdb_errno 0 on success, negative on failure
+ */
 sdb_errno
 FullRLEZeroCompression(const unsigned char *MultiBlock, size_t BlockSize, PGconn *Conn)
 {

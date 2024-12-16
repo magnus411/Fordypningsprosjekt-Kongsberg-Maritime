@@ -2,6 +2,25 @@
 #include <semaphore.h>
 #include <stdatomic.h>
 #include <time.h>
+/**
+ * @file Thread.c
+ * @brief Implementation of POSIX Thread Synchronization Primitives
+ *
+ * Provides a unified, error-handled interface for POSIX
+ * threading synchronization mechanisms.
+ *
+ * Key Features:
+ * - Semaphore management
+ * - Mutex operations
+ * - Condition variable handling
+ * - Thread control utilities
+ *
+ * Design Principles:
+ * - Consistent error handling
+ * - Timeout-based blocking primitives
+ * - Minimal abstraction overhead
+ *
+ */
 
 #include <src/Sdb.h>
 SDB_LOG_REGISTER(Thread);

@@ -4,6 +4,9 @@ import os
 import datetime
 import matplotlib.pyplot as plt
 
+"""
+This script is used to read occupancy metrics from binary files and plot the buffer occupancy over time.
+"""
 def read_occupancy_metrics(file_path):
     samples = []
     struct_format = 'iqq'  # 'i' for int, 'q' for long long (tv_sec and tv_nsec)

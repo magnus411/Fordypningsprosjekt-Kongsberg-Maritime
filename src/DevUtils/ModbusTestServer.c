@@ -1,3 +1,25 @@
+
+
+/**
+ * @file ModbusTestServer.c
+ * @brief Implementation of Modbus Test Server
+ *
+ * Provides an implementation of a Modbus TCP test server
+ * that generates and transmits simulated shaft power data.
+ *
+ * Main Responsibilities:
+ * - Create and manage TCP server socket
+ * - Generate random shaft power measurement data
+ * - Handle client connections
+ * - Implement controlled data transmission
+ *
+ * Key Components:
+ * - Non-blocking socket operations
+ * - Random data generation
+ * - Rate-limited data transmission
+ *
+ */
+
 #include <arpa/inet.h>
 #include <string.h>
 #include <sys/socket.h>
@@ -21,6 +43,15 @@ SDB_LOG_REGISTER(ModbusTestServer);
 #define BACKLOG     5
 #define PACKET_FREQ 1e5
 
+
+/**
+ * @brief Generates deterministic shaft power data
+ *
+ * Creates a shaft power data structure with incrementing values.
+ * Useful for consistent, predictable data generation.
+ *
+ * @param Data Pointer to shaft_power_data structure to be filled
+ */
 static inline void
 GenerateShaftPowerData(shaft_power_data *Data)
 {
@@ -38,6 +69,21 @@ GenerateShaftPowerData(shaft_power_data *Data)
     Data->PeakPeakPfs = PeakPeakPfs++;
 }
 
+
+/**
+ * @brief Generates random shaft power data
+ *
+ * Creates a shaft power data structure with randomized values.
+ * Simulates realistic variations in power measurements.
+ *
+ * Generates:
+ * - Randomized RPM with sinusoidal variation
+ * - Randomized Torque
+ * - Calculated Power
+ * - Randomized Peak-to-Peak PFS
+ *
+ * @param Data Pointer to shaft_power_data structure to be filled
+ */
 static void
 GenerateShaftPowerDataRandom(shaft_power_data *Data)
 {
@@ -52,6 +98,23 @@ GenerateShaftPowerDataRandom(shaft_power_data *Data)
     Data->PeakPeakPfs = ((rand() % 50) + 25.0) * cos(Id * 0.1);  // PFS variation
 }
 
+
+/**
+ * @brief Constructs a Modbus TCP frame
+ *
+ * Builds a complete Modbus TCP frame with specified parameters,
+ * including transaction ID, protocol ID, length, unit ID,
+ * function code, and payload data.
+ *
+ * @param Buffer Output buffer to store the constructed frame
+ * @param TransactionId Modbus transaction identifier
+ * @param ProtocolId Modbus protocol identifier
+ * @param Length Total length of the frame payload
+ * @param UnitId Modbus unit identifier
+ * @param FunctionCode Modbus function code
+ * @param Data Payload data to be included in the frame
+ * @param DataLength Length of the payload data
+ */
 static void
 GenerateModbusTcpFrame(u8 *Buffer, u16 TransactionId, u16 ProtocolId, u16 Length, u8 UnitId,
                        u16 FunctionCode, u8 *Data, u16 DataLength)
@@ -69,6 +132,20 @@ GenerateModbusTcpFrame(u8 *Buffer, u16 TransactionId, u16 ProtocolId, u16 Length
 }
 
 
+/**
+ * @brief Sends Modbus data over a socket
+ *
+ * Generates a random shaft power data packet, constructs a
+ * Modbus TCP frame, and sends it over the provided socket.
+ *
+ * Features:
+ * - Random data generation
+ * - Modbus TCP frame construction
+ * - Periodic logging of sent packets
+ *
+ * @param NewFd Socket file descriptor to send data
+ * @return sdb_errno Status of send operation
+ */
 static inline sdb_errno
 SendModbusData(int NewFd)
 {
@@ -123,6 +200,18 @@ SendModbusData(int NewFd)
 }
 
 
+/**
+ * @brief Main Modbus Test Server routine
+ *
+ * Implements the complete Modbus test server workflow:
+ * - Create and configure server socket
+ * - Handle incoming client connections
+ * - Send simulated shaft power data
+ * - Support non-blocking operations
+ * - Graceful shutdown handling
+ *
+ * @param Barrier Synchronization barrier to coordinate server startup
+ */
 void
 RunModbusTestServer(sdb_barrier *Barrier)
 {

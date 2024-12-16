@@ -1,3 +1,9 @@
+/**
+ * @file MQTT.c
+ * @brief MQTT protocol implementation (Experimental)
+ * @warning This code is currently disabled and under development
+ */
+
 #if 0
 #include "src/Common/SensorDataPipe.h"
 #include <pthread.h>

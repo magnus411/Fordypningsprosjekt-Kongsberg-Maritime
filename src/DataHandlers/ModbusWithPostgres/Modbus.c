@@ -1,3 +1,7 @@
+/**
+ * @file ModbusAPI.c
+ * @brief Implementation of Modbus communication functionality
+ */
 #include <signal.h>
 
 #include <src/Sdb.h>
@@ -13,6 +17,22 @@ SDB_THREAD_ARENAS_EXTERN(Modbus);
 #include <src/Signals.h>
 
 
+/**
+ * @brief Implements throughput testing for Modbus data pipe
+ *
+ * Loads test data and processes it through the data pipe while measuring
+ * throughput. Thread-safe implementation using atomic operations for buffer
+ * management.
+ *
+ * Implementation details:
+ * 1. Initializes arenas
+ * 2. Waits at synchronization barrier
+ * 3. Loads test data from file
+ * 4. Pushes data to pipe buffers
+ *
+ * @param Arg Pointer to mbpg_ctx structure
+ * @return sdb_errno Success/error status
+ */
 sdb_errno
 MbPipeThroughputTest(void *Arg)
 {
@@ -58,6 +78,28 @@ MbPipeThroughputTest(void *Arg)
 }
 
 
+/**
+ * @brief Implements main Modbus thread loop
+ *
+ * Manages the lifecycle of Modbus connections and data processing:
+ * - Handles connection establishment and recovery
+ * - Processes incoming Modbus frames
+ * - Manages graceful shutdown
+ *
+ * Connection handling:
+ * - Automatically reconnects on failure
+ * - Implements backoff on repeated failures
+ * - Validates frame integrity
+ *
+ * Data processing:
+ * - Parses Modbus TCP frames
+ * - Validates data length and format
+ * - Manages buffer rotation
+ * - Handles pipeline flushing
+ *
+ * @param Arg Pointer to mbpg_ctx structure
+ * @return sdb_errno Success/error status
+ */
 sdb_errno
 MbRun(void *Arg)
 {
@@ -80,7 +122,7 @@ MbRun(void *Arg)
     sensor_data_pipe *Pipe   = Ctx->SdPipe;
     sdb_arena        *CurBuf = Pipe->Buffers[atomic_load(&Pipe->WriteBufIdx)];
 
-    // Only wait at barrier first time
+    /**<  Only wait at barrier first time */
     if(first_run) {
         SdbLogInfo("Modbus thread successfully initialized. Waiting for other threads at barrier");
         SdbBarrierWait(&Ctx->Barrier);
@@ -89,7 +131,7 @@ MbRun(void *Arg)
     }
 
     while(!SdbShouldShutdown()) {
-        // Create new context and connection for each attempt
+        /**< Create new context and connection for each attempt */
         modbus_ctx *MbCtx = MbPrepareCtx(&MbArena);
         if(!MbCtx) {
             SdbLogError("Failed to prepare Modbus context");
@@ -97,12 +139,10 @@ MbRun(void *Arg)
             continue;
         }
 
-        mb_conn Conn       = MbCtx->Conns[0];
-        int     LogCounter = 0;
+        mb_conn Conn = MbCtx->Conns[0];
+        // int     LogCounter = 0;
 
-        // Connection loop
 
-        static int counter = 0;
         while(!SdbShouldShutdown()) {
 
 
@@ -116,12 +156,12 @@ MbRun(void *Arg)
 
             u8 Frame[MODBUS_TCP_FRAME_MAX_SIZE] = { 0 };
 
-            // First receive just the header
+            /**< First receive just the header */
             ssize_t HeaderResult = SocketRecvWithTimeout(Conn.SockFd, Frame, MODBUS_TCP_HEADER_LEN,
                                                          SDB_TIME_MS(500));
 
             if(HeaderResult == -2) {
-                continue; // Timeout
+                continue;
             }
             if(HeaderResult <= 0) {
                 goto reconnect;
@@ -131,14 +171,14 @@ MbRun(void *Arg)
                 goto reconnect;
             }
 
-            // Get the length from the header
+            /**< Get the length from the header */
             u16 Length = (Frame[4] << 8) | Frame[5];
             if(Length > MODBUS_TCP_FRAME_MAX_SIZE - MODBUS_TCP_HEADER_LEN) {
                 SdbLogError("Invalid frame length: %u", Length);
                 goto reconnect;
             }
 
-            // Now receive the data portion
+            /**< Now receive the data portion */
             ssize_t DataResult = SocketRecvWithTimeout(Conn.SockFd, Frame + MODBUS_TCP_HEADER_LEN,
                                                        Length, SDB_TIME_MS(500));
 
@@ -171,7 +211,7 @@ MbRun(void *Arg)
 
 reconnect:
         SdPipeFlush(Pipe);
-        // Clean up current connection before retry
+        /**< Clean up current connection before retry */
         for(u64 i = 0; i < MbCtx->ConnCount; ++i) {
             if(MbCtx->Conns[i].SockFd != -1) {
                 close(MbCtx->Conns[i].SockFd);
@@ -181,7 +221,7 @@ reconnect:
 
         if(!SdbShouldShutdown()) {
             SdbLogInfo("Will attempt reconnection in 1 second");
-            usleep(1000000); // Wait 1 second before retry
+            usleep(1000000); /**< Wait 1 second before retry */
         }
     }
 

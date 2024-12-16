@@ -1,3 +1,8 @@
+/**
+ * @file Postgres.c
+ * @brief Implementation of PostgreSQL database operations
+ */
+
 #include <arpa/inet.h>
 #include <libpq-fe.h>
 #include <stdlib.h>
@@ -34,6 +39,12 @@ PgInitThreadArenas(void)
     SdbThreadArenasInit(Postgres);
 }
 
+/**
+ * @brief Converts Unix timestamp to PostgreSQL timestamp
+ *
+ * Implementation detail: Converts by adjusting for epoch difference and
+ * scaling to microseconds
+ */
 inline pg_timestamp
 UnixToPgTimestamp(time_t UnixTime)
 {
@@ -341,6 +352,14 @@ cleanup:
     return (Errno == 0) ? PgCtx : NULL;
 }
 
+
+/**
+ * @brief Writes a 2-byte value in network byte order
+ *
+ * @param To Destination buffer
+ * @param From Source buffer
+ * @return Number of bytes written
+ */
 static inline size_t
 Write2(char *To, const char *From)
 {
@@ -382,6 +401,23 @@ WriteTimestamp(char *To, const char *From)
     return sizeof(Val);
 }
 
+
+/**
+ * @brief Inserts data into PostgreSQL table using COPY protocol
+ *
+ * Implements bulk data insertion using PostgreSQL's binary COPY protocol:
+ * 1. Begins transaction
+ * 2. Initiates COPY operation
+ * 3. Converts data to network byte order
+ * 4. Sends data in binary format
+ * 5. Commits or rolls back transaction
+ *
+ * @param Conn Database connection
+ * @param Ti Table information
+ * @param Data Raw data to insert
+ * @param ItemCount Number of items to insert
+ * @return 0 on success, error code on failure
+ */
 sdb_errno
 PgInsertData(PGconn *Conn, pg_table_info *Ti, const char *Data, u64 ItemCount)
 {

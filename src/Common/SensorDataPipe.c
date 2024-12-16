@@ -1,6 +1,18 @@
 #include <stdio.h>
 #include <sys/eventfd.h>
 
+
+/**
+ * @file SensorDataPipe.c
+ * @brief Implementation of lock free Data Pipeline
+ *
+ * Provides a high-performance, lock-free data transmission
+ * mechanism using memory arenas and atomic operations.
+ *
+ *
+ */
+
+
 #include <src/Sdb.h>
 SDB_LOG_REGISTER(SensorDataPipe);
 
@@ -8,6 +20,17 @@ SDB_LOG_REGISTER(SensorDataPipe);
 #include <src/Common/SensorDataPipe.h>
 #include <src/Common/Thread.h>
 #include <src/Common/Time.h>
+
+
+/**
+ * @brief Create Sensor Data Pipeline
+ *
+ *
+ * @param BufCount Number of buffer arenas in pipeline
+ * @param BufSize Size of each buffer arena
+ * @param Arena Optional memory arena for allocation
+ * @return sensor_data_pipe* Initialized pipeline or NULL
+ */
 
 sensor_data_pipe *
 SdpCreate(u64 BufCount, u64 BufSize, sdb_arena *Arena)
@@ -56,6 +79,17 @@ SdpCreate(u64 BufCount, u64 BufSize, sdb_arena *Arena)
     return Pipe;
 }
 
+
+/**
+ * @brief Destroy Sensor Data Pipeline
+ *
+ * Performs cleanup of:
+ * - Event file descriptors
+ * - Optionally frees allocated memory
+ *
+ * @param Pipe Pipeline to destroy
+ * @param AllocatedWithArena Whether pipeline was arena-allocated
+ */
 void
 SdpDestroy(sensor_data_pipe *Pipe, bool AllocatedWithArena)
 {
@@ -66,6 +100,16 @@ SdpDestroy(sensor_data_pipe *Pipe, bool AllocatedWithArena)
     }
 }
 
+
+/**
+ * @brief Acquire Write Buffer Arena
+ *
+ * Obtains the next available memory arena for writing,
+ * blocking if no buffer is available.
+ *
+ * @param Pipe Pipeline instance
+ * @return sdb_arena* Available write buffer arena or NULL
+ */
 sdb_arena *
 SdPipeGetWriteBuffer(sensor_data_pipe *Pipe)
 {
@@ -98,6 +142,16 @@ SdPipeGetWriteBuffer(sensor_data_pipe *Pipe)
     return Buf;
 }
 
+
+/**
+ * @brief Acquire Read Buffer Arena
+ *
+ * Obtains the next available memory arena for reading,
+ * blocking until data is available.
+ *
+ * @param Pipe Pipeline instance
+ * @return sdb_arena* Available read buffer arena or NULL
+ */
 sdb_arena *
 SdPipeGetReadBuffer(sensor_data_pipe *Pipe)
 {
@@ -127,7 +181,14 @@ SdPipeGetReadBuffer(sensor_data_pipe *Pipe)
     return Buf;
 }
 
-
+/**
+ * @brief Flush the current write buffer
+ *
+ * If the current write buffer is not empty, it is marked as full and the next buffer is prepared.
+ * If the next buffer is already full, the function will block until a slot is available.
+ *
+ * @param Pipe Pipeline instance
+ */
 void
 SdPipeFlush(sensor_data_pipe *Pipe)
 {

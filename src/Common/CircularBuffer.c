@@ -1,3 +1,26 @@
+
+/**
+ * @file CircularBuffer.c
+ * @brief Implementation of Thread-Safe Circular Buffer
+ *
+ * Provides a robust, high-performance circular buffer implementation
+ * with threading and synchronization features.
+ *
+ * Core Functionalities:
+ * - Dynamic memory management
+ * - Thread-safe concurrent access
+ * - Performance metrics tracking
+ * - Flexible allocation strategies
+ *
+ * Design Principles:
+ * - Minimal blocking
+ * - Efficient memory utilization
+ * - Comprehensive error handling
+ *
+ * @note Currently not in use. Switched out for a more efficient implementation with SdbPipe.
+ *
+ */
+
 #include "src/Common/Thread.h"
 #include <errno.h>
 #include <stdio.h>
@@ -26,6 +49,17 @@ CbIsEmpty(circular_buffer *Cb)
 }
 
 
+/**
+ * @brief Initialize Circular Buffer
+ *
+ * Allocates buffer memory, initializes synchronization primitives
+ * and sets up initial buffer state
+ *
+ * @param Cb Pointer to circular buffer
+ * @param Size Requested buffer size
+ * @param Arena Optional memory arena for allocation
+ * @return sdb_errno 0 on success, error code on failure
+ */
 sdb_errno
 CbInit(circular_buffer *Cb, size_t Size, sdb_arena *Arena)
 {
@@ -60,6 +94,19 @@ CbInit(circular_buffer *Cb, size_t Size, sdb_arena *Arena)
     return 0;
 }
 
+
+/**
+ * @brief Insert Data into Circular Buffer
+ *
+ * Thread-safe insertion with blocking semantics
+ * Handles wrapping around buffer boundaries
+ * Tracks buffer occupancy and write throughput
+ *
+ * @param Cb Pointer to circular buffer
+ * @param Data Pointer to data to insert
+ * @param Size Size of data to insert
+ * @return ssize_t Number of bytes inserted
+ */
 ssize_t
 CbInsert(circular_buffer *Cb, void *Data, size_t Size)
 {
@@ -94,6 +141,18 @@ CbInsert(circular_buffer *Cb, void *Data, size_t Size)
 }
 
 
+/**
+ * @brief Read Data from Circular Buffer
+ *
+ * Thread-safe read operation with blocking semantics
+ * Handles wrapping around buffer boundaries
+ * Tracks buffer occupancy and read throughput
+ *
+ * @param Cb Pointer to circular buffer
+ * @param Dest Destination buffer for read data
+ * @param Size Number of bytes to read
+ * @return ssize_t Number of bytes read
+ */
 ssize_t
 CbRead(circular_buffer *Cb, void *Dest, size_t Size)
 {
@@ -127,6 +186,15 @@ CbRead(circular_buffer *Cb, void *Dest, size_t Size)
     return Size;
 }
 
+
+/**
+ * @brief Free Circular Buffer Resources
+ *
+ * Releases synchronization primitives
+ * Does not free underlying data memory
+ *
+ * @param Cb Pointer to circular buffer
+ */
 void
 CbFree(circular_buffer *Cb)
 {

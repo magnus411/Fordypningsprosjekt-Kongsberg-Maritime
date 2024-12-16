@@ -2,6 +2,13 @@
 
 #include <src/Sdb.h>
 
+
+/**
+ * @file Time.c
+ * @brief Implementation of Time Manipulation Utilities
+ *
+ */
+
 #include <src/Common/Time.h>
 
 sdb_errno

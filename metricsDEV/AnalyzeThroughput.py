@@ -4,7 +4,9 @@ import os
 import datetime
 import matplotlib.pyplot as plt
 import numpy as np
-
+""" 
+This script is used to read metrics from binary files and calculates throughput over time.
+"""
 def read_metrics(file_path):
     samples = []
     struct_format = 'iqq'  # 'i' for int, 'q' for long long (tv_sec and tv_nsec)
