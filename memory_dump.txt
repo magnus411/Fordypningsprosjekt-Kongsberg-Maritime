@@ -1,1 +1,0 @@
-Memory dump at shutdown
