@@ -21,7 +21,6 @@ services:
         condition: service_healthy
     volumes:
       - ./configs:/app/configs
-      - ./build:/app/build
 
 volumes:
   postgres_data:
