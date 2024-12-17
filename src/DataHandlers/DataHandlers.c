@@ -10,7 +10,7 @@
 
 
 #include <src/Sdb.h>
-SDB_LOG_REGISTER(CpDbCouplings);
+SDB_LOG_REGISTER(DataHandlers);
 
 #include <src/Common/ThreadGroup.h>
 #include <src/Libs/cJSON/cJSON.h>

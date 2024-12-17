@@ -65,7 +65,6 @@ SetUpFromConf(sdb_string ConfFilename, tg_manager **Manager)
     cJSON         *HandlerConf       = NULL;
     tg_group     **Tgs               = NULL;
 
-    /* Load and parse configuration file */
     ConfFile = SdbLoadFileIntoMemory(ConfFilename, NULL);
     if(ConfFile == NULL) {
         return -ENOMEM;
@@ -77,7 +76,6 @@ SetUpFromConf(sdb_string ConfFilename, tg_manager **Manager)
         goto cleanup;
     }
 
-    /* Extract data handler configurations */
     DataHandlersConfs = cJSON_GetObjectItem(Conf, "data_handlers");
     if(DataHandlersConfs == NULL || !cJSON_IsArray(DataHandlersConfs)) {
         Ret = -SDBE_JSON_ERR;
@@ -91,14 +89,12 @@ SetUpFromConf(sdb_string ConfFilename, tg_manager **Manager)
         goto cleanup;
     }
 
-    /* Allocate thread group array */
     Tgs = malloc(sizeof(tg_group *) * HandlerCount);
     if(!Tgs) {
         Ret = -ENOMEM;
         goto cleanup;
     }
 
-    /* Create thread groups for each handler */
     cJSON_ArrayForEach(HandlerConf, DataHandlersConfs)
     {
         Tgs[tg] = DhsCreateTg(HandlerConf, tg, NULL);
@@ -112,7 +108,6 @@ SetUpFromConf(sdb_string ConfFilename, tg_manager **Manager)
         ++tg;
     }
 
-    /* Create thread group manager */
     *Manager = TgCreateManager(Tgs, HandlerCount, NULL);
     if(!*Manager) {
         SdbLogError("Failed to create TG manager");
@@ -152,10 +147,6 @@ cleanup:
 int
 main(int ArgCount, char **ArgV)
 {
-    /* Convert existing dump file to CSV format */
-    // ConvertDumpToCSV("./dumps/[DUMPNAME].bin", "./dumps/sensor_data.csv");
-
-    /* Initialize and setup system from configuration */
     tg_manager *Manager = NULL;
     SetUpFromConf("./configs/sdb_conf.json", &Manager);
     if(Manager == NULL) {
@@ -165,7 +156,7 @@ main(int ArgCount, char **ArgV)
         SdbLogInfo("Successfully set up from config file!");
     }
 
-    /* Setup signal handlers */
+
     if(SdbSetupSignalHandlers(Manager) != 0) {
         SdbLogError("Failed to setup signal handlers");
         TgDestroyManager(Manager);
@@ -173,7 +164,6 @@ main(int ArgCount, char **ArgV)
     }
 
 
-    /* Start all thread groups */
     SdbLogInfo("Starting all thread groups");
     sdb_errno TgStartRet = TgManagerStartAll(Manager);
     if(TgStartRet != 0) {
@@ -183,10 +173,8 @@ main(int ArgCount, char **ArgV)
         SdbLogInfo("Successfully started all thread groups!");
     }
 
-    /* Wait for all threads to complete */
-    TgManagerWaitForAll(Manager);
 
-    /* Cleanup */
+    TgManagerWaitForAll(Manager);
     TgDestroyManager(Manager);
 
     return EXIT_SUCCESS;

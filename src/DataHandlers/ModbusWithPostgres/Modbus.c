@@ -103,9 +103,9 @@ MbPipeThroughputTest(void *Arg)
 sdb_errno
 MbRun(void *Arg)
 {
-    sdb_errno Ret       = 0;
-    mbpg_ctx *Ctx       = Arg;
-    bool      first_run = true;
+    sdb_errno Ret      = 0;
+    mbpg_ctx *Ctx      = Arg;
+    bool      FirstRun = true;
 
     sdb_arena MbArena;
     u64       MbASize = Ctx->ModbusMemSize + MB_SCRATCH_COUNT * Ctx->ModbusScratchSize;
@@ -123,11 +123,11 @@ MbRun(void *Arg)
     sdb_arena        *CurBuf = Pipe->Buffers[atomic_load(&Pipe->WriteBufIdx)];
 
     /**<  Only wait at barrier first time */
-    if(first_run) {
+    if(FirstRun) {
         SdbLogInfo("Modbus thread successfully initialized. Waiting for other threads at barrier");
         SdbBarrierWait(&Ctx->Barrier);
         SdbLogInfo("Exited barrier. Starting main loop");
-        first_run = false;
+        FirstRun = false;
     }
 
     while(!SdbShouldShutdown()) {

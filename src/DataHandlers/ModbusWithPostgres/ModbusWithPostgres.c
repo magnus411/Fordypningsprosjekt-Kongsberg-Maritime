@@ -59,8 +59,7 @@ PgThread(void *Arg)
 void *
 MbThread(void *Arg)
 {
-    pthread_setname_np(pthread_self(), "Modbus-thread");
-
+    pthread_setname_np(pthread_self(), "modbus-thread");
 
     sdb_errno Ret = MbRun(Arg);
     if(Ret != 0) {
@@ -84,13 +83,12 @@ MbThread(void *Arg)
 void *
 MbPgTestServer(void *Arg)
 {
-    pthread_setname_np(pthread_self(), "ModbusTestServer-thread");
+    pthread_setname_np(pthread_self(), "modbus-test-server-thread");
     mbpg_ctx *Ctx = Arg;
 
-    // Run once, not in a loop
     RunModbusTestServer(&Ctx->Barrier);
 
-    SdbLogInfo("ModbusTestServer thread shutting down");
+    SdbLogInfo("Modbus test server thread shutting down");
     return NULL;
 }
 
@@ -169,7 +167,7 @@ MbPgCleanup(void *Arg)
 }
 
 /** Array of task functions for thoughout test */
-static tg_task MbPgTasks[] = { PgThread, MbPgPipeThroughputTest };
+static tg_task MbPgThroughputTestTasks[] = { PgThread, MbPgPipeThroughputTest };
 
 
 /**< Array of task functions. Starts postgres thread, modbus test server thread and modbus thread */
@@ -227,10 +225,9 @@ MbPgCreateTg(cJSON *Conf, u64 GroupId, sdb_arena *A)
         SdbBarrierInit(&Ctx->Barrier, 3);
         Group = TgCreateGroup(GroupId, 3, Ctx, NULL, MbPgTestTasks, MbPgCleanup, A);
     } else {
-        Group = TgCreateGroup(GroupId, 2, Ctx, NULL, MbPgTasks, MbPgCleanup, A);
+        Group = TgCreateGroup(GroupId, 2, Ctx, NULL, MbPgThroughputTestTasks, MbPgCleanup, A);
         SdbBarrierInit(&Ctx->Barrier, 2);
     }
-
 
     GSignalContext.Pipe = Ctx->SdPipe;
 

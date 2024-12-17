@@ -131,7 +131,7 @@ SocketRecvWithTimeout(int SockFd, void *Buffer, size_t Length, sdb_timediff Time
 
     if(RecvResult == 0) {
         // Server closed connection
-        SdbLogError("Server closed connection");
+        SdbLogWarning("Server closed connection");
         return RecvResult;
     } else if(RecvResult == -1) {
         SdbLogError("Recv failed: %s", strerror(errno));

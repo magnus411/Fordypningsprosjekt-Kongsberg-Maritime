@@ -152,7 +152,7 @@ SendModbusData(int NewFd)
     static const u16 DataLength                             = sizeof(shaft_power_data);
     static const u16 Length                                 = DataLength + 3;
     shaft_power_data SpData;
-    static u64       sendCount = 0;
+    static u64       SendCount = 0;
 
     // Sanity check the sizes
     if(Length > MODBUS_TCP_FRAME_MAX_SIZE - MODBUS_TCP_HEADER_LEN) {
@@ -163,35 +163,35 @@ SendModbusData(int NewFd)
     memset(ModbusFrame, 0, MODBUS_TCP_FRAME_MAX_SIZE);
     GenerateShaftPowerDataRandom(&SpData);
 
-    u16 pos = 0;
+    u16 Pos = 0;
     // Fixed header construction
-    ModbusFrame[pos++] = 0x00;                 // Transaction ID high
-    ModbusFrame[pos++] = 0x01;                 // Transaction ID low
-    ModbusFrame[pos++] = 0x00;                 // Protocol ID high
-    ModbusFrame[pos++] = 0x00;                 // Protocol ID low
-    ModbusFrame[pos++] = (Length >> 8) & 0xFF; // Length high
-    ModbusFrame[pos++] = Length & 0xFF;        // Length low
-    ModbusFrame[pos++] = 0x01;                 // Unit ID
-    ModbusFrame[pos++] = 0x10;                 // Function code
-    ModbusFrame[pos++] = DataLength;           // Byte count
+    ModbusFrame[Pos++] = 0x00;                 // Transaction ID high
+    ModbusFrame[Pos++] = 0x01;                 // Transaction ID low
+    ModbusFrame[Pos++] = 0x00;                 // Protocol ID high
+    ModbusFrame[Pos++] = 0x00;                 // Protocol ID low
+    ModbusFrame[Pos++] = (Length >> 8) & 0xFF; // Length high
+    ModbusFrame[Pos++] = Length & 0xFF;        // Length low
+    ModbusFrame[Pos++] = 0x01;                 // Unit ID
+    ModbusFrame[Pos++] = 0x10;                 // Function code
+    ModbusFrame[Pos++] = DataLength;           // Byte count
 
     // Copy data with bounds checking
-    if(pos + DataLength > MODBUS_TCP_FRAME_MAX_SIZE) {
+    if(Pos + DataLength > MODBUS_TCP_FRAME_MAX_SIZE) {
         SdbLogError("Buffer overflow prevented");
         return -1;
     }
 
-    SdbMemcpy(&ModbusFrame[pos], &SpData, DataLength);
-    size_t totalSize = MODBUS_TCP_HEADER_LEN + Length;
+    SdbMemcpy(&ModbusFrame[Pos], &SpData, DataLength);
+    size_t TotalSize = MODBUS_TCP_HEADER_LEN + Length;
 
     SdbLogDebug("Sending frame - Length: %u, DataLength: %u, TotalSize: %zu", Length, DataLength,
-                totalSize);
+                TotalSize);
 
-    ssize_t SendResult = send(NewFd, ModbusFrame, totalSize, 0);
+    ssize_t SendResult = send(NewFd, ModbusFrame, TotalSize, 0);
     if(SendResult > 0) {
-        sendCount++;
-        if(sendCount % 10000 == 0) {
-            SdbLogInfo("Sent %lu packets", sendCount);
+        SendCount++;
+        if(SendCount % 10000 == 0) {
+            SdbLogInfo("Sent %lu packets", SendCount);
         }
     }
 
@@ -258,8 +258,8 @@ RunModbusTestServer(sdb_barrier *Barrier)
     }
 
     // Make socket non-blocking
-    int flags = fcntl(SockFd, F_GETFL, 0);
-    fcntl(SockFd, F_SETFL, flags | O_NONBLOCK);
+    int Flags = fcntl(SockFd, F_GETFL, 0);
+    fcntl(SockFd, F_SETFL, Flags | O_NONBLOCK);
 
     SdbLogInfo("Server: waiting for connections on port %d...", MODBUS_PORT);
     SdbBarrierWait(Barrier);
@@ -280,8 +280,8 @@ RunModbusTestServer(sdb_barrier *Barrier)
         }
 
         // Set client socket to non-blocking too
-        flags = fcntl(NewFd, F_GETFL, 0);
-        fcntl(NewFd, F_SETFL, flags | O_NONBLOCK);
+        Flags = fcntl(NewFd, F_GETFL, 0);
+        fcntl(NewFd, F_SETFL, Flags | O_NONBLOCK);
 
         // Enable TCP_NODELAY for client socket
         OptVal = 1;
@@ -290,21 +290,21 @@ RunModbusTestServer(sdb_barrier *Barrier)
         inet_ntop(ClientAddr.sin_family, &(ClientAddr.sin_addr), ClientIp, sizeof(ClientIp));
         SdbLogInfo("Server: accepted connection from %s:%d", ClientIp, ntohs(ClientAddr.sin_port));
 
-        u64             packetsSent = 0;
-        struct timespec lastSend, now;
-        clock_gettime(CLOCK_MONOTONIC, &lastSend);
+        u64             PacketsSent = 0;
+        struct timespec LastSend, Now;
+        clock_gettime(CLOCK_MONOTONIC, &LastSend);
 
         while(!SdbShouldShutdown()) {
-            clock_gettime(CLOCK_MONOTONIC, &now);
+            clock_gettime(CLOCK_MONOTONIC, &Now);
 
             // Control send rate
-            if((now.tv_sec - lastSend.tv_sec) * 1000000 + (now.tv_nsec - lastSend.tv_nsec) / 1000
+            if((Now.tv_sec - LastSend.tv_sec) * 1000000 + (Now.tv_nsec - LastSend.tv_nsec) / 1000
                < 100) { // 100 microseconds = 10kHz
                 continue;
             }
 
-            sdb_errno sendResult = SendModbusData(NewFd);
-            if(sendResult == -1) {
+            sdb_errno SendResult = SendModbusData(NewFd);
+            if(SendResult == -1) {
                 if(errno == EAGAIN || errno == EWOULDBLOCK) {
                     usleep(1000); // Wait if buffer is full
                     continue;
@@ -315,10 +315,10 @@ RunModbusTestServer(sdb_barrier *Barrier)
             }
 
 
-            lastSend = now;
+            LastSend = Now;
         }
 
-        SdbLogInfo("Connection closed after sending %lu packets", packetsSent);
+        SdbLogInfo("Connection closed after sending %lu packets", PacketsSent);
         close(NewFd);
 
         if(SdbShouldShutdown()) {

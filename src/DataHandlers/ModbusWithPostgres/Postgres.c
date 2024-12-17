@@ -5,7 +5,6 @@
  * including connection management, event handling, and performance monitoring.
  */
 
-
 #include <signal.h>
 #include <sys/epoll.h>
 
@@ -18,6 +17,7 @@ SDB_THREAD_ARENAS_EXTERN(Postgres);
 #include <src/DatabaseSystems/DatabaseInitializer.h>
 #include <src/DatabaseSystems/Postgres.h>
 #include <src/Signals.h>
+
 extern volatile sig_atomic_t GlobalShutdown;
 
 
@@ -97,16 +97,18 @@ PgRun(void *Arg)
         return -errno;
     }
 
+    // NOTE(ingar): Wait for modbus (and test server if running tests) to complete its setup
+    SdbLogInfo("Postgres thread successfully initialized. Waiting for other threads at barrier");
+    SdbBarrierWait(&Ctx->Barrier);
+    SdbLogInfo("Exited barrier. Starting main loop");
+
     u64             PgFailCounter  = 0;
     u64             TimeoutCounter = 0;
     struct timespec LoopStart, CopyStart, CopyEnd, TimeDiff;
+    static u64      TotalInsertedItems = 0;
+    SdbLogDebug("Item count/buf: %lu\n", Pipe->ItemMaxCount);
+
     SdbTimeMonotonic(&LoopStart);
-    static u64 TotalInsertedItems = 0;
-    printf("Item count/buf: %lu\n", Pipe->ItemMaxCount);
-
-    // NOTE(ingar): Wait for modbus (and test server if running tests) to complete its setup
-    SdbBarrierWait(&Ctx->Barrier);
-
     while(!SdbShouldShutdown()) {
         struct epoll_event Events[1];
         int                EpollRet = epoll_wait(EpollFd, Events, 1, SDB_TIME_MS(100));
@@ -152,18 +154,15 @@ PgRun(void *Arg)
                 SdbTimeMonotonic(&CopyEnd);
 
                 SdbTimePrintSpecDiffWT(&CopyStart, &CopyEnd, &TimeDiff);
-                printf("%ld.%09ld ", TimeDiff.tv_sec, TimeDiff.tv_nsec);
+                SdbLogDebug("Copy transaction time: %ld.%09ld ", TimeDiff.tv_sec, TimeDiff.tv_nsec);
+
                 SdbTimePrintSpecDiffWT(&LoopStart, &CopyEnd, &TimeDiff);
-                printf("%ld.%09ld\n", TimeDiff.tv_sec, TimeDiff.tv_nsec);
+                SdbLogDebug("Time since loop start: %ld.%09ld\n", TimeDiff.tv_sec,
+                            TimeDiff.tv_nsec);
 
                 if(TotalInsertedItems >= 1e6) {
                     break;
                 }
-
-                // printf("Time for single copy: %ld.%09ld seconds\n", TimeDiff.tv_sec,
-                //        TimeDiff.tv_nsec);
-                // printf("Time since loop start: %ld.%09ld seconds\n", TimeDiff.tv_sec,
-                //       TimeDiff.tv_nsec);
 
                 if(InsertRet != 0) {
                     SdbLogError("Failed to insert data for the %lusthnd", ++PgFailCounter);
@@ -180,13 +179,13 @@ PgRun(void *Arg)
         }
     }
 
-    printf("%ld.%09ld\n", TimeDiff.tv_sec, TimeDiff.tv_nsec);
+    SdbLogDebug("Total time in loop: %ld.%09ld\n", TimeDiff.tv_sec, TimeDiff.tv_nsec);
 
     PQfinish(PgCtx->DbConn);
     close(EpollFd);
     free(PgAMem);
 
-    SdbLogDebug("Exiting thread function");
+    SdbLogDebug("Postgres loop finished. Exiting");
 
     return Ret;
 }

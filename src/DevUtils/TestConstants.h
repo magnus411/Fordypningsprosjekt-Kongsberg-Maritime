@@ -9,8 +9,6 @@
 
 #include <src/DatabaseSystems/Postgres.h>
 
-#define MODBUS_PACKET_COUNT (1e4)
-
 typedef struct __attribute__((packed, aligned(1)))
 {
     pg_int8 PacketId;
