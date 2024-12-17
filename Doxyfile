@@ -53,7 +53,7 @@ STRIP_FROM_INC_PATH  = src
 SOURCE_BROWSER       = YES
 
 # Enhanced directory documentation
-USE_MDFILE_AS_MAINPAGE = mainpage.dox  
+USE_MDFILE_AS_MAINPAGE = README.md
 SHOW_NAMESPACES      = YES
 SHOW_FILES           = YES
 SHOW_INCLUDE_FILES   = YES
