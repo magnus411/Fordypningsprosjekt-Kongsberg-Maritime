@@ -1,0 +1,5 @@
+<map id="SdbTimespecAbsolute" name="SdbTimespecAbsolute">
+<area shape="rect" id="node1" title="Create Absolute Timeout Timestamp." alt="" coords="5,31,172,57"/>
+<area shape="rect" id="node2" href="$Time_8c.html#af8be68d54def6b644cac5efb8fe2e605" title="Add Time Difference to Timestamp." alt="" coords="222,5,326,32"/>
+<area shape="rect" id="node3" href="$Time_8c.html#a83d0c194706101b50506d2618e27167c" title="Get Current Real&#45;Time Timestamp." alt="" coords="220,56,328,83"/>
+</map>

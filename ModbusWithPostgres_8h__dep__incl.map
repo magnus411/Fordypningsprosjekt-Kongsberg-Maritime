@@ -1,0 +1,7 @@
+<map id="src/DataHandlers/ModbusWithPostgres/ModbusWithPostgres.h" name="src/DataHandlers/ModbusWithPostgres/ModbusWithPostgres.h">
+<area shape="rect" id="node1" title="Integration of Modbus and PostgreSQL data handling." alt="" coords="387,5,617,47"/>
+<area shape="rect" id="node2" href="$DataHandlers_8c.html" title="Implementation of Data Handler Thread Group Management." alt="" coords="5,102,244,129"/>
+<area shape="rect" id="node3" href="$DataHandlers_2ModbusWithPostgres_2Modbus_8c.html" title=" " alt="" coords="269,95,487,136"/>
+<area shape="rect" id="node4" href="$ModbusWithPostgres_8c.html" title="Implementation of Modbus&#45;PostgreSQL integration." alt="" coords="512,95,743,136"/>
+<area shape="rect" id="node5" href="$DataHandlers_2ModbusWithPostgres_2Postgres_8c.html" title=" " alt="" coords="767,95,986,136"/>
+</map>

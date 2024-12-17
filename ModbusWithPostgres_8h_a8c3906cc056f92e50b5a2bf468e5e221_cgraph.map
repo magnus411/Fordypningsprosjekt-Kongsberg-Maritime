@@ -1,0 +1,24 @@
+<map id="MbThread" name="MbThread">
+<area shape="rect" id="node1" title="Modbus thread function." alt="" coords="5,335,92,361"/>
+<area shape="rect" id="node2" href="$DataHandlers_2ModbusWithPostgres_2Modbus_8c.html#ac42f810b60d139ab2f82c4146710d721" title="Implements main Modbus thread loop." alt="" coords="148,309,215,336"/>
+<area shape="rect" id="node22" href="$Sdb_8h.html#a6d72cd06f56898ea5a6d8e78b60888ba" title=" " alt="" coords="140,360,223,387"/>
+<area shape="rect" id="node3" href="$CommProtocols_2Modbus_8c.html#a9e87a7f171eca6b73f1fe05e833d46bb" title="Parses a Modbus TCP frame into its components." alt="" coords="292,5,431,32"/>
+<area shape="rect" id="node4" href="$CommProtocols_2Modbus_8c.html#ad8cd921b4b7d4e15fd1d4e6fef74aabd" title="Prepares Modbus context from configuration file." alt="" coords="304,56,419,83"/>
+<area shape="rect" id="node9" href="$CommProtocols_2Modbus_8c.html#a958797e9ec7e41e215bebd4d2fd91513" title="Initializes thread arenas for Modbus operations." alt="" coords="285,107,438,133"/>
+<area shape="rect" id="node10" href="$Sdb_8h.html#a132f10c44fe9dab28a9fae8839c099ad" title=" " alt="" coords="288,157,435,184"/>
+<area shape="rect" id="node11" href="$Sdb_8h.html#a05ee63d567b60fbc2b9e6732f4154a48" title=" " alt="" coords="524,347,655,373"/>
+<area shape="rect" id="node12" href="$Sdb_8h.html#ab63e953fd90c628d5c0727287df66fab" title=" " alt="" coords="309,259,414,285"/>
+<area shape="rect" id="node13" href="$Sdb_8h.html#a99992a234eafd2bc02fe59561c4beb35" title=" " alt="" coords="304,309,419,336"/>
+<area shape="rect" id="node14" href="$Thread_8c.html#a192a33d80a7d463ad237856cdc7343be" title="Wait on a thread barrier." alt="" coords="302,360,421,387"/>
+<area shape="rect" id="node15" href="$Sdb_8h.html#ac5c7c1054a5f2110db33fbaf02ee3875" title=" " alt="" coords="310,411,413,437"/>
+<area shape="rect" id="node16" href="$Signals_8c.html#aca8d19968aa974641e340443ba21e58e" title="Checks if the system should initiate shutdown." alt="" coords="284,461,439,488"/>
+<area shape="rect" id="node17" href="$SensorDataPipe_8c.html#ad24e8341d323d221a2cfae80ae7d0508" title="Flush the current write buffer." alt="" coords="311,512,412,539"/>
+<area shape="rect" id="node19" href="$SensorDataPipe_8c.html#a2c82e4869caac3347107efcc1b791db4" title="Acquire Write Buffer Arena." alt="" coords="280,563,443,589"/>
+<area shape="rect" id="node20" href="$Socket_8c.html#ae188935dc7b2150fece7683b227f616a" title="Receive Data with Configurable Timeout." alt="" coords="271,613,452,640"/>
+<area shape="rect" id="node5" href="$Sdb_8h.html#ae4ef1557f623dc27e4d1f8f9cac4b6fc" title=" " alt="" coords="500,5,679,32"/>
+<area shape="rect" id="node6" href="$Sdb_8h.html#acd332199b77e76c2b764ef93a7b60439" title=" " alt="" coords="530,56,649,83"/>
+<area shape="rect" id="node7" href="$Socket_8c.html#afe998f70317da205d71f4d76f90d7a0e" title="Create and Connect TCP Socket." alt="" coords="535,107,643,133"/>
+<area shape="rect" id="node8" href="$Sdb_8h.html#aa83c474af0fff05c80b6c752168bca29" title=" " alt="" coords="727,107,825,133"/>
+<area shape="rect" id="node18" href="$Sdb_8h.html#ab38d94a0b56df0604f07862a93856990" title=" " alt="" coords="530,537,649,564"/>
+<area shape="rect" id="node21" href="$Time_8c.html#a0221db75cb1cf6093ca801b7915fe887" title="Convert Time Difference to Timeval." alt="" coords="540,613,639,640"/>
+</map>

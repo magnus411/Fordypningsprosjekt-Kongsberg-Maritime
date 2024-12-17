@@ -1,0 +1,28 @@
+<map id="PgRun" name="PgRun">
+<area shape="rect" id="node1" title="Main PostgreSQL operation loop." alt="" coords="5,309,68,336"/>
+<area shape="rect" id="node2" href="$DatabaseSystems_2Postgres_8c.html#a5caf93c93fdc98377097952a04cd7520" title="Initializes thread arenas for PostgreSQL operations." alt="" coords="122,81,271,108"/>
+<area shape="rect" id="node3" href="$DatabaseSystems_2Postgres_8c.html#aa7c5ed35f820c0efcccbb4e2f010a980" title="Inserts data into PostgreSQL table using COPY protocol." alt="" coords="143,132,250,159"/>
+<area shape="rect" id="node10" href="$DatabaseSystems_2Postgres_8c.html#a1bdbf06b579bf30db0f8826026a90474" title="Prepares PostgreSQL context from configuration." alt="" coords="141,487,252,513"/>
+<area shape="rect" id="node20" href="$Sdb_8h.html#a132f10c44fe9dab28a9fae8839c099ad" title=" " alt="" coords="123,233,270,260"/>
+<area shape="rect" id="node21" href="$Sdb_8h.html#ab63e953fd90c628d5c0727287df66fab" title=" " alt="" coords="144,284,249,311"/>
+<area shape="rect" id="node22" href="$Thread_8c.html#a192a33d80a7d463ad237856cdc7343be" title="Wait on a thread barrier." alt="" coords="137,335,256,361"/>
+<area shape="rect" id="node23" href="$Signals_8c.html#aca8d19968aa974641e340443ba21e58e" title="Checks if the system should initiate shutdown." alt="" coords="119,385,274,412"/>
+<area shape="rect" id="node24" href="$Time_8c.html#ad3369a427cccb648ad4f30900f4f7c33" title="Get Current Monotonic Timestamp." alt="" coords="123,436,270,463"/>
+<area shape="rect" id="node25" href="$Time_8c.html#ab96009a36f9428aa5cb1df4c18e7b50a" title="Calculate Time Difference Between Timestamps." alt="" coords="325,259,509,285"/>
+<area shape="rect" id="node26" href="$SensorDataPipe_8c.html#a63f4e3d66ed1aaab189408c5e20fcb06" title="Acquire Read Buffer Arena." alt="" coords="116,537,277,564"/>
+<area shape="rect" id="node4" href="$Sdb_8h.html#ac5c7c1054a5f2110db33fbaf02ee3875" title=" " alt="" coords="595,132,698,159"/>
+<area shape="rect" id="node5" href="$DatabaseSystems_2Postgres_8c.html#a9b90329e0cf4324fbe9fcd6b22233e34" title="Writes a 2&#45;byte value in network byte order." alt="" coords="385,107,450,133"/>
+<area shape="rect" id="node6" href="$DatabaseSystems_2Postgres_8c.html#ab8781f83020464aef1cf9779f072a37f" title=" " alt="" coords="385,157,450,184"/>
+<area shape="rect" id="node7" href="$DatabaseSystems_2Postgres_8c.html#af07f5759e9e25a2b5a8569ab296897e8" title=" " alt="" coords="385,208,450,235"/>
+<area shape="rect" id="node8" href="$DatabaseSystems_2Postgres_8c.html#a8be5b0d3a8c5e012cae2737b1ffa7bff" title=" " alt="" coords="352,5,483,32"/>
+<area shape="rect" id="node9" href="$DatabaseSystems_2Postgres_8c.html#afa67b44da30f50a326b7a120665bc477" title="Converts Unix timestamp to PostgreSQL timestamp." alt="" coords="569,5,725,32"/>
+<area shape="rect" id="node11" href="$DatabaseInitializer_8c.html#ac3e5e24c2c387a0c28dffaab993aebac" title="Loads and parses a database configuration file." alt="" coords="332,588,503,615"/>
+<area shape="rect" id="node12" href="$Sdb_8h.html#ae4ef1557f623dc27e4d1f8f9cac4b6fc" title=" " alt="" coords="557,639,736,665"/>
+<area shape="rect" id="node14" href="$DatabaseSystems_2Postgres_8c.html#ae298043cc4c2e142d7914316919a5c7a" title=" " alt="" coords="347,335,488,361"/>
+<area shape="rect" id="node16" href="$Sdb_8h.html#acd332199b77e76c2b764ef93a7b60439" title=" " alt="" coords="587,385,706,412"/>
+<area shape="rect" id="node17" href="$Sdb_8h.html#a2f3b726bde5f66a61dee9805406813ee" title=" " alt="" coords="351,436,484,463"/>
+<area shape="rect" id="node18" href="$Sdb_8h.html#a28c30cfe4c8326befba64bf54397bc47" title=" " alt="" coords="346,487,489,513"/>
+<area shape="rect" id="node19" href="$Sdb_8h.html#af443df2d401ad3eca43919e5cf1a7118" title=" " alt="" coords="340,537,495,564"/>
+<area shape="rect" id="node13" href="$Sdb_8h.html#a7d36f635ee473a12e82ed102ab4597a3" title=" " alt="" coords="581,588,712,615"/>
+<area shape="rect" id="node15" href="$Sdb_8h.html#adb598df288598cf1c13afc15e3f7e6c2" title=" " alt="" coords="567,335,726,361"/>
+</map>

@@ -1,0 +1,7 @@
+<map id="SdbDumpSensorDataPipe" name="SdbDumpSensorDataPipe">
+<area shape="rect" id="node1" title="Dumps sensor data pipe contents to a file." alt="" coords="681,5,869,32"/>
+<area shape="rect" id="node2" href="$Signals_8c.html#a45f6f56c3aac50030832d4b445f1cd61" title="Handles internal pipe dump operations." alt="" coords="499,5,633,32"/>
+<area shape="rect" id="node3" href="$Signals_8c.html#a6f1cd44547a55d590f525110340d0f1f" title="Internal signal handler to process system signals." alt="" coords="337,5,451,32"/>
+<area shape="rect" id="node4" href="$Signals_8c.html#a455fa9d5e249372255aebefb29edf4ee" title="Sets up signal handlers for the application." alt="" coords="108,5,289,32"/>
+<area shape="rect" id="node5" href="$Main_8c.html#ae21eb8342793f7f8f0d5fda6b96c0803" title="Main entry point for the Sensor Data Handler System." alt="" coords="5,5,60,32"/>
+</map>

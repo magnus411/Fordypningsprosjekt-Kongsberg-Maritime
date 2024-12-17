@@ -1,0 +1,6 @@
+<map id="Write4" name="Write4">
+<area shape="rect" id="node1" title=" " alt="" coords="401,5,467,32"/>
+<area shape="rect" id="node2" href="$DatabaseSystems_2Postgres_8c.html#aa7c5ed35f820c0efcccbb4e2f010a980" title="Inserts data into PostgreSQL table using COPY protocol." alt="" coords="247,5,353,32"/>
+<area shape="rect" id="node3" href="$DataHandlers_2ModbusWithPostgres_2Postgres_8c.html#a5f5041cd700c888724519dddcc5413a0" title="Main PostgreSQL operation loop." alt="" coords="136,5,199,32"/>
+<area shape="rect" id="node4" href="$ModbusWithPostgres_8c.html#a74049820bc4d231783641b0bfdc3a723" title="PostgreSQL thread implementation." alt="" coords="5,5,88,32"/>
+</map>

@@ -1,0 +1,5 @@
+<map id="src/DatabaseSystems/DatabaseInitializer.h" name="src/DatabaseSystems/DatabaseInitializer.h">
+<area shape="rect" id="node1" title="Database configuration initialization interface." alt="" coords="112,5,275,47"/>
+<area shape="rect" id="node2" href="$DatabaseSystems_2Postgres_8c.html" title="Implementation of PostgreSQL database operations." alt="" coords="5,95,168,136"/>
+<area shape="rect" id="node3" href="$DataHandlers_2ModbusWithPostgres_2Postgres_8c.html" title=" " alt="" coords="192,95,411,136"/>
+</map>

@@ -1,0 +1,11 @@
+<map id="SdbTCtlWaitForSignal" name="SdbTCtlWaitForSignal">
+<area shape="rect" id="node1" title=" " alt="" coords="5,81,165,108"/>
+<area shape="rect" id="node2" href="$Thread_8c.html#a3aa5be8c3ae6f155db4058a8b658ab91" title="Wait on a condition variable with timeout." alt="" coords="254,5,362,32"/>
+<area shape="rect" id="node7" href="$Thread_8c.html#a5fbfdcfc990630f27e5161ec4ea18aaa" title="Lock a mutex with timeout." alt="" coords="249,56,367,83"/>
+<area shape="rect" id="node8" href="$Thread_8c.html#a385a70a16dc0b1872fdf925d2121880c" title="Unlock a mutex." alt="" coords="242,107,374,133"/>
+<area shape="rect" id="node9" href="$Thread_8c.html#a1144e09449cdc3354b3f0f7fdb703fd4" title=" " alt="" coords="213,157,403,184"/>
+<area shape="rect" id="node3" href="$Thread_8c.html#aa16f3f5cb899e1128f1a80c021780e5f" title=" " alt="" coords="451,31,569,57"/>
+<area shape="rect" id="node4" href="$Time_8c.html#afad180732be23f8e46bdfc2bb349ff44" title="Create Absolute Timeout Timestamp." alt="" coords="617,31,784,57"/>
+<area shape="rect" id="node5" href="$Time_8c.html#af8be68d54def6b644cac5efb8fe2e605" title="Add Time Difference to Timestamp." alt="" coords="834,5,938,32"/>
+<area shape="rect" id="node6" href="$Time_8c.html#a83d0c194706101b50506d2618e27167c" title="Get Current Real&#45;Time Timestamp." alt="" coords="832,56,940,83"/>
+</map>

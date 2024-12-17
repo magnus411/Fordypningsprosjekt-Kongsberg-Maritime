@@ -1,0 +1,5 @@
+<map id="SocketRecvWithTimeout" name="SocketRecvWithTimeout">
+<area shape="rect" id="node1" title="Receive Data with Timeout." alt="" coords="255,5,436,32"/>
+<area shape="rect" id="node2" href="$DataHandlers_2ModbusWithPostgres_2Modbus_8c.html#ac42f810b60d139ab2f82c4146710d721" title="Implements main Modbus thread loop." alt="" coords="140,5,207,32"/>
+<area shape="rect" id="node3" href="$ModbusWithPostgres_8c.html#a8c3906cc056f92e50b5a2bf468e5e221" title="Modbus thread implementation." alt="" coords="5,5,92,32"/>
+</map>

@@ -1,0 +1,5 @@
+<map id="TgStartGroup" name="TgStartGroup">
+<area shape="rect" id="node1" title="Start All Threads in a Thread Group." alt="" coords="299,5,407,32"/>
+<area shape="rect" id="node2" href="$ThreadGroup_8c.html#a99b84055dd294fe099f1bb31fcdaceb4" title="Start All Thread Groups in Manager." alt="" coords="108,5,251,32"/>
+<area shape="rect" id="node3" href="$Main_8c.html#ae21eb8342793f7f8f0d5fda6b96c0803" title="Main entry point for the Sensor Data Handler System." alt="" coords="5,5,60,32"/>
+</map>

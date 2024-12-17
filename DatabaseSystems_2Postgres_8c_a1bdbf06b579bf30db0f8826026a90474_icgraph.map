@@ -1,0 +1,5 @@
+<map id="PgPrepareCtx" name="PgPrepareCtx">
+<area shape="rect" id="node1" title="Prepares PostgreSQL context from configuration." alt="" coords="247,5,357,32"/>
+<area shape="rect" id="node2" href="$DataHandlers_2ModbusWithPostgres_2Postgres_8c.html#a5f5041cd700c888724519dddcc5413a0" title="Main PostgreSQL operation loop." alt="" coords="136,5,199,32"/>
+<area shape="rect" id="node3" href="$ModbusWithPostgres_8c.html#a74049820bc4d231783641b0bfdc3a723" title="PostgreSQL thread implementation." alt="" coords="5,5,88,32"/>
+</map>

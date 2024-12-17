@@ -1,0 +1,10 @@
+<map id="SdbStringMake" name="SdbStringMake">
+<area shape="rect" id="node1" title=" " alt="" coords="619,56,737,83"/>
+<area shape="rect" id="node2" href="$DatabaseSystems_2Postgres_8c.html#ae298043cc4c2e142d7914316919a5c7a" title=" " alt="" coords="429,5,571,32"/>
+<area shape="rect" id="node3" href="$DatabaseSystems_2Postgres_8c.html#a1bdbf06b579bf30db0f8826026a90474" title="Prepares PostgreSQL context from configuration." alt="" coords="271,31,381,57"/>
+<area shape="rect" id="node6" href="$CommProtocols_2Modbus_8c.html#ad8cd921b4b7d4e15fd1d4e6fef74aabd" title="Prepares Modbus context from configuration file." alt="" coords="443,107,557,133"/>
+<area shape="rect" id="node4" href="$DataHandlers_2ModbusWithPostgres_2Postgres_8c.html#a5f5041cd700c888724519dddcc5413a0" title="Main PostgreSQL operation loop." alt="" coords="148,31,211,57"/>
+<area shape="rect" id="node5" href="$ModbusWithPostgres_8c.html#a74049820bc4d231783641b0bfdc3a723" title="PostgreSQL thread implementation." alt="" coords="5,31,88,57"/>
+<area shape="rect" id="node7" href="$DataHandlers_2ModbusWithPostgres_2Modbus_8c.html#ac42f810b60d139ab2f82c4146710d721" title="Implements main Modbus thread loop." alt="" coords="293,107,359,133"/>
+<area shape="rect" id="node8" href="$ModbusWithPostgres_8c.html#a8c3906cc056f92e50b5a2bf468e5e221" title="Modbus thread implementation." alt="" coords="136,107,223,133"/>
+</map>

@@ -1,0 +1,9 @@
+<map id="SignalHandler" name="SignalHandler">
+<area shape="rect" id="node1" title="Internal signal handler to process system signals." alt="" coords="5,107,119,133"/>
+<area shape="rect" id="node2" href="$Signals_8c.html#a9934ca93fac5b0dcfa0ae402a83bbaa0" title="Creates a memory dump of the process state." alt="" coords="177,56,343,83"/>
+<area shape="rect" id="node5" href="$Signals_8c.html#a45f6f56c3aac50030832d4b445f1cd61" title="Handles internal pipe dump operations." alt="" coords="193,107,327,133"/>
+<area shape="rect" id="node7" href="$Signals_8c.html#ac59c3ef33c4c32b750598e2d2f6398e1" title="Initiates system shutdown with proper synchronization." alt="" coords="167,157,353,184"/>
+<area shape="rect" id="node3" href="$Signals_8c.html#a5ef6dcc759fd8166d79fd158ec2f9935" title=" " alt="" coords="444,5,547,32"/>
+<area shape="rect" id="node4" href="$Signals_8c.html#a27d60415a71248a37804f83c33553b0b" title=" " alt="" coords="431,56,560,83"/>
+<area shape="rect" id="node6" href="$Signals_8c.html#a544b451adfe66651acf0f329633a8673" title="Dumps sensor data pipe contents to a file." alt="" coords="401,107,589,133"/>
+</map>

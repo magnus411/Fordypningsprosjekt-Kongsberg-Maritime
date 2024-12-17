@@ -1,0 +1,6 @@
+<map id="SdbTimeval" name="SdbTimeval">
+<area shape="rect" id="node1" title="Convert Time Difference to Timeval." alt="" coords="484,5,583,32"/>
+<area shape="rect" id="node2" href="$Socket_8c.html#ae188935dc7b2150fece7683b227f616a" title="Receive Data with Configurable Timeout." alt="" coords="255,5,436,32"/>
+<area shape="rect" id="node3" href="$DataHandlers_2ModbusWithPostgres_2Modbus_8c.html#ac42f810b60d139ab2f82c4146710d721" title="Implements main Modbus thread loop." alt="" coords="140,5,207,32"/>
+<area shape="rect" id="node4" href="$ModbusWithPostgres_8c.html#a8c3906cc056f92e50b5a2bf468e5e221" title="Modbus thread implementation." alt="" coords="5,5,92,32"/>
+</map>

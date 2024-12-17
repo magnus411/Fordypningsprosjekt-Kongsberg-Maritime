@@ -1,0 +1,8 @@
+<map id="src/Common/Socket.h" name="src/Common/Socket.h">
+<area shape="rect" id="node1" title="Simplified Socket Communication Utilities." alt="" coords="460,5,623,32"/>
+<area shape="rect" id="node2" href="$Socket_8c.html" title="Implementation of Socket Communication Utilities." alt="" coords="5,87,168,114"/>
+<area shape="rect" id="node3" href="$CommProtocols_2Modbus_8c.html" title="Implementation of Modbus protocol handling." alt="" coords="193,87,407,114"/>
+<area shape="rect" id="node4" href="$DataHandlers_2ModbusWithPostgres_2Modbus_8c.html" title=" " alt="" coords="432,80,651,121"/>
+<area shape="rect" id="node5" href="$ModbusTestServer_8c.html" title="Implementation of Modbus Test Server." alt="" coords="675,87,909,114"/>
+<area shape="rect" id="node6" href="$TestDataGenerator_8c.html" title=" " alt="" coords="933,87,1171,114"/>
+</map>

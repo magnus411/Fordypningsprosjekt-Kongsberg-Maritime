@@ -1,0 +1,7 @@
+<map id="signal_handler_context" name="signal_handler_context">
+<area shape="rect" id="node1" title="Context structure maintaining signal handler state." alt="" coords="131,184,305,211"/>
+<area shape="rect" id="node2" href="$structtg__manager.html" title="Thread Group Manager Structure." alt="" coords="47,95,147,121"/>
+<area shape="rect" id="node3" href="$structtg__group.html" title="Thread Group Structure." alt="" coords="17,184,96,211"/>
+<area shape="rect" id="node4" href="$structsensor__data__pipe.html" title="Sensor Data Pipeline Structure." alt="" coords="202,95,338,121"/>
+<area shape="rect" id="node5" href="$structsdb__arena.html" title=" " alt="" coords="225,5,315,32"/>
+</map>

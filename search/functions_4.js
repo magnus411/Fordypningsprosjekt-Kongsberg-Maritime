@@ -1,0 +1,8 @@
+var searchData=
+[
+  ['dbinitgetconffromfile_761',['DbInitGetConfFromFile',['../DatabaseInitializer_8c.html#ac3e5e24c2c387a0c28dffaab993aebac',1,'DbInitGetConfFromFile(const char *Filename, sdb_arena *A):&#160;DatabaseInitializer.c'],['../DatabaseInitializer_8h.html#a9d43a1b7420dc97728b450d0506a23a0',1,'DbInitGetConfFromFile(const char *Filename, sdb_arena *A):&#160;DatabaseInitializer.c']]],
+  ['dhscreatetg_762',['DhsCreateTg',['../DataHandlers_8c.html#a9f7c5ff5d0edf87feed0ab9a70ddfcd4',1,'DhsCreateTg(cJSON *Conf, u64 GroupId, sdb_arena *A):&#160;DataHandlers.c'],['../DataHandlers_8h.html#a9f7c5ff5d0edf87feed0ab9a70ddfcd4',1,'DhsCreateTg(cJSON *Conf, u64 GroupId, sdb_arena *A):&#160;DataHandlers.c']]],
+  ['dhsgetmemandscratchsize_763',['DhsGetMemAndScratchSize',['../DataHandlers_8c.html#afe9e102250a74bffceba672ba91d9368',1,'DhsGetMemAndScratchSize(cJSON *Conf, u64 *MemSize, u64 *ScratchSize):&#160;DataHandlers.c'],['../DataHandlers_8h.html#afe9e102250a74bffceba672ba91d9368',1,'DhsGetMemAndScratchSize(cJSON *Conf, u64 *MemSize, u64 *ScratchSize):&#160;DataHandlers.c']]],
+  ['diagnoseconnectionandtable_764',['DiagnoseConnectionAndTable',['../DatabaseSystems_2Postgres_8c.html#a3d93905f466e0a6089b1496e38016468',1,'DiagnoseConnectionAndTable(PGconn *DbConn, const char *TableName):&#160;Postgres.c'],['../DatabaseSystems_2Postgres_8h.html#a3d93905f466e0a6089b1496e38016468',1,'DiagnoseConnectionAndTable(PGconn *DbConn, const char *TableName):&#160;Postgres.c']]],
+  ['dumpprocessmemory_765',['DumpProcessMemory',['../Signals_8c.html#a9934ca93fac5b0dcfa0ae402a83bbaa0',1,'Signals.c']]]
+];

@@ -1,0 +1,14 @@
+<map id="src/Common/ThreadGroup.h" name="src/Common/ThreadGroup.h">
+<area shape="rect" id="node1" title="Thread Group Management System." alt="" coords="377,5,581,32"/>
+<area shape="rect" id="node2" href="$ThreadGroup_8c.html" title=" " alt="" coords="1508,177,1711,203"/>
+<area shape="rect" id="node3" href="$DataHandlers_8c.html" title="Implementation of Data Handler Thread Group Management." alt="" coords="373,177,611,203"/>
+<area shape="rect" id="node4" href="$DataHandlers_8h.html" title="Data Handler Management for Thread Group Creation." alt="" coords="114,87,353,114"/>
+<area shape="rect" id="node5" href="$ModbusWithPostgres_8c.html" title="Implementation of Modbus&#45;PostgreSQL integration." alt="" coords="118,169,349,211"/>
+<area shape="rect" id="node6" href="$Main_8c.html" title="Main implementation file for the Sensor Data Handler System." alt="" coords="5,177,93,203"/>
+<area shape="rect" id="node7" href="$ModbusWithPostgres_8h.html" title="Integration of Modbus and PostgreSQL data handling." alt="" coords="517,80,747,121"/>
+<area shape="rect" id="node10" href="$Signals_8h.html" title="Signal handling interface for the Sensor Data Handler System." alt="" coords="853,87,957,114"/>
+<area shape="rect" id="node8" href="$DataHandlers_2ModbusWithPostgres_2Modbus_8c.html" title=" " alt="" coords="636,169,855,211"/>
+<area shape="rect" id="node9" href="$DataHandlers_2ModbusWithPostgres_2Postgres_8c.html" title=" " alt="" coords="879,169,1097,211"/>
+<area shape="rect" id="node11" href="$ModbusTestServer_8c.html" title="Implementation of Modbus Test Server." alt="" coords="1121,177,1356,203"/>
+<area shape="rect" id="node12" href="$Signals_8c.html" title="Signal handling implementation for the Sensor Data Handler System." alt="" coords="1381,177,1483,203"/>
+</map>

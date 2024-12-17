@@ -1,0 +1,12 @@
+<map id="SdbShouldShutdown" name="SdbShouldShutdown">
+<area shape="rect" id="node1" title="Checks if the system should initiate shutdown." alt="" coords="415,107,569,133"/>
+<area shape="rect" id="node2" href="$ModbusWithPostgres_8c.html#a4908768aa1a5e0d60263a772b69e593b" title="Modbus data pipe throughput test." alt="" coords="180,5,367,32"/>
+<area shape="rect" id="node3" href="$DataHandlers_2ModbusWithPostgres_2Modbus_8c.html#ac42f810b60d139ab2f82c4146710d721" title="Implements main Modbus thread loop." alt="" coords="240,56,307,83"/>
+<area shape="rect" id="node5" href="$DataHandlers_2ModbusWithPostgres_2Postgres_8c.html#a5f5041cd700c888724519dddcc5413a0" title="Main PostgreSQL operation loop." alt="" coords="242,107,305,133"/>
+<area shape="rect" id="node7" href="$ModbusTestServer_8c.html#a0b60204e0a9d1577d141cdc21367ac70" title="Main Modbus Test Server routine." alt="" coords="190,157,357,184"/>
+<area shape="rect" id="node9" href="$ThreadGroup_8c.html#a94f41b6eed9ab8ff08d3921b617a87dd" title="Wait for Completion of All Thread Groups." alt="" coords="193,208,354,235"/>
+<area shape="rect" id="node4" href="$ModbusWithPostgres_8c.html#a8c3906cc056f92e50b5a2bf468e5e221" title="Modbus thread implementation." alt="" coords="25,56,112,83"/>
+<area shape="rect" id="node6" href="$ModbusWithPostgres_8c.html#a74049820bc4d231783641b0bfdc3a723" title="PostgreSQL thread implementation." alt="" coords="27,107,110,133"/>
+<area shape="rect" id="node8" href="$ModbusWithPostgres_8c.html#a95ff30564606583a3d26294e2d8dbad1" title="Modbus test server thread." alt="" coords="5,157,132,184"/>
+<area shape="rect" id="node10" href="$Main_8c.html#ae21eb8342793f7f8f0d5fda6b96c0803" title="Main entry point for the Sensor Data Handler System." alt="" coords="41,208,96,235"/>
+</map>
