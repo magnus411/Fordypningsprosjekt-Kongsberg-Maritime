@@ -225,8 +225,14 @@ MbPgCreateTg(cJSON *Conf, u64 GroupId, sdb_arena *A)
         SdbBarrierInit(&Ctx->Barrier, 3);
         Group = TgCreateGroup(GroupId, 3, Ctx, NULL, MbPgTestTasks, MbPgCleanup, A);
     } else {
+#if 1
+        SdbLogError("Throughput test is currently not functional. Please set \"enabled\" in "
+                    "\"testing\" to true and run the program again");
+        return NULL;
+#else
         Group = TgCreateGroup(GroupId, 2, Ctx, NULL, MbPgThroughputTestTasks, MbPgCleanup, A);
         SdbBarrierInit(&Ctx->Barrier, 2);
+#endif
     }
 
     GSignalContext.Pipe = Ctx->SdPipe;
