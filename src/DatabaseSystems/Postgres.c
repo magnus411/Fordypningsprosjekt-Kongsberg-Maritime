@@ -24,7 +24,6 @@ SDB_LOG_REGISTER(Postgres);
 #include <src/DatabaseSystems/Postgres.h>
 SDB_THREAD_ARENAS_REGISTER(Postgres, 2);
 
-#include <src/Common/CircularBuffer.h>
 #include <src/Common/SensorDataPipe.h>
 #include <src/Common/Thread.h>
 #include <src/DatabaseSystems/DatabaseInitializer.h>

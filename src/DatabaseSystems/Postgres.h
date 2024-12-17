@@ -13,7 +13,6 @@
 
 SDB_BEGIN_EXTERN_C
 
-#include <src/Common/CircularBuffer.h>
 #include <src/Common/SensorDataPipe.h>
 #include <src/Common/Thread.h>
 #include <src/Libs/cJSON/cJSON.h>

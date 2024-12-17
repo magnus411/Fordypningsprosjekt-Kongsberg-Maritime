@@ -21,7 +21,6 @@
 
 SDB_BEGIN_EXTERN_C
 
-#include <src/Common/CircularBuffer.h>
 #include <src/Common/Thread.h>
 
 // TODO(ingar): Some way of tagging buffers for priorities or similar

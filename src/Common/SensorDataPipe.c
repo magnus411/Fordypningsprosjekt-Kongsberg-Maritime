@@ -16,7 +16,6 @@
 #include <src/Sdb.h>
 SDB_LOG_REGISTER(SensorDataPipe);
 
-#include <src/Common/CircularBuffer.h>
 #include <src/Common/SensorDataPipe.h>
 #include <src/Common/Thread.h>
 #include <src/Common/Time.h>

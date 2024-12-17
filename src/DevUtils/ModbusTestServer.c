@@ -32,7 +32,6 @@ SDB_LOG_REGISTER(ModbusTestServer);
 
 #include <netinet/tcp.h>
 #include <src/CommProtocols/Modbus.h>
-#include <src/Common/CircularBuffer.h>
 #include <src/Common/Socket.h>
 #include <src/Common/Thread.h>
 #include <src/Common/Time.h>

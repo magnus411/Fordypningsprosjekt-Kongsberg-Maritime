@@ -17,7 +17,6 @@ SDB_LOG_REGISTER(Modbus);
 SDB_THREAD_ARENAS_REGISTER(Modbus, 2);
 
 #include <src/CommProtocols/Modbus.h>
-#include <src/Common/CircularBuffer.h>
 #include <src/Common/SensorDataPipe.h>
 #include <src/Common/Socket.h>
 #include <src/Common/Thread.h>
