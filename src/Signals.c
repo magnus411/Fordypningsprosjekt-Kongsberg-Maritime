@@ -9,15 +9,11 @@
 
 #define _GNU_SOURCE
 
-#include <src/Sdb.h>
-SDB_LOG_REGISTER(Signals);
-
 #include <errno.h>
 #include <execinfo.h>
 #include <fcntl.h>
 #include <pthread.h>
 #include <signal.h>
-#include <src/Common/SensorDataPipe.h>
 #include <src/Signals.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -26,9 +22,14 @@ SDB_LOG_REGISTER(Signals);
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <unistd.h>
-#define BACKTRACE_SIZE 50
-#include <src/DatabaseSystems/DatabaseInitializer.h>
 
+#include <src/Sdb.h>
+SDB_LOG_REGISTER(Signals);
+
+#include <src/Common/SensorDataPipe.h>
+#include <src/DevUtils/TestConstants.h>
+
+#define BACKTRACE_SIZE 50
 
 /**
  * @brief Context structure for signal handling
@@ -171,7 +172,7 @@ InitiateGracefulShutdown(void)
 static bool
 HandlePipeDump(void)
 {
-    if(!GSignalContext.pipe) {
+    if(!GSignalContext.Pipe) {
         SdbLogError("Pipe is NULL during signal handling");
         return false;
     }
@@ -184,7 +185,7 @@ HandlePipeDump(void)
              TmInfo->tm_year + 1900, TmInfo->tm_mon + 1, TmInfo->tm_mday, TmInfo->tm_hour,
              TmInfo->tm_min, TmInfo->tm_sec);
 
-    if(!SdbDumpSensorDataPipe(GSignalContext.pipe, DumpFilename)) {
+    if(!SdbDumpSensorDataPipe(GSignalContext.Pipe, DumpFilename)) {
         SdbLogError("Failed to dump pipe contents");
         return false;
     }
@@ -210,56 +211,46 @@ HandlePipeDump(void)
 static void
 SignalHandler(int SignalNum, siginfo_t *Info, void *Context)
 {
-    char  ThreadName[32];
-    pid_t ThreadId = GetThreadId();
-    GetThreadName(ThreadName, sizeof(ThreadName));
-
     switch(SignalNum) {
         case SIGINT:
         case SIGTERM:
             {
-                SdbLogWarning("Received termination signal %d on thread %d (%s)", SignalNum,
-                              ThreadId, ThreadName);
-
+                SdbLogWarning("Received termination signal %d", SignalNum);
                 InitiateGracefulShutdown();
-                break;
             }
-
+            break;
         case SIGSEGV:
-            SdbLogError("Segmentation fault on thread %d (%s) at address %p", ThreadId, ThreadName,
-                        Info->si_addr);
-            DumpProcessMemory(SignalNum, Info);
-            HandlePipeDump();
-
-            raise(SIGSEGV);
+            {
+                SdbLogError("Segmentation fault on thread at address %p", Info->si_addr);
+                DumpProcessMemory(SignalNum, Info);
+                HandlePipeDump();
+                raise(SIGSEGV);
+            }
             break;
-
         case SIGABRT:
-            SdbLogError("Abnormal termination on thread %d (%s)", ThreadId, ThreadName);
-            DumpProcessMemory(SignalNum, Info);
-
-            raise(SIGABRT);
+            {
+                SdbLogError("Abnormal termination");
+                DumpProcessMemory(SignalNum, Info);
+                raise(SIGABRT);
+            }
             break;
-
         case SIGFPE:
-            SdbLogError("Floating point exception on thread %d (%s) code=%d", ThreadId, ThreadName,
-                        Info->si_code);
-            DumpProcessMemory(SignalNum, Info);
-            HandlePipeDump();
-
-            raise(SIGFPE);
+            {
+                SdbLogError("Floating point exception on code=%d", Info->si_code);
+                DumpProcessMemory(SignalNum, Info);
+                HandlePipeDump();
+                raise(SIGFPE);
+            }
             break;
-
         case SIGILL:
-            SdbLogError("Illegal instruction on thread %d (%s) at address %p", ThreadId, ThreadName,
-                        Info->si_addr);
-            DumpProcessMemory(SignalNum, Info);
-            raise(SIGILL);
+            {
+                SdbLogError("Illegal instruction at address %p", Info->si_addr);
+                DumpProcessMemory(SignalNum, Info);
+                raise(SIGILL);
+            }
             break;
-
         default:
-            SdbLogWarning("Unhandled signal %d received on thread %d (%s)", SignalNum, ThreadId,
-                          ThreadName);
+            SdbLogWarning("Unhandled signal %d received", SignalNum);
             break;
     }
 }
@@ -276,7 +267,7 @@ SignalHandler(int SignalNum, siginfo_t *Info, void *Context)
 int
 SdbSetupSignalHandlers(struct tg_manager *Manager)
 {
-    GSignalContext.manager = Manager;
+    GSignalContext.Manager = Manager;
 
     struct sigaction SignalAction;
     memset(&SignalAction, 0, sizeof(SignalAction));
@@ -301,16 +292,16 @@ SdbSetupSignalHandlers(struct tg_manager *Manager)
 void
 SdbSetMemoryDumpPath(const char *Path)
 {
-    if(GSignalContext.memory_dump_path) {
-        free(GSignalContext.memory_dump_path);
+    if(GSignalContext.MemoryDumpPath) {
+        free(GSignalContext.MemoryDumpPath);
     }
-    GSignalContext.memory_dump_path = strdup(Path);
+    GSignalContext.MemoryDumpPath = strdup(Path);
 }
 
 bool
 SdbIsShutdownInProgress(void)
 {
-    return GSignalContext.shutdown_flag == 1;
+    return GSignalContext.ShutdownFlag == 1;
 }
 
 bool
@@ -380,9 +371,9 @@ ConvertDumpToCSV(const char *DumpFileName, const char *CsvFileName)
 
     fprintf(CsvFile, "PacketId,Time,Rpm,Torque,Power,PeakPeakPfs\n");
 
-    DataPacket Packet;
-    while(fread(&Packet, sizeof(DataPacket), 1, DumpFile) == 1) {
-        fprintf(CsvFile, "%ld,%.2lf,%.2lf,%.2lf,%.2lf,%.2lf\n", Packet.PacketId, Packet.Time,
+    shaft_power_data Packet;
+    while(fread(&Packet, sizeof(shaft_power_data), 1, DumpFile) == 1) {
+        fprintf(CsvFile, "%ld,%.2ld,%.2lf,%.2lf,%.2lf,%.2lf\n", Packet.PacketId, Packet.Time,
                 Packet.Rpm, Packet.Torque, Packet.Power, Packet.PeakPeakPfs);
     }
 

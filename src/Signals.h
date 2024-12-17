@@ -10,9 +10,13 @@
 #define SDB_SIGNALS_H
 
 #include <signal.h>
+
+#include <src/Sdb.h>
+
 #include <src/Common/SensorDataPipe.h>
+#include <src/Common/ThreadGroup.h>
+
 #include <src/Libs/cJSON/cJSON.h>
-#include <stdbool.h>
 
 /**
  * @struct signal_handler_context
@@ -20,31 +24,15 @@
  */
 typedef struct signal_handler_context
 {
-    struct tg_manager    *manager;          /**< Thread group manager instance */
-    char                 *memory_dump_path; /**< Path for memory dump files */
-    volatile sig_atomic_t shutdown_flag;    /**< Atomic flag indicating shutdown status */
-    sensor_data_pipe     *pipe;             /**< Current sensor data pipe being monitored */
-} signal_handler_context;
+    tg_manager           *Manager;        /**< Thread group manager instance */
+    char                 *MemoryDumpPath; /**< Path for memory dump files */
+    volatile sig_atomic_t ShutdownFlag;   /**< Atomic flag indicating shutdown status */
+    sensor_data_pipe     *Pipe;           /**< Current sensor data pipe being monitored */
 
-/**
- * @struct DataPacket
- * @brief Structure representing a single sensor data packet. This is only for proof of consept,
- * should be expanded for new sensors.
- */
-typedef struct
-{
-    int64_t PacketId;    /**< Unique identifier for the packet */
-    double  Time;        /**< Timestamp of the reading */
-    double  Rpm;         /**< Rotations per minute */
-    double  Torque;      /**< Torque measurement */
-    double  Power;       /**< Power measurement */
-    double  PeakPeakPfs; /**< Peak-to-peak measurement */
-} DataPacket;
+} signal_handler_context;
 
 /** @brief Global signal handler context */
 extern signal_handler_context GSignalContext;
-
-struct tg_manager;
 
 /**
  * @brief Initializes signal handlers for the application
@@ -55,7 +43,7 @@ struct tg_manager;
  * @param manager Thread group manager to be controlled by signals
  * @return 0 on success, -1 on failure
  */
-int SdbSetupSignalHandlers(struct tg_manager *manager);
+int SdbSetupSignalHandlers(tg_manager *Manager);
 
 
 /**
@@ -76,7 +64,7 @@ bool SdbShouldShutdown(void);
  * @param filename Path where the dump will be saved
  * @return true if successful, false if any error occurred
  */
-bool SdbDumpSensorDataPipe(sensor_data_pipe *pipe, const char *filename);
+bool SdbDumpSensorDataPipe(sensor_data_pipe *Pipe, const char *Filename);
 
 /**
  * @brief Converts a binary dump file to CSV format
@@ -87,6 +75,6 @@ bool SdbDumpSensorDataPipe(sensor_data_pipe *pipe, const char *filename);
  * @param dumpFileName Source binary dump file
  * @param csvFileName Destination CSV file
  */
-void ConvertDumpToCSV(const char *dumpFileName, const char *csvFileName);
+void ConvertDumpToCSV(const char *DumpFileName, const char *CsvFileName);
 
 #endif // SDB_SIGNALS_H

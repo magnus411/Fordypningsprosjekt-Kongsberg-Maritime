@@ -232,7 +232,7 @@ MbPgCreateTg(cJSON *Conf, u64 GroupId, sdb_arena *A)
     }
 
 
-    GSignalContext.pipe = Ctx->SdPipe;
+    GSignalContext.Pipe = Ctx->SdPipe;
 
     return Group;
 }
