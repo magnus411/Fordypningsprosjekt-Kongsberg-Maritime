@@ -4,7 +4,6 @@
  * @warning This code is currently disabled and under development
  */
 
-#if 0
 #include "src/Common/SensorDataPipe.h"
 #include <pthread.h>
 #include <stdio.h>
@@ -135,5 +134,3 @@ MqttFinalize(comm_protocol_api *Mqtt)
     SdbArenaClear(&Mqtt->Arena);
     return 0;
 }
-
-#endif
