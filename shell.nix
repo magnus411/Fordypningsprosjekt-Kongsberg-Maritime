@@ -1,4 +1,4 @@
-{ pkgs ? import <nixos-unstable> {} }:
+{ pkgs ? import <nixos> {} }:
 
 pkgs.mkShell {
   buildInputs = with pkgs; [
