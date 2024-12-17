@@ -2,88 +2,163 @@
 
 ## Project Overview
 
-This project addresses the challenges of sensor data management for maritime sensor systems, specifically designed for Kongsberg Maritime's Meta Power Quad system.
+This project aims to develop a prototype exploring technical solutions for challenges in Kongsberg Maritime's Meta Power Quad datahandler. The main focus is demonstrating a flexible architecture that allows adding new sensors without code modifications or recompilation, while also implementing efficient fail safe mechanisms like data dumping, and null-data compression. The prototype will serve as a basis for decision-making in Kongsberg Maritime's future production system development and is not intended for production use.
 
-## How to run:
 
-docker-compose build (build the SensorDHS system)
-docker-compose up (Run the compose with SensorDHS and Postgres)
+## Installation & Running the System
 
-Connect to db: docker-compose exec db psql -U postgres fordypningsprosjekt
+### Prerequisites
+- GCC compiler
+- PostgreSQL development libraries (`libpq-dev`)
+- Make
+- Docker and Docker Compose (optional)
 
-## Key Objectives
 
-- **Flexible Sensor Integration**: Create a modular system that allows adding new sensors without recompiling the entire codebase
-- **Efficient Data Storage**: Implement intelligent data compression and storage mechanisms
-- **Performance Optimization**: Design a system that can handle large volumes of sensor data efficiently
-- **Zero-Value Data Management**: Develop strategies to minimize storage consumption of empty/zero-value measurements
 
-## System Architecture
+### Option 1: Using Docker Compose
+1. Install  Docker and Docker Compose
 
-### Core Components
+https://docs.docker.com/engine/install/ <br>
+https://docs.docker.com/compose/install/
 
-1. **Data Handler**:
 
-   - Receives sensor data from various sources
-   - Provides a pluggable architecture for sensor integration
-   - Supports dynamic sensor type registration
+2. Build and run the application:
 
-2. **Storage Mechanism**:
+```bash
+#Building the docker
+docker-compose build
 
-   - Utilizes PostgreSQL for robust, scalable data storage
-   - Implements Run-Length Encoding (RLE) for zero-value data compression
-   - Preserves metadata for zero-value measurements
+#Running the docker-compose
+docker-compose up
+```
 
-3. **Compression Strategy**:
-   - Detects consecutive zero-value blocks
-   - Stores timestamp and run-length information instead of full zero datasets
-   - Maintains data integrity while reducing storage requirements
+This will:
 
-## Key Technical Features
+    Start a PostgreSQL database container
+    Build and run the SensorDHS application
+    Set up the necessary network connections between containers
+    Mount the configuration files from your local configs directory
 
-- Non-invasive sensor addition
-- Zero-data compression
-- High-performance data handling
-- Flexible configuration
-- Minimal recompilation requirements
+To stop the application:
 
-## Performance Considerations
+```bash
+docker compose down
+```
 
-- Non-blocking socket operations
-- Efficient memory management
-- Modular design for scalability
-- Low-overhead data processing
+#### To connect to the database:
+```bash
 
-## Potential Future Improvements
+docker-compose exec db psql -U postgres fordypningsprosjekt
+```
 
-- Web-based GUI integration
-- Enhanced sensor type discovery
-- Machine learning-based data pattern recognition
-- Advanced compression algorithms
 
-## Technologies Used
+### Option 2: Building with Make
 
-- C programming language
-- PostgreSQL database
-- libpq for database interactions
-- CJson
-- Custom memory management
-- Socket programming
-- Run-Length Encoding compression techniques
+1. Install required dependencies:
+```bash
+sudo apt-get update
+sudo apt-get install gcc make libpq-dev
+```
 
-## Research Opportunities
+2. Build the project:
+```bash
 
-- Comparative analysis of data storage strategies
-- Performance benchmarking
-- Compression algorithm effectiveness
-- Sensor data pattern recognition
+# Default build (debug)
+make
 
-## Deployment Considerations
+```
+3. Run the application:
+```bash
 
-- Suitable for maritime sensor systems
-- Low-resource hardware environments
-- Real-time data processing requirements
-- Scalable sensor ecosystem
+./build/SensorDHS
+
+```
+
+**Note:** This requires you to have a postgres database already running. This can be done with for example docker:
+
+```bash
+docker run -d --name postgres-sensordb -p 5432:5432 -e POSTGRES_PASSWORD=passord -e POSTGRES_DB=fordypningsprosjekt postgres:14
+```
+You then need to configure the SensorDHS `postgres-conf` that is located inside the `configs`folder to use that postgres database.
+
+**Additional make commands**:
+
+    make clean: Remove build files
+    make docs: Generate documentation (requires Doxygen)
+    make format: Format code using clang-format
+    make lint: Run clang-tidy checks
+    make data_generator: Build the test data generator
+
+
+
+
+### Configuration
+The project comes with default configurations, but these can be changed. 
+
+1. `postgres-conf`: Database connection settings
+  `host=db
+  dbname=fordypningsprosjekt
+  user=postgres
+  password=passord`
+
+**Note:** When using Docker, `host=db` refers to the Docker container hostname. For local builds, use `host=127.0.0.1` or your specific PostgreSQL host.
+
+
+
+2. `modbus-conf`: Modbus connection settings
+
+ipv4Addr=127.0.0.1 <br>
+port=1312
+
+3. `sdb_conf.json`: System configuration
+```json
+{
+  "data_handlers": [
+    {
+      "name": "modbus_with_postgres",
+      "enabled": true,
+      "modbus": {
+        "mem": "8mB",
+        "scratch_size": "128kB"
+      },
+      "postgres": {
+        "mem": "8mB",
+        "scratch_size": "128kB"
+      },
+      "pipe": {
+        "buf_count": 2,
+        "buf_size": "32kB"
+      },
+      "testing": {
+        "enabled": true
+      }
+    }
+  ]
+}
+```
+
+`sensor_schemas.json`: Sensor configuration
+```
+{
+  "sensors": [
+    {
+      "name": "shaft_power",
+      "data": {
+        "packet_id": "BIGINT",
+        "time": "TIMESTAMP",
+        "rpm": "DOUBLE PRECISION",
+        "torque": "DOUBLE PRECISION",
+        "power": "DOUBLE PRECISION",
+        "peak_peak_pfs": "DOUBLE PRECISION"
+      }
+    }
+  ]
+}
+```
+
+
+
+
 
 ## Contributors
 
