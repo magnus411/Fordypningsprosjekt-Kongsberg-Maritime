@@ -1,6 +1,6 @@
 CC = gcc
-SRC = $(shell find src -name "*.c")
-INCLUDES = -I. -I/usr/include/postgresql 
+SRC = $(filter-out src/DevUtils/TestDataGenerator.c, $(shell find src -name "*.c"))
+INCLUDES = -I. -I/usr/include/postgresql
 LIBS =  -lpthread -lpq -lm
 
 LINTER = clang-tidy
@@ -66,6 +66,8 @@ build_main:
 
 build_data_generator:
 	@mkdir -p build
+	@mkdir -p data
+	@mkdir -p data/testdata
 	@printf "\033[0;32m\nBuilding Test Data Generator\n\033[0m"
 	$(CC) $(CFLAGS) $(INCLUDES) src/DevUtils/TestDataGenerator.c -o build/TDG $(LIBS)
 

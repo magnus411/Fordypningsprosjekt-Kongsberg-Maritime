@@ -562,7 +562,7 @@ cleanup:
     PQclear(PgRes);
 
     if(Ret == 0) {
-        SdbLogInfo("Committed copy transaction for table %s", Ti->TableName);
+        SdbLogDebug("Committed copy transaction for table %s", Ti->TableName);
     } else {
         SdbLogWarning("Rolled back copy transaction for table %s", Ti->TableName);
     }

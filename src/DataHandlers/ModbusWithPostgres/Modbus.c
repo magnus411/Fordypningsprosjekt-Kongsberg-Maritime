@@ -2,7 +2,6 @@
  * @file ModbusAPI.c
  * @brief Implementation of Modbus communication functionality
  */
-#include <signal.h>
 
 #include <src/Sdb.h>
 SDB_LOG_DECLARE(Modbus);

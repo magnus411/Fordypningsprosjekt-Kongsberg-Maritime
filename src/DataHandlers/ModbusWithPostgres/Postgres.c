@@ -9,7 +9,7 @@
 #include <sys/epoll.h>
 
 #include <src/Sdb.h>
-SDB_LOG_REGISTER(PostgresThread);
+SDB_LOG_DECLARE(Postgres);
 SDB_THREAD_ARENAS_EXTERN(Postgres);
 
 #include <src/Common/Time.h>
