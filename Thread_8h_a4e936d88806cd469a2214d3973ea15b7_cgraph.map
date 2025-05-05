@@ -1,0 +1,11 @@
+<map id="SdbSemWait" name="SdbSemWait">
+<area shape="rect" id="Node000001" title="Wait on a semaphore with timeout." alt="" coords="5,31,109,56"/>
+<area shape="rect" id="Node000002" href="$Thread_8c.html#aa16f3f5cb899e1128f1a80c021780e5f" title=" " alt="" coords="157,31,276,56"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="110,41,144,41,144,46,110,46"/>
+<area shape="rect" id="Node000003" href="$Time_8c.html#afad180732be23f8e46bdfc2bb349ff44" title="Create Absolute Timeout Timestamp." alt="" coords="324,31,491,56"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="276,41,310,41,310,46,276,46"/>
+<area shape="rect" id="Node000004" href="$Time_8c.html#af8be68d54def6b644cac5efb8fe2e605" title="Add Time Difference to Timestamp." alt="" coords="541,5,645,31"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="491,29,527,24,527,30,491,35"/>
+<area shape="rect" id="Node000005" href="$Time_8c.html#a83d0c194706101b50506d2618e27167c" title="Get Current Real&#45;Time Timestamp." alt="" coords="539,55,647,80"/>
+<area shape="poly" id="edge4_Node000003_Node000005" title=" " alt="" coords="491,51,525,56,525,61,491,57"/>
+</map>

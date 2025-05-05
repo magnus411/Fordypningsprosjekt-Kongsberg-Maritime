@@ -1,0 +1,7 @@
+<map id="mbpg_ctx" name="mbpg_ctx">
+<area shape="rect" id="Node000001" title="Context for Modbus&#45;PostgreSQL integration." alt="" coords="30,181,117,207"/>
+<area shape="rect" id="Node000002" href="$structsensor__data__pipe.html" title="Sensor Data Pipeline Structure." alt="" coords="5,93,141,119"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="76,133,76,181,71,181,71,133"/>
+<area shape="rect" id="Node000003" href="$structsdb__arena.html" title=" " alt="" coords="29,5,118,31"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="76,45,76,93,71,93,71,45"/>
+</map>

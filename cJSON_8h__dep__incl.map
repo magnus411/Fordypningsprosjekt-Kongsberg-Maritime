@@ -1,0 +1,45 @@
+<map id="src/Libs/cJSON/cJSON.h" name="src/Libs/cJSON/cJSON.h">
+<area shape="rect" id="Node000001" title=" " alt="" coords="957,5,1127,31"/>
+<area shape="rect" id="Node000002" href="$DataHandlers_8c.html" title="Implementation of Data Handler Thread Group Management." alt="" coords="5,174,244,199"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="944,22,829,25,688,34,534,52,383,81,313,102,247,129,147,176,145,171,245,124,312,97,381,76,533,47,687,29,828,20,944,16"/>
+<area shape="rect" id="Node000003" href="$DataHandlers_8h.html" title="Data Handler Management for Thread Group Creation." alt="" coords="676,86,915,111"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="994,37,832,89,830,83,993,32"/>
+<area shape="rect" id="Node000004" href="$ModbusWithPostgres_8c.html" title="Implementation of Modbus&#45;PostgreSQL integration." alt="" coords="268,167,499,207"/>
+<area shape="poly" id="edge5_Node000001_Node000004" title=" " alt="" coords="943,25,794,32,628,43,486,59,437,69,410,81,396,99,388,122,384,167,379,166,383,121,391,97,407,77,435,64,485,54,627,37,794,26,943,20"/>
+<area shape="rect" id="Node000005" href="$Main_8c.html" title="Main implementation file for the Sensor Data Handler System." alt="" coords="766,174,854,199"/>
+<area shape="poly" id="edge18_Node000001_Node000005" title=" " alt="" coords="1022,42,979,80,928,121,878,152,834,176,831,172,875,148,924,116,976,76,1018,39"/>
+<area shape="rect" id="Node000006" href="$ModbusWithPostgres_8h.html" title="Integration of Modbus and PostgreSQL data handling." alt="" coords="421,79,652,119"/>
+<area shape="poly" id="edge6_Node000001_Node000006" title=" " alt="" coords="955,35,653,82,652,77,955,30"/>
+<area shape="rect" id="Node000009" href="$DatabaseInitializer_8c.html" title="Implementation of database configuration initialization." alt="" coords="1355,79,1518,119"/>
+<area shape="poly" id="edge11_Node000001_Node000009" title=" " alt="" coords="1113,31,1356,79,1355,84,1112,36"/>
+<area shape="rect" id="Node000010" href="$DatabaseInitializer_8h.html" title="Database configuration initialization interface." alt="" coords="1118,79,1281,119"/>
+<area shape="poly" id="edge12_Node000001_Node000010" title=" " alt="" coords="1078,34,1162,76,1160,81,1076,39"/>
+<area shape="rect" id="Node000011" href="$DatabaseSystems_2Postgres_8c.html" title="Implementation of PostgreSQL database operations." alt="" coords="1734,167,1897,207"/>
+<area shape="poly" id="edge15_Node000001_Node000011" title=" " alt="" coords="1141,30,1217,48,1294,76,1309,87,1320,97,1330,107,1344,116,1398,136,1445,147,1488,153,1529,154,1614,154,1664,157,1722,164,1734,166,1734,171,1722,169,1664,162,1614,160,1528,160,1488,158,1444,153,1397,141,1342,121,1326,112,1316,101,1306,91,1291,81,1216,53,1140,35"/>
+<area shape="rect" id="Node000012" href="$DatabaseSystems_2Postgres_8h.html" title="PostgreSQL interface for sensor data storage." alt="" coords="1542,79,1705,119"/>
+<area shape="poly" id="edge16_Node000001_Node000012" title=" " alt="" coords="1141,26,1322,47,1530,76,1542,78,1542,83,1530,81,1322,52,1140,32"/>
+<area shape="rect" id="Node000013" href="$cJSON_8c.html" title=" " alt="" coords="1729,86,1897,111"/>
+<area shape="poly" id="edge17_Node000001_Node000013" title=" " alt="" coords="1141,22,1402,41,1559,57,1717,76,1760,83,1759,89,1716,81,1559,62,1401,47,1140,27"/>
+<area shape="rect" id="Node000014" href="$Signals_8h.html" title="Signal handling interface for the Sensor Data Handler System." alt="" coords="990,86,1094,111"/>
+<area shape="poly" id="edge19_Node000001_Node000014" title=" " alt="" coords="1045,44,1045,86,1039,86,1039,44"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="727,117,474,169,473,164,726,112"/>
+<area shape="poly" id="edge4_Node000003_Node000005" title=" " alt="" coords="802,124,811,173,805,174,797,125"/>
+<area shape="poly" id="edge7_Node000006_Node000002" title=" " alt="" coords="434,124,180,177,179,171,433,119"/>
+<area shape="poly" id="edge9_Node000006_Node000004" title=" " alt="" coords="492,128,418,169,416,164,490,123"/>
+<area shape="rect" id="Node000007" href="$DataHandlers_2ModbusWithPostgres_2Modbus_8c.html" title=" " alt="" coords="523,167,742,207"/>
+<area shape="poly" id="edge8_Node000006_Node000007" title=" " alt="" coords="570,126,613,164,610,168,567,130"/>
+<area shape="rect" id="Node000008" href="$DataHandlers_2ModbusWithPostgres_2Postgres_8c.html" title=" " alt="" coords="1491,167,1710,207"/>
+<area shape="poly" id="edge10_Node000006_Node000008" title=" " alt="" coords="666,116,895,134,1074,140,1253,146,1480,164,1491,165,1491,171,1479,169,1252,151,1074,145,895,139,666,121"/>
+<area shape="poly" id="edge13_Node000010_Node000008" title=" " alt="" coords="1295,118,1513,164,1512,169,1294,123"/>
+<area shape="poly" id="edge14_Node000010_Node000011" title=" " alt="" coords="1295,115,1300,116,1418,131,1511,140,1604,148,1722,164,1734,166,1734,171,1722,169,1603,153,1510,145,1418,137,1299,121,1294,121"/>
+<area shape="poly" id="edge22_Node000014_Node000004" title=" " alt="" coords="977,114,926,121,719,146,512,169,499,171,498,166,511,164,718,141,926,116,976,108"/>
+<area shape="poly" id="edge25_Node000014_Node000005" title=" " alt="" coords="999,119,842,176,840,171,997,114"/>
+<area shape="poly" id="edge21_Node000014_Node000007" title=" " alt="" coords="977,116,723,169,722,164,976,111"/>
+<area shape="poly" id="edge23_Node000014_Node000008" title=" " alt="" coords="1091,112,1107,116,1211,135,1292,144,1374,151,1480,164,1491,166,1491,171,1479,169,1374,157,1292,149,1210,140,1105,121,1090,118"/>
+<area shape="rect" id="Node000015" href="$ThreadGroup_8c.html" title=" " alt="" coords="1006,174,1209,199"/>
+<area shape="poly" id="edge20_Node000014_Node000015" title=" " alt="" coords="1061,121,1100,172,1096,175,1057,124"/>
+<area shape="rect" id="Node000016" href="$ModbusTestServer_8c.html" title="Implementation of Modbus Test Server." alt="" coords="1233,174,1467,199"/>
+<area shape="poly" id="edge24_Node000014_Node000016" title=" " alt="" coords="1094,113,1107,116,1308,171,1307,177,1105,121,1093,118"/>
+<area shape="rect" id="Node000017" href="$Signals_8c.html" title="Signal handling implementation for the Sensor Data Handler System." alt="" coords="879,174,981,199"/>
+<area shape="poly" id="edge26_Node000014_Node000017" title=" " alt="" coords="1017,122,947,176,944,172,1014,118"/>
+</map>

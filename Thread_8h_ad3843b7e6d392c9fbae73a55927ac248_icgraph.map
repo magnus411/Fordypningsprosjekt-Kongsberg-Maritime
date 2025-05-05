@@ -1,0 +1,7 @@
+<map id="SdbMutexDeinit" name="SdbMutexDeinit">
+<area shape="rect" id="Node000001" title="Deinitialize a mutex." alt="" coords="164,31,291,56"/>
+<area shape="rect" id="Node000002" href="$Thread_8c.html#afb40c52b497f6da6896f7aba77faf256" title=" " alt="" coords="5,5,116,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="150,34,116,29,116,24,151,29"/>
+<area shape="rect" id="Node000003" href="$Thread_8c.html#abe363f59f277cd7fc52826b51e238cc9" title=" " alt="" coords="15,55,107,80"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="151,57,107,63,106,58,150,52"/>
+</map>

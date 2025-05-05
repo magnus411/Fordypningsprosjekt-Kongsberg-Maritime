@@ -1,0 +1,7 @@
+<map id="DumpProcessMemory" name="DumpProcessMemory">
+<area shape="rect" id="Node000001" title="Creates a memory dump of the process state." alt="" coords="5,31,171,56"/>
+<area shape="rect" id="Node000002" href="$Signals_8c.html#a5ef6dcc759fd8166d79fd158ec2f9935" title=" " alt="" coords="232,5,335,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="171,30,218,24,218,29,171,35"/>
+<area shape="rect" id="Node000003" href="$Signals_8c.html#a27d60415a71248a37804f83c33553b0b" title=" " alt="" coords="219,55,348,80"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="171,51,205,55,205,60,171,56"/>
+</map>

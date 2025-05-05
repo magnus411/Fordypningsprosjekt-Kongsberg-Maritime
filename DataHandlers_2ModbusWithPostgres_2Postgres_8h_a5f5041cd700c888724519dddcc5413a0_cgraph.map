@@ -1,0 +1,60 @@
+<map id="PgRun" name="PgRun">
+<area shape="rect" id="Node000001" title="Main PostgreSQL thread function." alt="" coords="5,308,68,333"/>
+<area shape="rect" id="Node000002" href="$DatabaseSystems_2Postgres_8c.html#a5caf93c93fdc98377097952a04cd7520" title="Initializes thread arenas for PostgreSQL operations." alt="" coords="122,83,271,108"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="37,307,42,270,55,219,78,165,94,140,114,117,120,113,123,117,118,121,99,143,83,167,60,221,47,271,42,308"/>
+<area shape="rect" id="Node000003" href="$DatabaseSystems_2Postgres_8c.html#aa7c5ed35f820c0efcccbb4e2f010a980" title="Inserts data into PostgreSQL table using COPY protocol." alt="" coords="143,132,250,157"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="39,307,64,245,86,207,114,175,135,161,138,165,118,179,90,211,69,247,44,309"/>
+<area shape="rect" id="Node000010" href="$DatabaseSystems_2Postgres_8c.html#ac1ce839ca0bb2cb91546fd9d00713d8b" title="Prepares PostgreSQL context from configuration." alt="" coords="141,480,252,505"/>
+<area shape="poly" id="edge13_Node000001_Node000010" title=" " alt="" coords="44,333,67,397,89,434,118,467,130,475,127,479,114,471,84,438,62,399,39,334"/>
+<area shape="rect" id="Node000020" href="$Sdb_8h.html#aaf34881f50372f5c1932078f4439bc5a" title=" " alt="" coords="123,233,270,259"/>
+<area shape="poly" id="edge25_Node000001_Node000020" title=" " alt="" coords="53,306,81,286,115,268,132,261,134,266,117,272,84,291,56,310"/>
+<area shape="rect" id="Node000021" href="$Sdb_8h.html#ab63e953fd90c628d5c0727287df66fab" title=" " alt="" coords="144,283,249,308"/>
+<area shape="poly" id="edge26_Node000001_Node000021" title=" " alt="" coords="68,313,129,303,130,309,69,318"/>
+<area shape="rect" id="Node000022" href="$Thread_8c.html#a192a33d80a7d463ad237856cdc7343be" title="Wait on a thread barrier." alt="" coords="137,332,256,357"/>
+<area shape="poly" id="edge27_Node000001_Node000022" title=" " alt="" coords="69,323,124,331,123,336,68,328"/>
+<area shape="rect" id="Node000023" href="$Signals_8c.html#aca8d19968aa974641e340443ba21e58e" title="Checks if the system should initiate shutdown." alt="" coords="119,381,274,407"/>
+<area shape="poly" id="edge28_Node000001_Node000023" title=" " alt="" coords="57,331,117,366,137,374,135,379,115,371,55,336"/>
+<area shape="rect" id="Node000024" href="$Time_8c.html#ad3369a427cccb648ad4f30900f4f7c33" title="Get Current Monotonic Timestamp." alt="" coords="123,431,270,456"/>
+<area shape="poly" id="edge29_Node000001_Node000024" title=" " alt="" coords="47,332,74,374,94,397,118,417,127,423,124,427,114,422,90,401,70,377,43,335"/>
+<area shape="rect" id="Node000025" href="$Time_8c.html#ab96009a36f9428aa5cb1df4c18e7b50a" title="Calculate Time Difference Between Timestamps." alt="" coords="325,255,509,280"/>
+<area shape="poly" id="edge30_Node000001_Node000025" title=" " alt="" coords="41,306,67,261,88,237,115,218,158,203,195,201,232,207,278,218,303,228,326,240,353,248,351,253,324,244,301,233,277,223,231,213,194,206,159,208,117,223,92,241,72,264,46,309"/>
+<area shape="rect" id="Node000026" href="$SensorDataPipe_8c.html#ad89a4144ee5810394cfbba1605639e19" title="Acquire Read Buffer Arena." alt="" coords="116,529,277,555"/>
+<area shape="poly" id="edge32_Node000001_Node000026" title=" " alt="" coords="42,333,48,369,61,418,83,471,99,495,118,516,123,520,120,524,114,520,95,498,78,473,56,420,42,370,37,334"/>
+<area shape="rect" id="Node000004" href="$Sdb_8h.html#a9b1bdb21ac42d86edd96d53d49da1760" title=" " alt="" coords="595,132,698,157"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="242,129,276,117,300,103,325,91,376,81,417,79,458,82,510,91,562,106,608,124,606,129,560,111,509,97,457,88,417,84,377,86,326,97,302,108,278,122,243,134"/>
+<area shape="rect" id="Node000005" href="$DatabaseSystems_2Postgres_8c.html#a9b90329e0cf4324fbe9fcd6b22233e34" title="Writes a 2&#45;byte value in network byte order." alt="" coords="385,107,450,132"/>
+<area shape="poly" id="edge4_Node000003_Node000005" title=" " alt="" coords="250,136,370,122,371,127,251,141"/>
+<area shape="rect" id="Node000006" href="$DatabaseSystems_2Postgres_8c.html#ab8781f83020464aef1cf9779f072a37f" title=" " alt="" coords="385,156,450,181"/>
+<area shape="poly" id="edge6_Node000003_Node000006" title=" " alt="" coords="251,148,371,161,370,166,250,153"/>
+<area shape="rect" id="Node000007" href="$DatabaseSystems_2Postgres_8c.html#af07f5759e9e25a2b5a8569ab296897e8" title=" " alt="" coords="385,205,450,231"/>
+<area shape="poly" id="edge8_Node000003_Node000007" title=" " alt="" coords="231,155,326,190,372,204,371,209,324,195,229,160"/>
+<area shape="rect" id="Node000008" href="$DatabaseSystems_2Postgres_8c.html#a8be5b0d3a8c5e012cae2737b1ffa7bff" title=" " alt="" coords="352,5,483,31"/>
+<area shape="poly" id="edge10_Node000003_Node000008" title=" " alt="" coords="249,131,276,117,291,101,299,84,307,66,324,48,348,34,351,38,327,52,312,69,304,86,296,104,279,121,252,136"/>
+<area shape="poly" id="edge5_Node000005_Node000004" title=" " alt="" coords="450,120,582,135,581,140,450,126"/>
+<area shape="poly" id="edge7_Node000006_Node000004" title=" " alt="" coords="450,163,581,149,582,154,450,168"/>
+<area shape="poly" id="edge9_Node000007_Node000004" title=" " alt="" coords="450,207,509,190,598,159,600,164,510,195,451,212"/>
+<area shape="poly" id="edge11_Node000008_Node000004" title=" " alt="" coords="463,28,511,48,571,84,621,121,618,125,568,89,508,52,461,33"/>
+<area shape="rect" id="Node000009" href="$DatabaseSystems_2Postgres_8c.html#afa67b44da30f50a326b7a120665bc477" title="Converts Unix timestamp to PostgreSQL timestamp." alt="" coords="569,5,725,31"/>
+<area shape="poly" id="edge12_Node000008_Node000009" title=" " alt="" coords="483,15,555,15,555,21,483,21"/>
+<area shape="rect" id="Node000011" href="$DatabaseInitializer_8c.html#a892f0ebc1700e0aa69bd02dd611e0094" title="Loads and parses a database configuration file." alt="" coords="332,579,503,604"/>
+<area shape="poly" id="edge14_Node000010_Node000011" title=" " alt="" coords="252,503,279,516,294,529,303,541,312,554,327,565,339,571,337,576,324,570,308,557,299,544,290,532,276,520,249,508"/>
+<area shape="rect" id="Node000012" href="$Sdb_8h.html#a5ee7553cb2684af20d146fcf1cc6538f" title=" " alt="" coords="557,628,736,653"/>
+<area shape="poly" id="edge20_Node000010_Node000012" title=" " alt="" coords="254,501,279,516,291,529,297,542,303,568,308,593,315,604,327,614,354,630,384,642,447,655,510,657,567,653,568,658,510,662,447,660,383,647,352,635,324,619,311,608,304,595,297,570,292,544,286,532,276,520,251,506"/>
+<area shape="rect" id="Node000014" href="$DatabaseSystems_2Postgres_8c.html#ac6502b8786d53619f0b41e92ec1022de" title=" " alt="" coords="347,329,488,355"/>
+<area shape="poly" id="edge17_Node000010_Node000014" title=" " alt="" coords="251,480,276,467,293,444,299,421,306,397,323,372,345,358,348,362,327,376,310,399,304,422,297,447,279,471,254,485"/>
+<area shape="rect" id="Node000016" href="$Sdb_8h.html#acd332199b77e76c2b764ef93a7b60439" title=" " alt="" coords="587,380,706,405"/>
+<area shape="poly" id="edge24_Node000010_Node000016" title=" " alt="" coords="251,478,276,466,290,454,299,441,308,428,324,417,387,395,454,384,518,380,574,382,574,387,518,386,454,389,389,400,327,422,312,432,303,444,294,458,279,471,253,483"/>
+<area shape="rect" id="Node000017" href="$Sdb_8h.html#a2f3b726bde5f66a61dee9805406813ee" title=" " alt="" coords="351,431,484,456"/>
+<area shape="poly" id="edge21_Node000010_Node000017" title=" " alt="" coords="252,478,346,456,347,462,253,483"/>
+<area shape="rect" id="Node000018" href="$Sdb_8h.html#a28c30cfe4c8326befba64bf54397bc47" title=" " alt="" coords="346,480,489,505"/>
+<area shape="poly" id="edge22_Node000010_Node000018" title=" " alt="" coords="252,490,332,490,332,495,252,495"/>
+<area shape="rect" id="Node000019" href="$Sdb_8h.html#af443df2d401ad3eca43919e5cf1a7118" title=" " alt="" coords="340,529,495,555"/>
+<area shape="poly" id="edge23_Node000010_Node000019" title=" " alt="" coords="253,502,347,524,346,529,252,508"/>
+<area shape="poly" id="edge15_Node000011_Node000012" title=" " alt="" coords="478,601,574,622,573,628,476,607"/>
+<area shape="rect" id="Node000013" href="$Sdb_8h.html#a7d36f635ee473a12e82ed102ab4597a3" title=" " alt="" coords="581,579,712,604"/>
+<area shape="poly" id="edge16_Node000011_Node000013" title=" " alt="" coords="503,589,568,589,568,594,503,594"/>
+<area shape="rect" id="Node000015" href="$Sdb_8h.html#adb598df288598cf1c13afc15e3f7e6c2" title=" " alt="" coords="567,329,726,355"/>
+<area shape="poly" id="edge18_Node000014_Node000015" title=" " alt="" coords="489,339,554,339,554,345,489,345"/>
+<area shape="poly" id="edge19_Node000014_Node000016" title=" " alt="" coords="476,352,576,374,575,380,475,357"/>
+<area shape="poly" id="edge31_Node000025_Node000004" title=" " alt="" coords="475,252,508,240,569,203,619,164,622,169,572,207,510,244,477,257"/>
+</map>

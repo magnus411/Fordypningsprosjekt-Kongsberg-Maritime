@@ -1,0 +1,7 @@
+<map id="MbPgCleanup" name="MbPgCleanup">
+<area shape="rect" id="Node000001" title="Cleanup function for Modbus&#45;PostgreSQL context." alt="" coords="5,31,116,56"/>
+<area shape="rect" id="Node000002" href="$Thread_8c.html#a9cb4c8bef2fd99915d71913855bbd5c1" title="Deinitialize a thread barrier." alt="" coords="164,5,293,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="116,32,150,27,151,32,117,38"/>
+<area shape="rect" id="Node000003" href="$SensorDataPipe_8c.html#a6bcca74f25bea60fddde9dbadf2f46e7" title="Destroy Sensor Data Pipeline." alt="" coords="180,55,277,80"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="117,49,167,56,166,61,116,54"/>
+</map>

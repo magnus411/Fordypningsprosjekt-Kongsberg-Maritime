@@ -1,0 +1,6 @@
+<map id="tg_group" name="tg_group">
+<area shape="rect" id="Node000001" title="Thread Group Structure." alt="" coords="16,5,95,31"/>
+<area shape="rect" id="Node000002" href="$structtg__manager.html" title="Thread Group Manager Structure." alt="" coords="5,93,105,119"/>
+<area shape="poly" id="edge2_Node000002_Node000001" title=" " alt="" coords="25,41,14,56,12,65,16,74,35,91,32,95,12,78,7,66,9,54,21,38"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="62,80,65,69,64,49,58,32,63,30,69,48,70,70,67,81"/>
+</map>

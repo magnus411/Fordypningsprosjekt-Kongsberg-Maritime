@@ -1,0 +1,96 @@
+<map id="main" name="main">
+<area shape="rect" id="Node000001" title="Main entry point for the Sensor Data Handler System." alt="" coords="5,404,60,429"/>
+<area shape="rect" id="Node000002" href="$Signals_8c.html#a455fa9d5e249372255aebefb29edf4ee" title="Sets up signal handlers for the application." alt="" coords="108,229,289,255"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="44,402,174,263,178,266,48,405"/>
+<area shape="rect" id="Node000010" href="$Main_8c.html#aeeb5ef67af0eb14822aa17b0dc6f1be7" title="Sets up the thread group manager from a configuration file." alt="" coords="137,353,261,379"/>
+<area shape="poly" id="edge9_Node000001_Node000010" title=" " alt="" coords="59,406,143,380,144,385,61,411"/>
+<area shape="rect" id="Node000031" href="$ThreadGroup_8c.html#a89d20945922100833762d19e367b3334" title="Destroy Thread Group Manager." alt="" coords="353,403,500,428"/>
+<area shape="poly" id="edge32_Node000001_Node000031" title=" " alt="" coords="60,414,340,413,340,418,60,419"/>
+<area shape="rect" id="Node000032" href="$ThreadGroup_8c.html#a99b84055dd294fe099f1bb31fcdaceb4" title="Start All Thread Groups in Manager." alt="" coords="127,479,270,504"/>
+<area shape="poly" id="edge33_Node000001_Node000032" title=" " alt="" coords="61,426,158,471,156,475,59,431"/>
+<area shape="rect" id="Node000042" href="$ThreadGroup_8c.html#a94f41b6eed9ab8ff08d3921b617a87dd" title="Wait for Completion of All Thread Groups." alt="" coords="577,605,738,631"/>
+<area shape="poly" id="edge45_Node000001_Node000042" title=" " alt="" coords="42,428,68,471,87,494,110,513,164,544,222,568,283,587,345,600,463,615,563,619,563,624,462,621,344,605,282,592,221,573,162,549,106,518,83,498,63,474,38,431"/>
+<area shape="rect" id="Node000003" href="$Signals_8c.html#a6f1cd44547a55d590f525110340d0f1f" title="Internal signal handler to process system signals." alt="" coords="370,129,483,155"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="228,227,383,158,385,163,230,232"/>
+<area shape="rect" id="Node000004" href="$Signals_8c.html#a9934ca93fac5b0dcfa0ae402a83bbaa0" title="Creates a memory dump of the process state." alt="" coords="575,55,740,80"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="459,127,563,89,590,81,591,86,565,94,460,132"/>
+<area shape="rect" id="Node000007" href="$Signals_8c.html#a45f6f56c3aac50030832d4b445f1cd61" title="Handles internal pipe dump operations." alt="" coords="590,104,725,129"/>
+<area shape="poly" id="edge6_Node000003_Node000007" title=" " alt="" coords="483,133,576,123,577,128,484,138"/>
+<area shape="rect" id="Node000009" href="$Signals_8c.html#ac59c3ef33c4c32b750598e2d2f6398e1" title="Initiates system shutdown with proper synchronization." alt="" coords="564,153,751,179"/>
+<area shape="poly" id="edge8_Node000003_Node000009" title=" " alt="" coords="484,145,551,152,550,158,483,151"/>
+<area shape="rect" id="Node000005" href="$Signals_8c.html#a5ef6dcc759fd8166d79fd158ec2f9935" title=" " alt="" coords="849,55,951,80"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="740,65,835,65,835,70,740,70"/>
+<area shape="rect" id="Node000006" href="$Signals_8c.html#a27d60415a71248a37804f83c33553b0b" title=" " alt="" coords="835,5,965,31"/>
+<area shape="poly" id="edge5_Node000004_Node000006" title=" " alt="" coords="720,52,823,31,824,36,721,57"/>
+<area shape="rect" id="Node000008" href="$Signals_8c.html#a544b451adfe66651acf0f329633a8673" title="Dumps sensor data pipe contents to a file." alt="" coords="806,104,994,129"/>
+<area shape="poly" id="edge7_Node000007_Node000008" title=" " alt="" coords="725,114,792,114,792,119,725,119"/>
+<area shape="rect" id="Node000011" href="$DataHandlers_8c.html#a1045578fac74308a6c876c8b06299b50" title="Creates a thread group based on configuration." alt="" coords="373,255,480,280"/>
+<area shape="poly" id="edge10_Node000010_Node000011" title=" " alt="" coords="219,351,271,320,336,289,359,281,361,286,338,294,273,325,222,355"/>
+<area shape="rect" id="Node000027" href="$Sdb_8h.html#a5ee7553cb2684af20d146fcf1cc6538f" title=" " alt="" coords="337,304,516,329"/>
+<area shape="poly" id="edge27_Node000010_Node000027" title=" " alt="" coords="257,351,353,330,354,335,259,356"/>
+<area shape="rect" id="Node000028" href="$ThreadGroup_8c.html#a180b3c7c6bbfead29d63ad9ea6829480" title="Create a Thread Group Manager." alt="" coords="357,353,496,379"/>
+<area shape="poly" id="edge28_Node000010_Node000028" title=" " alt="" coords="261,363,344,363,344,369,261,369"/>
+<area shape="poly" id="edge31_Node000010_Node000031" title=" " alt="" coords="259,376,354,397,353,402,257,381"/>
+<area shape="rect" id="Node000012" href="$DataHandlers_8c.html#a1f81298204aa5be0dae90f95258fd0c1" title="Converts handler name to its corresponding ID." alt="" coords="567,304,747,329"/>
+<area shape="poly" id="edge11_Node000011_Node000012" title=" " alt="" coords="481,276,585,298,583,304,480,281"/>
+<area shape="rect" id="Node000013" href="$ModbusWithPostgres_8c.html#ad38832a9ba1f0fa4494d337d4bee578f" title="Creates thread group from configuration." alt="" coords="599,255,716,280"/>
+<area shape="poly" id="edge12_Node000011_Node000013" title=" " alt="" coords="480,265,585,265,585,270,480,270"/>
+<area shape="rect" id="Node000014" href="$DataHandlers_8c.html#afe9e102250a74bffceba672ba91d9368" title="Extracts memory and scratch sizes from JSON configuration." alt="" coords="799,205,1001,231"/>
+<area shape="poly" id="edge13_Node000013_Node000014" title=" " alt="" coords="716,253,823,231,824,236,717,258"/>
+<area shape="rect" id="Node000015" href="$Sdb_8h.html#a3bc1152307e502260c7363261ded3603" title=" " alt="" coords="1049,156,1227,181"/>
+<area shape="poly" id="edge19_Node000013_Node000015" title=" " alt="" coords="675,252,728,220,762,203,798,190,858,176,920,168,1035,162,1036,168,921,173,859,182,799,195,764,208,731,224,678,257"/>
+<area shape="rect" id="Node000016" href="$ModbusWithPostgres_8c.html#a6738c27ba468f4aa7e2039ed83906086" title="Cleanup function for Modbus&#45;PostgreSQL context." alt="" coords="845,255,955,280"/>
+<area shape="poly" id="edge15_Node000013_Node000016" title=" " alt="" coords="716,265,831,265,831,270,716,270"/>
+<area shape="rect" id="Node000019" href="$Thread_8c.html#a6b9ac1c397bc80d499de59fae806cbe1" title="Initialize a thread barrier." alt="" coords="845,304,955,329"/>
+<area shape="poly" id="edge18_Node000013_Node000019" title=" " alt="" coords="717,277,832,300,831,305,716,282"/>
+<area shape="rect" id="Node000020" href="$SensorDataPipe_8c.html#af2c17a20e06c1a0f02552c36cc2ef0c3" title="Create Sensor Data Pipeline." alt="" coords="855,353,945,379"/>
+<area shape="poly" id="edge20_Node000013_Node000020" title=" " alt="" coords="717,275,752,289,768,302,777,314,786,327,800,338,843,355,841,360,797,343,782,331,772,318,764,305,749,294,715,280"/>
+<area shape="rect" id="Node000025" href="$ThreadGroup_8c.html#a7b3544a615a6e4b53ca964334bc2a685" title="Create a Thread Group." alt="" coords="840,404,960,429"/>
+<area shape="poly" id="edge25_Node000013_Node000025" title=" " alt="" coords="717,272,736,279,752,289,764,302,771,314,777,340,783,365,789,377,800,388,828,403,825,408,797,392,785,380,778,367,772,341,766,316,760,305,749,293,733,284,715,277"/>
+<area shape="poly" id="edge14_Node000014_Node000015" title=" " alt="" coords="961,203,1062,182,1063,187,962,208"/>
+<area shape="rect" id="Node000017" href="$Thread_8c.html#a9cb4c8bef2fd99915d71913855bbd5c1" title="Deinitialize a thread barrier." alt="" coords="1073,255,1203,280"/>
+<area shape="poly" id="edge16_Node000016_Node000017" title=" " alt="" coords="956,265,1060,265,1060,270,956,270"/>
+<area shape="rect" id="Node000018" href="$SensorDataPipe_8c.html#a6bcca74f25bea60fddde9dbadf2f46e7" title="Destroy Sensor Data Pipeline." alt="" coords="1089,205,1187,231"/>
+<area shape="poly" id="edge17_Node000016_Node000018" title=" " alt="" coords="955,253,1075,228,1077,233,956,259"/>
+<area shape="rect" id="Node000021" href="$Sdb_8h.html#aaf34881f50372f5c1932078f4439bc5a" title=" " alt="" coords="1065,304,1211,329"/>
+<area shape="poly" id="edge21_Node000020_Node000021" title=" " alt="" coords="944,354,1062,330,1063,335,946,359"/>
+<area shape="rect" id="Node000022" href="$Sdb_8h.html#a05ee63d567b60fbc2b9e6732f4154a48" title=" " alt="" coords="1073,353,1203,379"/>
+<area shape="poly" id="edge22_Node000020_Node000022" title=" " alt="" coords="945,363,1059,363,1059,369,945,369"/>
+<area shape="rect" id="Node000023" href="$Sdb_8h.html#ab63e953fd90c628d5c0727287df66fab" title=" " alt="" coords="1085,403,1191,428"/>
+<area shape="poly" id="edge23_Node000020_Node000023" title=" " alt="" coords="946,373,1072,399,1071,404,944,378"/>
+<area shape="rect" id="Node000024" href="$Sdb_8h.html#a9a812984d9d5b96c810aea56d3cb526d" title=" " alt="" coords="1080,452,1196,477"/>
+<area shape="poly" id="edge24_Node000020_Node000024" title=" " alt="" coords="946,369,975,377,1003,389,1018,401,1028,414,1036,426,1051,437,1068,446,1066,450,1048,442,1033,429,1023,417,1014,405,1000,394,973,382,944,374"/>
+<area shape="rect" id="Node000026" href="$Sdb_8h.html#a9b1bdb21ac42d86edd96d53d49da1760" title=" " alt="" coords="1087,501,1189,527"/>
+<area shape="poly" id="edge26_Node000025_Node000026" title=" " alt="" coords="961,425,1003,441,1018,452,1027,464,1037,476,1051,486,1074,497,1072,502,1048,491,1033,479,1023,468,1014,456,1000,446,959,430"/>
+<area shape="rect" id="Node000029" href="$Thread_8c.html#a96f5f3ba983e0047d225045c00697ffb" title="Initialize a condition variable." alt="" coords="607,403,707,428"/>
+<area shape="poly" id="edge29_Node000028_Node000029" title=" " alt="" coords="487,376,594,399,593,404,486,381"/>
+<area shape="rect" id="Node000030" href="$Thread_8c.html#ab44b8ad4cd3641c5261510ebe9803db4" title="Initialize a mutex." alt="" coords="603,353,711,379"/>
+<area shape="poly" id="edge30_Node000028_Node000030" title=" " alt="" coords="496,363,590,363,590,369,496,369"/>
+<area shape="rect" id="Node000033" href="$Thread_8c.html#a5fbfdcfc990630f27e5161ec4ea18aaa" title="Lock a mutex with timeout." alt="" coords="841,456,959,481"/>
+<area shape="poly" id="edge34_Node000032_Node000033" title=" " alt="" coords="270,486,827,468,827,474,270,492"/>
+<area shape="rect" id="Node000038" href="$Thread_8c.html#a385a70a16dc0b1872fdf925d2121880c" title="Unlock a mutex." alt="" coords="834,555,966,580"/>
+<area shape="poly" id="edge39_Node000032_Node000038" title=" " alt="" coords="228,502,278,522,338,539,469,559,602,568,723,571,820,569,820,574,723,576,601,574,469,564,337,545,277,527,226,507"/>
+<area shape="rect" id="Node000039" href="$ThreadGroup_8c.html#aaf638572d1f947f2ab3b6637d11029fd" title="Start All Threads in a Thread Group." alt="" coords="373,504,481,529"/>
+<area shape="poly" id="edge40_Node000032_Node000039" title=" " alt="" coords="270,497,359,507,359,512,270,502"/>
+<area shape="rect" id="Node000034" href="$Thread_8c.html#aa16f3f5cb899e1128f1a80c021780e5f" title=" " alt="" coords="1079,601,1197,627"/>
+<area shape="poly" id="edge35_Node000033_Node000034" title=" " alt="" coords="960,474,1003,490,1018,501,1029,512,1051,537,1112,590,1109,594,1047,541,1025,516,1015,505,1000,495,958,479"/>
+<area shape="rect" id="Node000035" href="$Time_8c.html#afad180732be23f8e46bdfc2bb349ff44" title="Create Absolute Timeout Timestamp." alt="" coords="1275,601,1441,627"/>
+<area shape="poly" id="edge36_Node000034_Node000035" title=" " alt="" coords="1198,611,1261,611,1261,617,1198,617"/>
+<area shape="rect" id="Node000036" href="$Time_8c.html#af8be68d54def6b644cac5efb8fe2e605" title="Add Time Difference to Timestamp." alt="" coords="1491,576,1595,601"/>
+<area shape="poly" id="edge37_Node000035_Node000036" title=" " alt="" coords="1441,600,1477,595,1478,600,1442,605"/>
+<area shape="rect" id="Node000037" href="$Time_8c.html#a83d0c194706101b50506d2618e27167c" title="Get Current Real&#45;Time Timestamp." alt="" coords="1489,625,1597,651"/>
+<area shape="poly" id="edge38_Node000035_Node000037" title=" " alt="" coords="1442,622,1476,627,1475,632,1441,627"/>
+<area shape="rect" id="Node000040" href="$ThreadGroup_8c.html#aab12be916ed17f20adc66a71e0a715c3" title=" " alt="" coords="613,504,701,529"/>
+<area shape="poly" id="edge41_Node000039_Node000040" title=" " alt="" coords="481,514,600,514,600,519,481,519"/>
+<area shape="poly" id="edge43_Node000040_Node000033" title=" " alt="" coords="701,505,827,480,828,485,702,511"/>
+<area shape="poly" id="edge44_Node000040_Node000038" title=" " alt="" coords="702,523,826,549,825,554,701,528"/>
+<area shape="rect" id="Node000041" href="$Thread_8c.html#a6e1a34c43565fd0fe32ce19bd63680c8" title="Signal a condition variable." alt="" coords="841,505,959,531"/>
+<area shape="poly" id="edge42_Node000040_Node000041" title=" " alt="" coords="702,514,827,515,827,520,702,520"/>
+<area shape="poly" id="edge48_Node000042_Node000033" title=" " alt="" coords="673,603,749,540,771,513,781,502,797,490,827,478,829,483,800,495,785,506,775,517,753,544,677,607"/>
+<area shape="poly" id="edge49_Node000042_Node000038" title=" " alt="" coords="719,603,825,580,826,585,720,608"/>
+<area shape="rect" id="Node000043" href="$Thread_8c.html#a3aa5be8c3ae6f155db4058a8b658ab91" title="Wait on a condition variable with timeout." alt="" coords="846,653,954,679"/>
+<area shape="poly" id="edge46_Node000042_Node000043" title=" " alt="" coords="723,628,833,650,832,655,722,633"/>
+<area shape="rect" id="Node000044" href="$Signals_8c.html#aca8d19968aa974641e340443ba21e58e" title="Checks if the system should initiate shutdown." alt="" coords="823,604,977,629"/>
+<area shape="poly" id="edge50_Node000042_Node000044" title=" " alt="" coords="739,615,809,614,809,620,739,620"/>
+<area shape="poly" id="edge47_Node000043_Node000034" title=" " alt="" coords="954,652,1065,627,1066,632,955,657"/>
+</map>

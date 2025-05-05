@@ -1,0 +1,23 @@
+<map id="PgPrepareCtx" name="PgPrepareCtx">
+<area shape="rect" id="Node000001" title="Prepares PostgreSQL context from configuration." alt="" coords="5,155,116,180"/>
+<area shape="rect" id="Node000002" href="$DatabaseInitializer_8c.html#a892f0ebc1700e0aa69bd02dd611e0094" title="Loads and parses a database configuration file." alt="" coords="164,55,335,80"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="74,152,113,121,163,89,179,82,181,87,165,94,116,125,78,156"/>
+<area shape="rect" id="Node000003" href="$Sdb_8h.html#a5ee7553cb2684af20d146fcf1cc6538f" title=" " alt="" coords="383,5,561,31"/>
+<area shape="poly" id="edge7_Node000001_Node000003" title=" " alt="" coords="66,153,100,96,128,65,163,40,213,20,266,8,319,4,369,4,369,9,319,9,267,14,214,25,165,44,132,69,105,100,70,156"/>
+<area shape="rect" id="Node000005" href="$DatabaseSystems_2Postgres_8c.html#ac6502b8786d53619f0b41e92ec1022de" title=" " alt="" coords="179,104,320,129"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="108,152,187,130,189,136,110,157"/>
+<area shape="rect" id="Node000007" href="$Sdb_8h.html#acd332199b77e76c2b764ef93a7b60439" title=" " alt="" coords="413,153,531,179"/>
+<area shape="poly" id="edge11_Node000001_Node000007" title=" " alt="" coords="116,164,399,164,399,169,116,170"/>
+<area shape="rect" id="Node000008" href="$Sdb_8h.html#a2f3b726bde5f66a61dee9805406813ee" title=" " alt="" coords="183,205,316,231"/>
+<area shape="poly" id="edge8_Node000001_Node000008" title=" " alt="" coords="110,178,189,199,187,204,108,183"/>
+<area shape="rect" id="Node000009" href="$Sdb_8h.html#a28c30cfe4c8326befba64bf54397bc47" title=" " alt="" coords="178,255,321,280"/>
+<area shape="poly" id="edge9_Node000001_Node000009" title=" " alt="" coords="78,178,116,210,165,241,181,248,179,253,163,246,113,214,74,183"/>
+<area shape="rect" id="Node000010" href="$Sdb_8h.html#af443df2d401ad3eca43919e5cf1a7118" title=" " alt="" coords="172,304,327,329"/>
+<area shape="poly" id="edge10_Node000001_Node000010" title=" " alt="" coords="71,179,107,233,134,264,166,290,175,296,173,301,162,295,130,268,102,236,67,182"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="307,52,400,31,401,36,308,57"/>
+<area shape="rect" id="Node000004" href="$Sdb_8h.html#a7d36f635ee473a12e82ed102ab4597a3" title=" " alt="" coords="407,55,537,80"/>
+<area shape="poly" id="edge3_Node000002_Node000004" title=" " alt="" coords="335,65,393,65,393,70,335,70"/>
+<area shape="rect" id="Node000006" href="$Sdb_8h.html#adb598df288598cf1c13afc15e3f7e6c2" title=" " alt="" coords="393,104,551,129"/>
+<area shape="poly" id="edge5_Node000005_Node000006" title=" " alt="" coords="320,114,379,114,379,119,320,119"/>
+<area shape="poly" id="edge6_Node000005_Node000007" title=" " alt="" coords="308,127,401,148,400,153,307,132"/>
+</map>

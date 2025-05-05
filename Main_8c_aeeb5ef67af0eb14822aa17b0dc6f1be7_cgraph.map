@@ -1,0 +1,46 @@
+<map id="SetUpFromConf" name="SetUpFromConf">
+<area shape="rect" id="Node000001" title="Sets up the thread group manager from a configuration file." alt="" coords="5,195,129,220"/>
+<area shape="rect" id="Node000002" href="$DataHandlers_8c.html#a1045578fac74308a6c876c8b06299b50" title="Creates a thread group based on configuration." alt="" coords="213,120,320,145"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="92,192,176,154,199,147,201,152,178,159,94,197"/>
+<area shape="rect" id="Node000018" href="$Sdb_8h.html#a5ee7553cb2684af20d146fcf1cc6538f" title=" " alt="" coords="177,169,356,195"/>
+<area shape="poly" id="edge18_Node000001_Node000018" title=" " alt="" coords="129,197,163,192,164,198,130,202"/>
+<area shape="rect" id="Node000019" href="$ThreadGroup_8c.html#a180b3c7c6bbfead29d63ad9ea6829480" title="Create a Thread Group Manager." alt="" coords="197,219,336,244"/>
+<area shape="poly" id="edge19_Node000001_Node000019" title=" " alt="" coords="130,212,184,219,183,224,129,217"/>
+<area shape="rect" id="Node000022" href="$ThreadGroup_8c.html#a89d20945922100833762d19e367b3334" title="Destroy Thread Group Manager." alt="" coords="193,268,340,293"/>
+<area shape="poly" id="edge22_Node000001_Node000022" title=" " alt="" coords="96,218,178,253,204,262,203,267,176,258,94,223"/>
+<area shape="rect" id="Node000003" href="$DataHandlers_8c.html#a1f81298204aa5be0dae90f95258fd0c1" title="Converts handler name to its corresponding ID." alt="" coords="404,83,584,108"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="320,121,403,108,403,113,321,127"/>
+<area shape="rect" id="Node000004" href="$ModbusWithPostgres_8c.html#ad38832a9ba1f0fa4494d337d4bee578f" title="Creates thread group from configuration." alt="" coords="435,132,553,157"/>
+<area shape="poly" id="edge3_Node000002_Node000004" title=" " alt="" coords="320,133,422,138,421,144,320,138"/>
+<area shape="rect" id="Node000005" href="$DataHandlers_8c.html#afe9e102250a74bffceba672ba91d9368" title="Extracts memory and scratch sizes from JSON configuration." alt="" coords="632,5,835,31"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="552,132,582,117,598,101,606,84,614,66,630,48,656,33,659,38,634,52,618,69,611,86,602,104,586,121,554,137"/>
+<area shape="rect" id="Node000006" href="$Sdb_8h.html#a3bc1152307e502260c7363261ded3603" title=" " alt="" coords="883,7,1060,32"/>
+<area shape="poly" id="edge10_Node000004_Node000006" title=" " alt="" coords="546,129,583,117,607,104,631,92,746,61,889,32,890,37,747,67,633,96,609,109,585,122,547,135"/>
+<area shape="rect" id="Node000007" href="$ModbusWithPostgres_8c.html#a6738c27ba468f4aa7e2039ed83906086" title="Cleanup function for Modbus&#45;PostgreSQL context." alt="" coords="678,107,789,132"/>
+<area shape="poly" id="edge6_Node000004_Node000007" title=" " alt="" coords="553,136,664,124,665,129,554,141"/>
+<area shape="rect" id="Node000010" href="$Thread_8c.html#a6b9ac1c397bc80d499de59fae806cbe1" title="Initialize a thread barrier." alt="" coords="678,156,789,181"/>
+<area shape="poly" id="edge9_Node000004_Node000010" title=" " alt="" coords="553,148,665,159,664,164,553,153"/>
+<area shape="rect" id="Node000011" href="$SensorDataPipe_8c.html#af2c17a20e06c1a0f02552c36cc2ef0c3" title="Create Sensor Data Pipeline." alt="" coords="689,205,778,231"/>
+<area shape="poly" id="edge11_Node000004_Node000011" title=" " alt="" coords="530,155,633,190,676,202,675,207,631,195,528,160"/>
+<area shape="rect" id="Node000016" href="$ThreadGroup_8c.html#a7b3544a615a6e4b53ca964334bc2a685" title="Create a Thread Group." alt="" coords="673,304,793,329"/>
+<area shape="poly" id="edge16_Node000004_Node000016" title=" " alt="" coords="525,155,555,171,586,191,610,215,634,240,703,294,700,298,630,244,607,219,582,195,552,175,523,160"/>
+<area shape="poly" id="edge5_Node000005_Node000006" title=" " alt="" coords="835,16,869,16,869,21,835,21"/>
+<area shape="rect" id="Node000008" href="$Thread_8c.html#a9cb4c8bef2fd99915d71913855bbd5c1" title="Deinitialize a thread barrier." alt="" coords="907,57,1036,83"/>
+<area shape="poly" id="edge7_Node000007_Node000008" title=" " alt="" coords="789,105,896,83,897,88,790,111"/>
+<area shape="rect" id="Node000009" href="$SensorDataPipe_8c.html#a6bcca74f25bea60fddde9dbadf2f46e7" title="Destroy Sensor Data Pipeline." alt="" coords="923,107,1020,132"/>
+<area shape="poly" id="edge8_Node000007_Node000009" title=" " alt="" coords="789,117,909,117,909,122,789,122"/>
+<area shape="rect" id="Node000012" href="$Sdb_8h.html#aaf34881f50372f5c1932078f4439bc5a" title=" " alt="" coords="898,156,1045,181"/>
+<area shape="poly" id="edge12_Node000011_Node000012" title=" " alt="" coords="778,206,895,182,896,187,779,211"/>
+<area shape="rect" id="Node000013" href="$Sdb_8h.html#a05ee63d567b60fbc2b9e6732f4154a48" title=" " alt="" coords="906,205,1037,231"/>
+<area shape="poly" id="edge13_Node000011_Node000013" title=" " alt="" coords="778,215,892,215,892,221,778,221"/>
+<area shape="rect" id="Node000014" href="$Sdb_8h.html#ab63e953fd90c628d5c0727287df66fab" title=" " alt="" coords="919,255,1024,280"/>
+<area shape="poly" id="edge14_Node000011_Node000014" title=" " alt="" coords="779,225,906,251,905,256,778,230"/>
+<area shape="rect" id="Node000015" href="$Sdb_8h.html#a9a812984d9d5b96c810aea56d3cb526d" title=" " alt="" coords="913,304,1029,329"/>
+<area shape="poly" id="edge15_Node000011_Node000015" title=" " alt="" coords="758,228,814,259,884,290,905,298,903,303,882,295,812,263,755,233"/>
+<area shape="rect" id="Node000017" href="$Sdb_8h.html#a9b1bdb21ac42d86edd96d53d49da1760" title=" " alt="" coords="920,353,1023,379"/>
+<area shape="poly" id="edge17_Node000016_Node000017" title=" " alt="" coords="794,326,907,350,906,355,793,332"/>
+<area shape="rect" id="Node000020" href="$Thread_8c.html#a96f5f3ba983e0047d225045c00697ffb" title="Initialize a condition variable." alt="" coords="444,205,544,231"/>
+<area shape="poly" id="edge20_Node000019_Node000020" title=" " alt="" coords="336,225,430,219,430,224,336,230"/>
+<area shape="rect" id="Node000021" href="$Thread_8c.html#ab44b8ad4cd3641c5261510ebe9803db4" title="Initialize a mutex." alt="" coords="440,255,548,280"/>
+<area shape="poly" id="edge21_Node000019_Node000021" title=" " alt="" coords="336,240,427,254,426,259,336,245"/>
+</map>

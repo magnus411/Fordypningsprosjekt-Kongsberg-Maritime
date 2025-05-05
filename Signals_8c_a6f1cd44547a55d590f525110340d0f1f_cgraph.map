@@ -1,0 +1,15 @@
+<map id="SignalHandler" name="SignalHandler">
+<area shape="rect" id="Node000001" title="Internal signal handler to process system signals." alt="" coords="5,104,119,129"/>
+<area shape="rect" id="Node000002" href="$Signals_8c.html#a9934ca93fac5b0dcfa0ae402a83bbaa0" title="Creates a memory dump of the process state." alt="" coords="177,55,343,80"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="113,101,195,81,196,86,114,107"/>
+<area shape="rect" id="Node000005" href="$Signals_8c.html#a45f6f56c3aac50030832d4b445f1cd61" title="Handles internal pipe dump operations." alt="" coords="193,104,327,129"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="119,114,179,114,179,119,119,119"/>
+<area shape="rect" id="Node000007" href="$Signals_8c.html#ac59c3ef33c4c32b750598e2d2f6398e1" title="Initiates system shutdown with proper synchronization." alt="" coords="167,153,353,179"/>
+<area shape="poly" id="edge6_Node000001_Node000007" title=" " alt="" coords="114,127,196,147,195,153,113,132"/>
+<area shape="rect" id="Node000003" href="$Signals_8c.html#a5ef6dcc759fd8166d79fd158ec2f9935" title=" " alt="" coords="444,5,547,31"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="321,52,430,29,431,34,322,57"/>
+<area shape="rect" id="Node000004" href="$Signals_8c.html#a27d60415a71248a37804f83c33553b0b" title=" " alt="" coords="431,55,560,80"/>
+<area shape="poly" id="edge3_Node000002_Node000004" title=" " alt="" coords="343,65,417,65,417,70,343,70"/>
+<area shape="rect" id="Node000006" href="$Signals_8c.html#a544b451adfe66651acf0f329633a8673" title="Dumps sensor data pipe contents to a file." alt="" coords="401,104,589,129"/>
+<area shape="poly" id="edge5_Node000005_Node000006" title=" " alt="" coords="327,114,388,114,388,119,327,119"/>
+</map>

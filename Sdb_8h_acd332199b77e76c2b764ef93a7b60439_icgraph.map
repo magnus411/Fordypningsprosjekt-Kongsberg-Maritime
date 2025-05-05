@@ -1,0 +1,18 @@
+<map id="SdbStringMake" name="SdbStringMake">
+<area shape="rect" id="Node000001" title=" " alt="" coords="619,56,737,81"/>
+<area shape="rect" id="Node000002" href="$DatabaseSystems_2Postgres_8c.html#ac6502b8786d53619f0b41e92ec1022de" title=" " alt="" coords="429,5,571,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="619,55,545,33,546,28,620,50"/>
+<area shape="rect" id="Node000003" href="$DatabaseSystems_2Postgres_8c.html#ac1ce839ca0bb2cb91546fd9d00713d8b" title="Prepares PostgreSQL context from configuration." alt="" coords="271,31,381,56"/>
+<area shape="poly" id="edge8_Node000001_Node000003" title=" " alt="" coords="605,66,381,50,382,45,605,61"/>
+<area shape="rect" id="Node000006" href="$CommProtocols_2Modbus_8c.html#a6b783d9f5a80832c1744d417adb3b146" title="Prepares Modbus context from configuration file." alt="" coords="443,107,557,132"/>
+<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="620,88,546,109,545,104,619,83"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="416,33,382,38,381,33,415,28"/>
+<area shape="rect" id="Node000004" href="$DataHandlers_2ModbusWithPostgres_2Postgres_8c.html#a5f5041cd700c888724519dddcc5413a0" title="Main PostgreSQL operation loop." alt="" coords="148,31,211,56"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="257,46,211,46,211,41,257,41"/>
+<area shape="rect" id="Node000005" href="$ModbusWithPostgres_8c.html#a93270e4da545537675777f30acea6b6b" title="PostgreSQL thread implementation." alt="" coords="5,31,88,56"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="134,46,88,46,88,41,134,41"/>
+<area shape="rect" id="Node000007" href="$DataHandlers_2ModbusWithPostgres_2Modbus_8c.html#ac42f810b60d139ab2f82c4146710d721" title="Implements main Modbus thread loop." alt="" coords="293,107,359,132"/>
+<area shape="poly" id="edge6_Node000006_Node000007" title=" " alt="" coords="429,122,360,122,360,117,429,117"/>
+<area shape="rect" id="Node000008" href="$ModbusWithPostgres_8c.html#ad6cc1c50bbcd2e6f933e8f2a82990c2e" title="Modbus thread implementation." alt="" coords="136,107,223,132"/>
+<area shape="poly" id="edge7_Node000007_Node000008" title=" " alt="" coords="279,122,223,122,223,117,279,117"/>
+</map>

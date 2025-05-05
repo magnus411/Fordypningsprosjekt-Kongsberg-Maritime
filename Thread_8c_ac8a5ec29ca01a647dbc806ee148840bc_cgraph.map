@@ -1,0 +1,20 @@
+<map id="SdbTCtlWaitForSignal" name="SdbTCtlWaitForSignal">
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,80,165,105"/>
+<area shape="rect" id="Node000002" href="$Thread_8c.html#a3aa5be8c3ae6f155db4058a8b658ab91" title="Wait on a condition variable with timeout." alt="" coords="254,5,362,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="114,77,212,39,240,31,241,36,214,45,116,82"/>
+<area shape="rect" id="Node000007" href="$Thread_8c.html#a5fbfdcfc990630f27e5161ec4ea18aaa" title="Lock a mutex with timeout." alt="" coords="249,55,367,80"/>
+<area shape="poly" id="edge6_Node000001_Node000007" title=" " alt="" coords="165,81,235,73,236,78,166,86"/>
+<area shape="rect" id="Node000008" href="$Thread_8c.html#a385a70a16dc0b1872fdf925d2121880c" title="Unlock a mutex." alt="" coords="242,104,374,129"/>
+<area shape="poly" id="edge8_Node000001_Node000008" title=" " alt="" coords="166,99,228,105,228,111,165,104"/>
+<area shape="rect" id="Node000009" href="$Thread_8c.html#a1144e09449cdc3354b3f0f7fdb703fd4" title=" " alt="" coords="213,153,403,179"/>
+<area shape="poly" id="edge9_Node000001_Node000009" title=" " alt="" coords="119,103,214,138,244,147,242,152,212,143,117,108"/>
+<area shape="rect" id="Node000003" href="$Thread_8c.html#aa16f3f5cb899e1128f1a80c021780e5f" title=" " alt="" coords="451,31,569,56"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="363,22,438,32,437,37,362,27"/>
+<area shape="rect" id="Node000004" href="$Time_8c.html#afad180732be23f8e46bdfc2bb349ff44" title="Create Absolute Timeout Timestamp." alt="" coords="617,31,784,56"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="570,41,604,41,604,46,570,46"/>
+<area shape="rect" id="Node000005" href="$Time_8c.html#af8be68d54def6b644cac5efb8fe2e605" title="Add Time Difference to Timestamp." alt="" coords="834,5,938,31"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="784,29,820,24,821,30,785,35"/>
+<area shape="rect" id="Node000006" href="$Time_8c.html#a83d0c194706101b50506d2618e27167c" title="Get Current Real&#45;Time Timestamp." alt="" coords="832,55,940,80"/>
+<area shape="poly" id="edge5_Node000004_Node000006" title=" " alt="" coords="785,51,819,56,818,61,784,57"/>
+<area shape="poly" id="edge7_Node000007_Node000003" title=" " alt="" coords="367,58,437,49,437,55,367,63"/>
+</map>

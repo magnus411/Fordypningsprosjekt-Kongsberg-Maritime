@@ -1,0 +1,15 @@
+<map id="RunModbusTestServer" name="RunModbusTestServer">
+<area shape="rect" id="Node000001" title="Main Modbus Test Server routine." alt="" coords="5,80,172,105"/>
+<area shape="rect" id="Node000002" href="$Thread_8c.html#a192a33d80a7d463ad237856cdc7343be" title="Wait on a thread barrier." alt="" coords="238,5,357,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="120,77,219,39,240,32,242,37,221,45,122,82"/>
+<area shape="rect" id="Node000003" href="$Sdb_8h.html#a2758760564fc0044b9f6c9aee290a7fe" title=" " alt="" coords="248,55,347,80"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="172,80,233,72,234,78,172,85"/>
+<area shape="rect" id="Node000004" href="$Signals_8c.html#aca8d19968aa974641e340443ba21e58e" title="Checks if the system should initiate shutdown." alt="" coords="220,104,375,129"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="172,100,207,104,206,109,172,105"/>
+<area shape="rect" id="Node000005" href="$ModbusTestServer_8c.html#a562277af51f78c8939feeb4d33925307" title="Sends Modbus data over a socket." alt="" coords="229,153,365,179"/>
+<area shape="poly" id="edge4_Node000001_Node000005" title=" " alt="" coords="124,103,221,138,245,146,243,151,219,143,123,108"/>
+<area shape="rect" id="Node000006" href="$ModbusTestServer_8c.html#aa39b29a317e07f044b7bac56db0e18b1" title="Generates random shaft power data." alt="" coords="423,128,663,153"/>
+<area shape="poly" id="edge5_Node000005_Node000006" title=" " alt="" coords="365,156,409,152,409,157,366,162"/>
+<area shape="rect" id="Node000007" href="$Sdb_8h.html#a9b1bdb21ac42d86edd96d53d49da1760" title=" " alt="" coords="491,177,594,203"/>
+<area shape="poly" id="edge6_Node000005_Node000007" title=" " alt="" coords="366,170,478,181,478,186,365,175"/>
+</map>

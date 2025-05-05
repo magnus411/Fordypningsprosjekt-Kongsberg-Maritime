@@ -1,0 +1,7 @@
+<map id="TgCreateManager" name="TgCreateManager">
+<area shape="rect" id="Node000001" title="Create a Thread Group Manager." alt="" coords="5,31,144,56"/>
+<area shape="rect" id="Node000002" href="$Thread_8c.html#a96f5f3ba983e0047d225045c00697ffb" title="Initialize a condition variable." alt="" coords="196,5,296,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="144,30,182,25,183,30,145,36"/>
+<area shape="rect" id="Node000003" href="$Thread_8c.html#ab44b8ad4cd3641c5261510ebe9803db4" title="Initialize a mutex." alt="" coords="192,55,300,80"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="144,50,179,55,178,61,144,56"/>
+</map>

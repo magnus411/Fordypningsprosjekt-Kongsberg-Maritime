@@ -1,0 +1,9 @@
+<map id="SocketCreate" name="SocketCreate">
+<area shape="rect" id="Node000001" title="Create and Connect a TCP Socket." alt="" coords="417,5,525,31"/>
+<area shape="rect" id="Node000002" href="$CommProtocols_2Modbus_8c.html#a6b783d9f5a80832c1744d417adb3b146" title="Prepares Modbus context from configuration file." alt="" coords="255,5,369,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="403,21,370,21,370,15,403,15"/>
+<area shape="rect" id="Node000003" href="$DataHandlers_2ModbusWithPostgres_2Modbus_8c.html#ac42f810b60d139ab2f82c4146710d721" title="Implements main Modbus thread loop." alt="" coords="140,5,207,31"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="241,21,207,21,207,15,241,15"/>
+<area shape="rect" id="Node000004" href="$ModbusWithPostgres_8c.html#ad6cc1c50bbcd2e6f933e8f2a82990c2e" title="Modbus thread implementation." alt="" coords="5,5,92,31"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="126,21,92,21,92,15,126,15"/>
+</map>

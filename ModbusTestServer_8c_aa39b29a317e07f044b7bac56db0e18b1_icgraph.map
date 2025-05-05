@@ -1,0 +1,9 @@
+<map id="GenerateShaftPowerDataRandom" name="GenerateShaftPowerDataRandom">
+<area shape="rect" id="Node000001" title="Generates random shaft power data." alt="" coords="579,5,819,31"/>
+<area shape="rect" id="Node000002" href="$ModbusTestServer_8c.html#a562277af51f78c8939feeb4d33925307" title="Sends Modbus data over a socket." alt="" coords="395,5,531,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="565,21,531,21,531,15,565,15"/>
+<area shape="rect" id="Node000003" href="$ModbusTestServer_8c.html#a0b60204e0a9d1577d141cdc21367ac70" title="Main Modbus Test Server routine." alt="" coords="180,5,347,31"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="381,21,347,21,347,15,381,15"/>
+<area shape="rect" id="Node000004" href="$ModbusWithPostgres_8c.html#a1ccbc327d2cdd77f97741b4e0f23bc54" title="Modbus test server thread." alt="" coords="5,5,132,31"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="166,21,132,21,132,15,166,15"/>
+</map>

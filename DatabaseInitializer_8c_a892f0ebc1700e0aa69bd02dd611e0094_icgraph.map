@@ -1,0 +1,9 @@
+<map id="DbInitGetConfFromFile" name="DbInitGetConfFromFile">
+<area shape="rect" id="Node000001" title="Loads and parses a database configuration file." alt="" coords="405,5,576,31"/>
+<area shape="rect" id="Node000002" href="$DatabaseSystems_2Postgres_8c.html#ac1ce839ca0bb2cb91546fd9d00713d8b" title="Prepares PostgreSQL context from configuration." alt="" coords="247,5,357,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="391,21,358,21,358,15,391,15"/>
+<area shape="rect" id="Node000003" href="$DataHandlers_2ModbusWithPostgres_2Postgres_8c.html#a5f5041cd700c888724519dddcc5413a0" title="Main PostgreSQL operation loop." alt="" coords="136,5,199,31"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="233,21,199,21,199,15,233,15"/>
+<area shape="rect" id="Node000004" href="$ModbusWithPostgres_8c.html#a93270e4da545537675777f30acea6b6b" title="PostgreSQL thread implementation." alt="" coords="5,5,88,31"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="122,21,88,21,88,15,122,15"/>
+</map>

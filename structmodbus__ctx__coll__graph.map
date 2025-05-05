@@ -1,0 +1,5 @@
+<map id="modbus_ctx" name="modbus_ctx">
+<area shape="rect" id="Node000001" title="Context structure for Modbus operations." alt="" coords="5,93,107,119"/>
+<area shape="rect" id="Node000002" href="$structmb__conn.html" title="Represents a single Modbus TCP connection." alt="" coords="15,5,97,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="59,45,59,93,53,93,53,45"/>
+</map>

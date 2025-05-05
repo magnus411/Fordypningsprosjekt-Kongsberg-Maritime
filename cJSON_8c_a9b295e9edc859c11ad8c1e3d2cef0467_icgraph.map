@@ -1,0 +1,16 @@
+<map id="case_insensitive_strcmp" name="case_insensitive_strcmp">
+<area shape="rect" id="Node000001" title=" " alt="" coords="735,79,917,104"/>
+<area shape="rect" id="Node000002" href="$cJSON_8c.html#aa2509ddde1c1a0be7417e4f40520338f" title=" " alt="" coords="560,79,687,104"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="721,94,687,94,687,89,721,89"/>
+<area shape="rect" id="Node000003" href="$cJSON_8c.html#abcf300812688daed48537a559e8838ec" title=" " alt="" coords="321,29,448,55"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="554,78,511,69,448,56,449,51,513,63,556,73"/>
+<area shape="rect" id="Node000004" href="$cJSON_8c.html#a02267703c3d44400abbb80ea8c91edb0" title=" " alt="" coords="257,79,512,104"/>
+<area shape="poly" id="edge4_Node000002_Node000004" title=" " alt="" coords="546,94,512,94,512,89,546,89"/>
+<area shape="rect" id="Node000005" href="$cJSON_8c.html#afdae75197cf2c440ef858a2e93b104f2" title=" " alt="" coords="298,128,471,153"/>
+<area shape="poly" id="edge5_Node000002_Node000005" title=" " alt="" coords="552,110,513,118,451,131,450,125,511,113,551,104"/>
+<area shape="poly" id="edge3_Node000003_Node000003" title=" " alt="" coords="427,20,416,11,385,8,359,10,346,15,343,20,350,27,346,31,338,21,342,11,358,5,385,3,418,7,431,16"/>
+<area shape="rect" id="Node000006" href="$cJSON_8c.html#ae8335f21a2f78d63c854c002f09f96dc" title=" " alt="" coords="5,99,209,124"/>
+<area shape="poly" id="edge6_Node000005_Node000006" title=" " alt="" coords="284,133,209,125,210,119,285,127"/>
+<area shape="rect" id="Node000007" href="$cJSON_8c.html#acbcada89e12f21f1d0f2e296d93130dc" title=" " alt="" coords="5,149,209,189"/>
+<area shape="poly" id="edge7_Node000005_Node000007" title=" " alt="" coords="285,153,210,161,209,156,284,148"/>
+</map>

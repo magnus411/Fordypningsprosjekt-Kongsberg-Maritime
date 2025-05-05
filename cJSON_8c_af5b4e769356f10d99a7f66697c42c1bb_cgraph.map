@@ -1,0 +1,9 @@
+<map id="print_string_ptr" name="print_string_ptr">
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,31,127,56"/>
+<area shape="rect" id="Node000002" href="$cJSON_8c.html#ad9f9a9b2ad3154fc8033756f23c023a6" title=" " alt="" coords="175,31,241,56"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="127,41,161,41,161,46,127,46"/>
+<area shape="rect" id="Node000003" href="$structinternal__hooks.html#a8b8f7ff45faa5da18dd3ccd2a2c8e416" title=" " alt="" coords="295,5,474,31"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="241,36,282,30,283,35,242,41"/>
+<area shape="rect" id="Node000004" href="$structinternal__hooks.html#a7c3921493fab83f33cd509145d8a5393" title=" " alt="" coords="289,55,480,80"/>
+<area shape="poly" id="edge3_Node000002_Node000004" title=" " alt="" coords="242,45,278,50,278,55,241,50"/>
+</map>

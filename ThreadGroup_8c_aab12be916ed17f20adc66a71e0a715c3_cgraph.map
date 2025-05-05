@@ -1,0 +1,17 @@
+<map id="TgMonitor" name="TgMonitor">
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,55,93,80"/>
+<area shape="rect" id="Node000002" href="$Thread_8c.html#a6e1a34c43565fd0fe32ce19bd63680c8" title="Signal a condition variable." alt="" coords="148,5,267,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="90,52,152,32,153,37,91,57"/>
+<area shape="rect" id="Node000003" href="$Thread_8c.html#a5fbfdcfc990630f27e5161ec4ea18aaa" title="Lock a mutex with timeout." alt="" coords="149,55,266,80"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="94,65,135,65,135,70,94,70"/>
+<area shape="rect" id="Node000008" href="$Thread_8c.html#a385a70a16dc0b1872fdf925d2121880c" title="Unlock a mutex." alt="" coords="141,104,273,129"/>
+<area shape="poly" id="edge7_Node000001_Node000008" title=" " alt="" coords="91,77,153,97,152,102,90,83"/>
+<area shape="rect" id="Node000004" href="$Thread_8c.html#aa16f3f5cb899e1128f1a80c021780e5f" title=" " alt="" coords="321,55,440,80"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="266,65,308,65,308,70,266,70"/>
+<area shape="rect" id="Node000005" href="$Time_8c.html#afad180732be23f8e46bdfc2bb349ff44" title="Create Absolute Timeout Timestamp." alt="" coords="488,55,655,80"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="440,65,474,65,474,70,440,70"/>
+<area shape="rect" id="Node000006" href="$Time_8c.html#af8be68d54def6b644cac5efb8fe2e605" title="Add Time Difference to Timestamp." alt="" coords="705,29,809,55"/>
+<area shape="poly" id="edge5_Node000005_Node000006" title=" " alt="" coords="655,53,691,48,691,54,655,59"/>
+<area shape="rect" id="Node000007" href="$Time_8c.html#a83d0c194706101b50506d2618e27167c" title="Get Current Real&#45;Time Timestamp." alt="" coords="703,79,811,104"/>
+<area shape="poly" id="edge6_Node000005_Node000007" title=" " alt="" coords="655,75,689,80,689,85,655,81"/>
+</map>

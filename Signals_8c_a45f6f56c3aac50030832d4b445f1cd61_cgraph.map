@@ -1,0 +1,5 @@
+<map id="HandlePipeDump" name="HandlePipeDump">
+<area shape="rect" id="Node000001" title="Handles internal pipe dump operations." alt="" coords="5,5,140,31"/>
+<area shape="rect" id="Node000002" href="$Signals_8c.html#a544b451adfe66651acf0f329633a8673" title="Dumps sensor data pipe contents to a file." alt="" coords="188,5,376,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="141,15,174,15,174,21,141,21"/>
+</map>

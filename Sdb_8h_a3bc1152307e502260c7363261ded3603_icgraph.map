@@ -1,0 +1,16 @@
+<map id="SdbMemSizeFromString" name="SdbMemSizeFromString">
+<area shape="rect" id="Node000001" title=" " alt="" coords="851,56,1028,81"/>
+<area shape="rect" id="Node000002" href="$DataHandlers_8c.html#afe9e102250a74bffceba672ba91d9368" title="Extracts memory and scratch sizes from JSON configuration." alt="" coords="600,5,803,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="865,56,761,33,762,28,866,50"/>
+<area shape="rect" id="Node000003" href="$ModbusWithPostgres_8c.html#ad38832a9ba1f0fa4494d337d4bee578f" title="Creates thread group from configuration." alt="" coords="435,31,552,56"/>
+<area shape="poly" id="edge7_Node000001_Node000003" title=" " alt="" coords="836,66,552,49,553,44,837,60"/>
+<area shape="rect" id="Node000007" href="$ModbusWithPostgres_8c.html#ac55f6ce84ea4397e12d8ccb3cf20d993" title="Parses memory configuration from JSON." alt="" coords="612,107,791,132"/>
+<area shape="poly" id="edge6_Node000001_Node000007" title=" " alt="" coords="866,87,762,109,761,104,865,82"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="587,35,553,39,552,34,586,29"/>
+<area shape="rect" id="Node000004" href="$DataHandlers_8c.html#a1045578fac74308a6c876c8b06299b50" title="Creates a thread group based on configuration." alt="" coords="280,31,387,56"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="421,46,387,46,387,41,421,41"/>
+<area shape="rect" id="Node000005" href="$Main_8c.html#aeeb5ef67af0eb14822aa17b0dc6f1be7" title="Sets up the thread group manager from a configuration file." alt="" coords="108,31,232,56"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="266,46,232,46,232,41,266,41"/>
+<area shape="rect" id="Node000006" href="$Main_8c.html#ae21eb8342793f7f8f0d5fda6b96c0803" title="Main entry point for the Sensor Data Handler System." alt="" coords="5,31,60,56"/>
+<area shape="poly" id="edge5_Node000005_Node000006" title=" " alt="" coords="94,46,60,46,60,41,94,41"/>
+</map>

@@ -1,0 +1,9 @@
+<map id="CreateTimeout" name="CreateTimeout">
+<area shape="rect" id="Node000001" title=" " alt="" coords="5,31,124,56"/>
+<area shape="rect" id="Node000002" href="$Time_8c.html#afad180732be23f8e46bdfc2bb349ff44" title="Create Absolute Timeout Timestamp." alt="" coords="172,31,339,56"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="124,41,158,41,158,46,124,46"/>
+<area shape="rect" id="Node000003" href="$Time_8c.html#af8be68d54def6b644cac5efb8fe2e605" title="Add Time Difference to Timestamp." alt="" coords="389,5,493,31"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="339,29,375,24,375,30,339,35"/>
+<area shape="rect" id="Node000004" href="$Time_8c.html#a83d0c194706101b50506d2618e27167c" title="Get Current Real&#45;Time Timestamp." alt="" coords="387,55,495,80"/>
+<area shape="poly" id="edge3_Node000002_Node000004" title=" " alt="" coords="339,51,373,56,373,61,339,57"/>
+</map>

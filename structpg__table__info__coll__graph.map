@@ -1,0 +1,5 @@
+<map id="pg_table_info" name="pg_table_info">
+<area shape="rect" id="Node000001" title="Table information for PostgreSQL operations." alt="" coords="17,93,128,119"/>
+<area shape="rect" id="Node000002" href="$structpg__col__metadata.html" title="PostgreSQL column metadata." alt="" coords="5,5,140,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="75,45,75,93,70,93,70,45"/>
+</map>

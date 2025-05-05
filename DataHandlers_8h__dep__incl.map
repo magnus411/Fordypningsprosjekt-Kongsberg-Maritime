@@ -1,0 +1,7 @@
+<map id="src/DataHandlers/DataHandlers.h" name="src/DataHandlers/DataHandlers.h">
+<area shape="rect" id="Node000001" title="Data Handler Management for Thread Group Creation." alt="" coords="93,5,332,31"/>
+<area shape="rect" id="Node000002" href="$ModbusWithPostgres_8c.html" title="Implementation of Modbus&#45;PostgreSQL integration." alt="" coords="5,79,236,119"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="190,42,145,81,141,76,187,38"/>
+<area shape="rect" id="Node000003" href="$Main_8c.html" title="Main implementation file for the Sensor Data Handler System." alt="" coords="261,86,349,111"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="238,38,293,84,289,88,235,42"/>
+</map>

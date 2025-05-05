@@ -1,0 +1,9 @@
+<map id="InitiateGracefulShutdown" name="InitiateGracefulShutdown">
+<area shape="rect" id="Node000001" title="Initiates system shutdown with proper synchronization." alt="" coords="499,5,685,31"/>
+<area shape="rect" id="Node000002" href="$Signals_8c.html#a6f1cd44547a55d590f525110340d0f1f" title="Internal signal handler to process system signals." alt="" coords="337,5,451,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="484,21,451,21,451,15,484,15"/>
+<area shape="rect" id="Node000003" href="$Signals_8c.html#a455fa9d5e249372255aebefb29edf4ee" title="Sets up signal handlers for the application." alt="" coords="108,5,289,31"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="323,21,289,21,289,15,323,15"/>
+<area shape="rect" id="Node000004" href="$Main_8c.html#ae21eb8342793f7f8f0d5fda6b96c0803" title="Main entry point for the Sensor Data Handler System." alt="" coords="5,5,60,31"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="94,21,60,21,60,15,94,15"/>
+</map>

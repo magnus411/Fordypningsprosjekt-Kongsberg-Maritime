@@ -1,0 +1,20 @@
+<map id="TgManagerWaitForAll" name="TgManagerWaitForAll">
+<area shape="rect" id="Node000001" title="Wait for Completion of All Thread Groups." alt="" coords="5,80,167,105"/>
+<area shape="rect" id="Node000002" href="$Thread_8c.html#a3aa5be8c3ae6f155db4058a8b658ab91" title="Wait on a condition variable with timeout." alt="" coords="238,5,346,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="116,77,214,39,234,32,236,38,216,45,118,82"/>
+<area shape="rect" id="Node000007" href="$Thread_8c.html#a5fbfdcfc990630f27e5161ec4ea18aaa" title="Lock a mutex with timeout." alt="" coords="233,55,351,80"/>
+<area shape="poly" id="edge6_Node000001_Node000007" title=" " alt="" coords="167,80,219,74,220,79,167,85"/>
+<area shape="rect" id="Node000008" href="$Thread_8c.html#a385a70a16dc0b1872fdf925d2121880c" title="Unlock a mutex." alt="" coords="226,104,358,129"/>
+<area shape="poly" id="edge8_Node000001_Node000008" title=" " alt="" coords="167,99,213,105,212,110,167,105"/>
+<area shape="rect" id="Node000009" href="$Signals_8c.html#aca8d19968aa974641e340443ba21e58e" title="Checks if the system should initiate shutdown." alt="" coords="215,153,369,179"/>
+<area shape="poly" id="edge9_Node000001_Node000009" title=" " alt="" coords="121,103,216,138,239,146,237,151,214,143,119,108"/>
+<area shape="rect" id="Node000003" href="$Thread_8c.html#aa16f3f5cb899e1128f1a80c021780e5f" title=" " alt="" coords="417,31,536,56"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="347,23,404,31,403,36,346,28"/>
+<area shape="rect" id="Node000004" href="$Time_8c.html#afad180732be23f8e46bdfc2bb349ff44" title="Create Absolute Timeout Timestamp." alt="" coords="584,31,751,56"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="536,41,570,41,570,46,536,46"/>
+<area shape="rect" id="Node000005" href="$Time_8c.html#af8be68d54def6b644cac5efb8fe2e605" title="Add Time Difference to Timestamp." alt="" coords="801,5,905,31"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="751,29,787,24,787,30,751,35"/>
+<area shape="rect" id="Node000006" href="$Time_8c.html#a83d0c194706101b50506d2618e27167c" title="Get Current Real&#45;Time Timestamp." alt="" coords="799,55,907,80"/>
+<area shape="poly" id="edge5_Node000004_Node000006" title=" " alt="" coords="751,51,785,56,785,61,751,57"/>
+<area shape="poly" id="edge7_Node000007_Node000003" title=" " alt="" coords="351,57,403,50,404,55,351,62"/>
+</map>

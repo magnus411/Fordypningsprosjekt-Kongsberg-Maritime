@@ -1,0 +1,26 @@
+<map id="SdbLoadFileIntoMemory" name="SdbLoadFileIntoMemory">
+<area shape="rect" id="Node000001" title=" " alt="" coords="724,107,903,132"/>
+<area shape="rect" id="Node000002" href="$DatabaseInitializer_8c.html#a892f0ebc1700e0aa69bd02dd611e0094" title="Loads and parses a database configuration file." alt="" coords="505,5,676,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="776,102,675,52,627,33,629,28,677,48,778,98"/>
+<area shape="rect" id="Node000003" href="$DatabaseSystems_2Postgres_8c.html#ac1ce839ca0bb2cb91546fd9d00713d8b" title="Prepares PostgreSQL context from configuration." alt="" coords="309,31,419,56"/>
+<area shape="poly" id="edge10_Node000001_Node000003" title=" " alt="" coords="732,107,676,97,419,54,420,49,676,91,733,102"/>
+<area shape="rect" id="Node000006" href="$DataHandlers_2ModbusWithPostgres_2Modbus_8c.html#a1660e1b6915b7758a7708e89c8445cbf" title="Implements throughput testing for Modbus data pipe." alt="" coords="505,107,676,132"/>
+<area shape="poly" id="edge5_Node000001_Node000006" title=" " alt="" coords="710,122,676,122,676,117,710,117"/>
+<area shape="rect" id="Node000008" href="$CommProtocols_2Modbus_8c.html#a6b783d9f5a80832c1744d417adb3b146" title="Prepares Modbus context from configuration file." alt="" coords="533,156,648,181"/>
+<area shape="poly" id="edge7_Node000001_Node000008" title=" " alt="" coords="743,138,649,159,647,153,742,132"/>
+<area shape="rect" id="Node000011" href="$Main_8c.html#aeeb5ef67af0eb14822aa17b0dc6f1be7" title="Sets up the thread group manager from a configuration file." alt="" coords="529,205,653,231"/>
+<area shape="poly" id="edge11_Node000001_Node000011" title=" " alt="" coords="782,142,733,169,677,196,644,208,642,203,675,192,731,165,779,137"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="492,32,420,40,419,35,492,26"/>
+<area shape="rect" id="Node000004" href="$DataHandlers_2ModbusWithPostgres_2Postgres_8c.html#a5f5041cd700c888724519dddcc5413a0" title="Main PostgreSQL operation loop." alt="" coords="148,31,211,56"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="295,46,211,46,211,41,295,41"/>
+<area shape="rect" id="Node000005" href="$ModbusWithPostgres_8c.html#a93270e4da545537675777f30acea6b6b" title="PostgreSQL thread implementation." alt="" coords="5,31,88,56"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="134,46,88,46,88,41,134,41"/>
+<area shape="rect" id="Node000007" href="$ModbusWithPostgres_8c.html#ab562b331ef04d3d016b626018e9c30b1" title="Modbus data pipe throughput test." alt="" coords="271,107,457,132"/>
+<area shape="poly" id="edge6_Node000006_Node000007" title=" " alt="" coords="492,122,457,122,457,117,492,117"/>
+<area shape="rect" id="Node000009" href="$DataHandlers_2ModbusWithPostgres_2Modbus_8c.html#ac42f810b60d139ab2f82c4146710d721" title="Implements main Modbus thread loop." alt="" coords="331,156,397,181"/>
+<area shape="poly" id="edge8_Node000008_Node000009" title=" " alt="" coords="519,171,398,171,398,166,519,166"/>
+<area shape="rect" id="Node000010" href="$ModbusWithPostgres_8c.html#ad6cc1c50bbcd2e6f933e8f2a82990c2e" title="Modbus thread implementation." alt="" coords="136,156,223,181"/>
+<area shape="poly" id="edge9_Node000009_Node000010" title=" " alt="" coords="317,171,223,171,223,166,317,166"/>
+<area shape="rect" id="Node000012" href="$Main_8c.html#ae21eb8342793f7f8f0d5fda6b96c0803" title="Main entry point for the Sensor Data Handler System." alt="" coords="337,205,391,231"/>
+<area shape="poly" id="edge12_Node000011_Node000012" title=" " alt="" coords="515,221,391,221,391,215,515,215"/>
+</map>

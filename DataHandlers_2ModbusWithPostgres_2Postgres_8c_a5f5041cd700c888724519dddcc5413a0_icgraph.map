@@ -1,0 +1,5 @@
+<map id="PgRun" name="PgRun">
+<area shape="rect" id="Node000001" title="Main PostgreSQL operation loop." alt="" coords="136,5,199,31"/>
+<area shape="rect" id="Node000002" href="$ModbusWithPostgres_8c.html#a93270e4da545537675777f30acea6b6b" title="PostgreSQL thread implementation." alt="" coords="5,5,88,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="122,21,88,21,88,15,122,15"/>
+</map>
