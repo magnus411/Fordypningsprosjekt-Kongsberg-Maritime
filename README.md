@@ -5,8 +5,8 @@
 This project aims to develop a prototype exploring technical solutions for challenges in Kongsberg Maritime's Meta Power Quad datahandler. The main focus is demonstrating a flexible architecture that allows adding new sensors without code modifications or recompilation, while also implementing efficient fail safe mechanisms like data dumping, and null-data compression. The prototype will serve as a basis for decision-making in Kongsberg Maritime's future production system development and is not intended for production use.
 
 ## System Documentation
-Full system documentation generated with Doxygen is available at: https://magnus411.github.io/Fordypningsprosjekt/
-
+Full system documentation generated with Doxygen is available at: [https://magnus411.github.io/Fordypningsprosjekt/
+](https://magnus411.github.io/Fordypningsprosjekt-Kongsberg-Maritime/)
 
 ## Installation & Running the System
 
